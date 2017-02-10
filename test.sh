@@ -1,24 +1,24 @@
 #!/bin/sh
 
-build/bin/arangod --server.authentication false --database.directory perftest --server.endpoint tcp://127.0.0.1:1234 &
+port=5193
+
+build/bin/arangod --server.authentication false --database.directory perftest --server.endpoint tcp://127.0.0.1:${port} &
 
 PID=$!
 RETURN=1
 
 while [ "$RETURN" != "0" ]; do
-  curl -f -s 127.0.0.1:1234/_api/version
+  curl -f -s 127.0.0.1:${port}/_api/version
   RETURN=$?
 done
 
 set -e
 
-SEQWRITEREADSTART=$(date +%s%N | cut -b1-13)
-build/bin/arangosh --server.endpoint tcp://127.0.0.1:1234 --javascript.execute-string "col = db._create('testung');for (i=0;i<100000;i++) col.insert({_key: 'key' + i, 'test': 'testung'});for (i=0;i<100000;i++) col.document('key' + i);"
-SEQWRITEREADEND=$(date +%s%N | cut -b1-13)
+build/bin/arangosh --server.endpoint tcp://127.0.0.1:${port} --javascript.execute-string "require('internal').load('test.js');" > ulf
+
 kill $PID
 wait
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' > performance.xml
-echo "<testsuite errors=\"0\" failures=\"0\" tests=\"1\" name=\"performance\" time=\"$(($SEQWRITEREADEND-$SEQWRITEREADSTART))\">" >> performance.xml
-echo "<testcase name=\"SEQREADANDWRITE\" time=\"$(($SEQWRITEREADEND-$SEQWRITEREADSTART))\"/>" >> performance.xml
-echo "</testsuite>" >> performance.xml
+
+cat ulf | grep -P "^[a-z][a-z0-9-]+.*?\|\s[0-9]" | cut -d "|" -f 1,8 | tr -d " " | awk -F'|' '{ print "<testsuite errors=\"0\" failures=\"0\" tests=\"1\" name=\""$1"\" time=\""$2 * 1000"\"><testcase name=\""$1"\" time=\""$2 * 1000"\" /></testsuite>" }' | sed -e "s/\.[0-9]*//g" >> performance.xml
