@@ -14,7 +14,7 @@ done
 
 set -e
 
-build/bin/arangosh --server.endpoint tcp://127.0.0.1:${port} --javascript.execute-string "require('internal').load('test.js');" > ulf
+curl -X POST http://127.0.0.1:${port}/_admin/execute -d "require('internal').load('./test.js');" --dump - 
 
 kill $PID
 wait
