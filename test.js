@@ -92,34 +92,7 @@ var testRunner = function (tests, options) {
   };
 
   var run = function (tests, options) {
-    var pad = function (s, l, type) {
-      if (s.length >= l) {
-        return s.substr(0, l);
-      }
-      if (type === "right") {
-        return s + Array(l - s.length).join(" ");
-      }
-      return Array(l - s.length).join(" ") + s;
-    };
     var out = [ ];
-
-    var headLength = 30,
-        collectionLength = 12,
-        runsLength = 8,
-        cellLength = 12,
-        sep = " | ",
-        lineLength = headLength + runsLength + 6 * cellLength + 6 * sep.length - 1;
-
-    out.push(pad("test name", headLength, "right") + sep +
-             pad("collection", collectionLength, "right") + sep +
-             pad("runs", runsLength, "left") + sep +
-             pad("min (s)", cellLength, "left") + sep +
-             pad("max (s)", cellLength, "left") + sep +
-             pad("% dev", cellLength, "left") + sep +
-             pad("avg (s)", cellLength, "left") + sep +
-             pad("med (s)", cellLength, "left"));
-
-    out.push(Array(lineLength).join("-"));
 
     for (var i = 0; i < tests.length; ++i) {
       var test = tests[i];
@@ -129,14 +102,16 @@ var testRunner = function (tests, options) {
         var collection = options.collections[j];
         var stats = calc(measure(test, collection, options), options);
 
-        out.push(pad(test.name, headLength, "right") + sep +
-                 pad(collection.label, collectionLength, "right") + sep +
-                 pad(String(options.runs), runsLength, "left") + sep +
-                 pad(stats.min.toFixed(options.digits), cellLength, "left") + sep +
-                 pad(stats.max.toFixed(options.digits), cellLength, "left") + sep +
-                 pad((stats.dev * 100).toFixed(2), cellLength, "left") + sep +
-                 pad(stats.avg.toFixed(options.digits), cellLength, "left") + sep +
-                 pad(stats.med.toFixed(options.digits), cellLength, "left"));
+        out.push({
+          name:test.name,
+          collectionLabel:collection.label,
+          runs:String(options.runs),
+          min:stats.min.toFixed(options.digits),
+          max:stats.max.toFixed(options.digits),
+          dev:(stats.dev * 100).toFixed(2),
+          avg:stats.avg.toFixed(options.digits),
+          med:stats.med.toFixed(options.digits)
+        });
       }
     }
 
@@ -146,6 +121,59 @@ var testRunner = function (tests, options) {
   return run(tests, options);
 };
 
+var toString = function (out) {
+  var pad = function (s, l, type) {
+    if (s.length >= l) {
+      return s.substr(0, l);
+    }
+    if (type === "right") {
+      return s + Array(l - s.length).join(" ");
+    }
+    return Array(l - s.length).join(" ") + s;
+  };
+
+  var headLength = 30,
+      collectionLength = 12,
+      runsLength = 8,
+      cellLength = 12,
+      sep = " | ",
+      lineLength = headLength + runsLength + 6 * cellLength + 6 * sep.length - 1;
+  var s = [];
+
+  s.push("\n");
+  s.push(pad("test name", headLength, "right") + sep +
+         pad("collection", collectionLength, "right") + sep +
+         pad("runs", runsLength, "left") + sep +
+         pad("min (s)", cellLength, "left") + sep +
+         pad("max (s)", cellLength, "left") + sep +
+         pad("% dev", cellLength, "left") + sep +
+         pad("avg (s)", cellLength, "left") + sep +
+         pad("med (s)", cellLength, "left"));
+
+  s.push(Array(lineLength).join("-"));
+
+  for (var i = 0; i < out.length; ++i) {
+    var test = out[i];
+    s.push(pad(test.name, headLength, "right") + sep +
+           pad(test.collectionLabel, collectionLength, "right") + sep +
+           pad(test.runs, runsLength, "left") + sep +
+           pad(test.min, cellLength, "left") + sep +
+           pad(test.max, cellLength, "left") + sep +
+           pad(test.dev, cellLength, "left") + sep +
+           pad(test.avg, cellLength, "left") + sep +
+           pad(test.med, cellLength, "left"));
+  }
+
+  return s.join("\n");
+}
+
+var toJUnit = function (out) {
+  var fs = require('fs');
+  for (var i=0; i < out.length; ++i) {
+    var test = out[i];
+    fs.writeFileSync(`${test.name}.xml`, `<testsuite errors="0" failures="0"  tests="1" name="${test.name}"><testcase name="${test.name}" time="${test.avg * 1000}" /></testsuite>`);
+  }
+}
 
 var internal = require("internal"),
     db = require("org/arangodb").db;
@@ -680,7 +708,8 @@ options = {
   ],
   removeFromResult: 1
 };
-output += "\n" + testRunner(documentTests, options).join("\n");
+var documentTestsResult = testRunner(documentTests, options);
+output += toString(documentTestsResult);
 
 // edge tests
 options = {
@@ -698,7 +727,8 @@ options = {
   ],
   removeFromResult: 1
 };
-output += "\n" + testRunner(edgeTests, options).join("\n");
+var edgeTestsResult = testRunner(edgeTests, options);
+output += toString(edgeTestsResult);
 
 // crud tests
 options = {
@@ -715,10 +745,17 @@ options = {
   ],
   removeFromResult: 1
 };
-output += "\n" + testRunner(crudTests, options).join("\n");
+var crudTestsResult = testRunner(crudTests, options);
+output += toString(crudTestsResult);
 
 print("\n" + output + "\n");
+
+toJUnit(documentTestsResult);
+toJUnit(edgeTestsResult);
+toJUnit(crudTestsResult);
+
 }
+
 
 main();
 
