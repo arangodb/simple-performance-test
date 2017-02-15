@@ -171,7 +171,7 @@ var toJUnit = function (out) {
   var fs = require('fs');
   for (var i=0; i < out.length; ++i) {
     var test = out[i];
-    fs.writeFileSync(`${test.name}.xml`, `<testsuite errors="0" failures="0"  tests="1" name="${test.name}"><testcase name="${test.name}" time="${test.avg * 1000}" /></testsuite>`);
+    fs.writeFileSync(`${test.name}.xml`, `<testsuite errors="0" failures="0"  tests="1" name="${test.name}"><testcase classname="${test.name}" name="avg" time="${test.avg * 1000}" /><testcase classname="${test.name}" name="med" time="${test.med * 1000}" /></testsuite>`);
   }
 }
 
@@ -702,9 +702,9 @@ options = {
   teardown: function () {
   },
   collections: [
-//    { name: "values10000",    label: "10k" },
+    { name: "values10000",    label: "10k" },
 //    { name: "values100000",   label: "100k" },
-    { name: "values1000000",  label: "1000k" }
+//    { name: "values1000000",  label: "1000k" }
   ],
   removeFromResult: 1
 };
@@ -723,7 +723,7 @@ options = {
   collections: [
 //    { name: "edges10000",    label: "10k" },
 //    { name: "edges100000",   label: "100k" },
-    { name: "edges1000000",  label: "1000k" }
+//    { name: "edges1000000",  label: "1000k" }
   ],
   removeFromResult: 1
 };
@@ -741,7 +741,7 @@ options = {
   collections: [
 //    { name: "crud10000",    label: "10k" },
 //    { name: "crud100000",   label: "100k" },
-    { name: "crud1000000",  label: "1000k" }
+//    { name: "crud1000000",  label: "1000k" }
   ],
   removeFromResult: 1
 };
