@@ -702,9 +702,9 @@ options = {
   teardown: function () {
   },
   collections: [
-    { name: "values10000",    label: "10k" },
+//    { name: "values10000",    label: "10k" },
 //    { name: "values100000",   label: "100k" },
-//    { name: "values1000000",  label: "1000k" }
+    { name: "values1000000",  label: "1000k" }
   ],
   removeFromResult: 1
 };
@@ -723,7 +723,7 @@ options = {
   collections: [
 //    { name: "edges10000",    label: "10k" },
 //    { name: "edges100000",   label: "100k" },
-//    { name: "edges1000000",  label: "1000k" }
+    { name: "edges1000000",  label: "1000k" }
   ],
   removeFromResult: 1
 };
@@ -741,7 +741,7 @@ options = {
   collections: [
 //    { name: "crud10000",    label: "10k" },
 //    { name: "crud100000",   label: "100k" },
-//    { name: "crud1000000",  label: "1000k" }
+    { name: "crud1000000",  label: "1000k" }
   ],
   removeFromResult: 1
 };
