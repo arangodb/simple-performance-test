@@ -355,6 +355,25 @@ var any = function (params) {
   }, { }, { silent });
 };
 
+var outboundPath = function (params) {
+  db._query("FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p", {
+    "@c": params.collection,
+    "minDepth" : params.minDepth,
+    "maxDepth" : params.maxDepth,
+    "start" : params.collection.replace(/edges/, 'values') + '/test1'
+  }, { }, { silent });
+};
+
+var anyPath = function (params) {
+  db._query("FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p", {
+    "@c": params.collection,
+    "minDepth" : params.minDepth,
+    "maxDepth" : params.maxDepth,
+    "start" : params.collection.replace(/edges/, 'values') + '/test1'
+  }, { }, { silent });
+};
+
+
 var shortestOutbound = function (params) {
   db._query("FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v", {
     "@c": params.collection,
@@ -618,6 +637,8 @@ var edgeTests = [
   { name: "traversal-outbound-5",   params: { func: outbound, minDepth: 1, maxDepth: 5 } },
   { name: "traversal-any-1",        params: { func: any, minDepth: 1, maxDepth: 1 } },
   { name: "traversal-any-5",        params: { func: any, minDepth: 1, maxDepth: 5 } },
+  { name: "traversal-out-path-5",   params: { func: outboundPath, minDepth: 1, maxDepth: 5 } },
+  { name: "traversal-any-path-5",   params: { func: anyPath, minDepth: 1, maxDepth: 5 } },
   { name: "shortest-outbound",      params: { func: shortestOutbound } },
   { name: "shortest-any",           params: { func: shortestAny } }
 ];
