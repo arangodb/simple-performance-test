@@ -771,9 +771,9 @@ output += toString(crudTestsResult);
 
 print("\n" + output + "\n");
 
-toJUnit(documentTestsResult);
+// toJUnit(documentTestsResult);
 toJUnit(edgeTestsResult);
-toJUnit(crudTestsResult);
+// toJUnit(crudTestsResult);
 
 }
 
