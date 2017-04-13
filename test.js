@@ -729,8 +729,8 @@ options = {
   ],
   removeFromResult: 1
 };
-// var documentTestsResult = testRunner(documentTests, options);
-// output += toString(documentTestsResult);
+var documentTestsResult = testRunner(documentTests, options);
+output += toString(documentTestsResult);
 
 // edge tests
 options = {
@@ -766,8 +766,8 @@ options = {
   ],
   removeFromResult: 1
 };
-// var crudTestsResult = testRunner(crudTests, options);
-// output += toString(crudTestsResult);
+var crudTestsResult = testRunner(crudTests, options);
+output += toString(crudTestsResult);
 
 print("\n" + output + "\n");
 
