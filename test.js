@@ -171,7 +171,7 @@ var toJUnit = function (out) {
   var fs = require('fs');
   for (var i=0; i < out.length; ++i) {
     var test = out[i];
-    fs.writeFileSync(`${test.name}.xml`, `<testsuite errors="0" failures="0"  tests="1" name="${test.name}"><testcase classname="${test.name}" name="avg" time="${test.avg * 1000}" /><testcase classname="${test.name}" name="med" time="${test.med * 1000}" /></testsuite>`);
+    fs.writeFileSync(`${test.name}.xml`, `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${test.name}" name="avg" time="${test.avg * 1000}" /><testcase classname="${test.name}" name="med" time="${test.med * 1000}" /></testsuite>`);
   }
 }
 
@@ -270,7 +270,7 @@ var fill = function(params){
   var c = db._collection(params.collection);
   var n = parseInt(params.collection.replace(/[a-z]+/g, ''), 10);
 
-  var docSize = parseInt(params.docSize) || 0; 
+  var docSize = parseInt(params.docSize) || 0;
   var doc = {};
   for(var i = 0; i < docSize; ++i) {
     doc["value" + i] = i;
@@ -669,7 +669,7 @@ var crudTests = [
                                             func: update,
                                             setupEachCall : function(params){ drop(params); create(params); fill(params); },
                                             teardown : drop,
-                                            } 
+                                            }
   },
   { name: "replace",                params: {
                                             func: replace,
