@@ -477,7 +477,7 @@ var sha1 = function (params) {
   }, { }, { silent });
 };
 
-var sort_all = function (params) {
+var sortAll = function (params) {
   // Use a "sort everything" implementation.
   db._query("FOR c IN @@c SORT c.@attr LIMIT 1 RETURN c.@attr", {
     "@c": params.collection,
@@ -485,9 +485,9 @@ var sort_all = function (params) {
   }, {optimizer: {rules: ["-sort-limit"]}}, { silent });
 };
 
-var sort_heap = function (params) {
+var sortHeap = function (params) {
   // Use a heap of size 20 for the sort.
-  db._query("FOR c IN @@c SORT c.@attr LIMIT 20 LIMIT 1 RETURN c.@attr", {
+  db._query("FOR c IN @@c SORT c.@attr LIMIT 20 RETURN c.@attr", {
     "@c": params.collection,
     "attr": params.attr
   }, { }, { silent });
@@ -614,10 +614,10 @@ var documentTests = [
   { name: "min-string",             params: { func: min,      attr: "value6" } },
   { name: "max-number",             params: { func: max,      attr: "value5" } },
   { name: "max-string",             params: { func: max,      attr: "value6" } },
-  { name: "sort-heap-number",       params: { func: sort_heap,attr: "value5" } },
-  { name: "sort-heap-string",       params: { func: sort_heap,attr: "value6" } },
-  { name: "sort-all-number",        params: { func: sort_all, attr: "value5" } },
-  { name: "sort-all-string",        params: { func: sort_all, attr: "value6" } },
+  { name: "sort-heap-number",       params: { func: sortHeap, attr: "value5" } },
+  { name: "sort-heap-string",       params: { func: sortHeap, attr: "value6" } },
+  { name: "sort-all-number",        params: { func: sortAll,  attr: "value5" } },
+  { name: "sort-all-string",        params: { func: sortAll,  attr: "value6" } },
   { name: "filter-number",          params: { func: filter,   attr: "value5", value: 333 } },
   { name: "filter-string",          params: { func: filter,   attr: "value6", value: "test333" } },
   { name: "extract-doc",            params: { func: extract } },
@@ -787,7 +787,6 @@ toJUnit(edgeTestsResult);
 toJUnit(crudTestsResult);
 
 }
-
 
 main();
 
