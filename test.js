@@ -482,7 +482,7 @@ var sortAll = function (params) {
   db._query("FOR c IN @@c SORT c.@attr LIMIT 1 RETURN c.@attr", {
     "@c": params.collection,
     "attr": params.attr
-  }, {optimizer: {rules: ["-sort-limit"]}}, { silent });
+  }, { }, { silent, optimizer: {rules: ["-sort-limit"]} });
 };
 
 var sortHeap = function (params) {
