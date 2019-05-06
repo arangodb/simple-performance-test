@@ -477,6 +477,28 @@ var sha1 = function (params) {
   }, { }, { silent });
 };
 
+var skipIndex = function (params) {
+  let size = parseInt(params.collection.replace(/[^0-9]/g, ''));
+  let offset = size - params.limit;
+  db._query("FOR c IN @@c SORT c.@attr LIMIT @offset, @limit RETURN c.@attr", {
+    "@c": params.collection,
+    "attr": params.attr,
+    "offset": offset,
+    "limit": params.limit
+  }, { }, { silent });
+};
+
+var skipDocs = function (params) {
+  let size = parseInt(params.collection.replace(/[^0-9]/g, ''));
+  let offset = size - params.limit;
+  db._query("FOR c IN @@c SORT c.@attr LIMIT @offset, @limit RETURN c.@attr", {
+    "@c": params.collection,
+    "attr": params.attr,
+    "offset": offset,
+    "limit": params.limit
+  }, { }, { silent });
+};
+
 var sortAll = function (params) {
   // Use a "sort everything" implementation.
   db._query("FOR c IN @@c SORT c.@attr LIMIT 1 RETURN c.@attr", {
@@ -594,7 +616,7 @@ var documentTests = [
 //  { name: "length-const",           params: { func: passthru, name: "LENGTH", values: numericSequence(2000) } },
 //  { name: "min-const",              params: { func: passthru, name: "MIN", values: numericSequence(2000) } },
 //  { name: "unique-const",           params: { func: passthru, name: "UNIQUE", values: numericSequence(2000) } },
-
+  
   { name: "collect-number",         params: { func: collect,  attr: "value7", count: false } },
   { name: "collect-string",         params: { func: collect,  attr: "value8", count: false } },
   { name: "collect-count-number",   params: { func: collect,  attr: "value7", count: true } },
@@ -640,7 +662,9 @@ var documentTests = [
   { name: "in-hash-number",         params: { func: lookupIn, attr: "value1", n: 10000, numeric: true } },
   { name: "in-hash-string",         params: { func: lookupIn, attr: "value2", n: 10000, numeric: false } },
   { name: "in-skiplist-number",     params: { func: lookupIn, attr: "value3", n: 10000, numeric: true } },
-  { name: "in-skiplist-string",     params: { func: lookupIn, attr: "value4", n: 10000, numeric: false } }
+  { name: "in-skiplist-string",     params: { func: lookupIn, attr: "value4", n: 10000, numeric: false } },
+  { name: "skip-index",             params: { func: skipIndex, attr: "value1", limit: 10 } },
+  { name: "skip-docs",              params: { func: skipDocs, attr: "value1", limit: 10 } },
 ];
 
 var edgeTests = [
@@ -717,7 +741,7 @@ var crudTests = [
                                             setup : function(params){ drop(params); create(params), fill(params)},
                                             teardown : drop,
                                             }
-  }
+  },
 ];
 
 initialize(); //initializes values colletion
