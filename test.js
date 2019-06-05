@@ -178,6 +178,21 @@ var toJUnit = function (out) {
 var internal = require("internal"),
     db = require("org/arangodb").db;
 
+function createArangoSearch(params) {
+  if (db._view(params.name) !== null) {
+      return;
+  }
+
+  var meta = { links : { } };
+  params.collections.forEach(function (c) {
+    meta.links[c] = { includeAllFields: true, analyzers: params.analyzers };
+  });
+
+  db._dropView(params.name);
+  internal.print("creating view " + params.name);
+  db._createView(params.name, "arangosearch", meta);
+}
+
 var initialize = function () {
   function createDocuments(n) {
     var name = "values" + n;
@@ -212,6 +227,20 @@ var initialize = function () {
   createDocuments(10000);
   createDocuments(100000);
   createDocuments(1000000);
+
+  function createView(n) {
+    var params = {
+      name : "v_values" + n,
+      collections: [ "values" + n ],
+      analyzers: [ "identity" ]
+    };
+
+    createArangoSearch(params);
+  }
+
+  createView(10000);
+  createView(100000);
+  createView(1000000);
 
   function createEdges(n) {
     var name = "edges" + n;
@@ -608,6 +637,96 @@ var numericSequence = function (n) {
   return result;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// arangosearchTests 
+///////////////////////////////////////////////////////////////////////////////
+
+var arangosearchLookupByAttribute = function (params) {
+  db._query("FOR d IN @@v SEARCH d.@attr == @value RETURN d", {
+    "@v": params.view,
+    "attr": params.attr,
+    "value" : params.value
+  }, { }, { silent });
+};
+
+var arangosearchRangeLookupOperator = function (params) {
+  if (params.includeMin && params.includeMax) {
+    db._query("FOR d IN @@v SEARCH d.@attr >= @minValue && d.@attr <= @maxValue RETURN d", {
+      "@v": params.view,
+      "attr": params.attr,
+      "minValue" : params.minValue,
+      "maxValue" : params.maxValue
+    }, { }, { silent });
+  } else if (params.includeMax) {
+    db._query("FOR d IN @@v SEARCH d.@attr > @minValue && d.@attr <= @maxValue RETURN d", {
+      "@v": params.view,
+      "attr": params.attr,
+      "minValue" : params.minValue,
+      "maxValue" : params.maxValue
+    }, { }, { silent });
+  } else if (params.includeMin) {
+    db._query("FOR d IN @@v SEARCH d.@attr >= @minValue && d.@attr < @maxValue RETURN d", {
+      "@v": params.view,
+      "attr": params.attr,
+      "minValue" : params.minValue,
+      "maxValue" : params.maxValue
+    }, { }, { silent });
+  } else {
+    db._query("FOR d IN @@v SEARCH d.@attr > @minValue && d.@attr < @maxValue RETURN d", {
+      "@v": params.view,
+      "attr": params.attr,
+      "minValue" : params.minValue,
+      "maxValue" : params.maxValue
+    }, { }, { silent });
+  }
+};
+
+var arangosearchRangeLookupFunc = function (params) {
+  db._query("FOR d IN @@v SEARCH IN_RANGE(d.@attr, @minValue, @maxValue, @includeMin, @includeMax) RETURN d", {
+    "@v": params.view,
+    "attr": params.attr,
+    "minValue" : params.minValue,
+    "maxValue" : params.maxValue,
+    "includeMin" : params.includeMin,
+    "includeMax" : params.includeMax
+  }, { }, { silent });
+};
+
+var arangosearchBasicConjunction = function (params) {
+  db._query("FOR d IN @@v SEARCH d.@attr0 == @value0 && d.@attr1 == @value1 RETURN d", {
+    "@v": params.view,
+    "attr0": params.attr0,
+    "value0": params.value0,
+    "attr1": params.attr1,
+    "value1": params.value1
+  }, { }, { silent });
+};
+
+var arangosearchBasicDisjunction = function (params) {
+  db._query("FOR d IN @@v SEARCH d.@attr0 == @value0 || d.@attr1 == @value1 RETURN d", {
+    "@v": params.view,
+    "attr0": params.attr0,
+    "value0": params.value0,
+    "attr1": params.attr1,
+    "value1": params.value1
+  }, { }, { silent });
+};
+
+var arangosearchDisjunction = function (params) {
+  db._query("FOR d IN @@v SEARCH d.@attr IN @value RETURN d", {
+    "@v": params.view,
+    "attr": params.attr,
+    "value": params.value,
+  }, { }, { silent });
+};
+
+var arangosearchPrefix = function (params) {
+  db._query("FOR d IN @@v SEARCH STARTS_WITH(d.@attr, @value) RETURN d", {
+    "@v": params.view,
+    "attr": params.attr,
+    "value": params.value
+  }, { }, { silent });
+};
 
 var main = function(){
 
@@ -664,7 +783,7 @@ var documentTests = [
   { name: "in-skiplist-number",     params: { func: lookupIn, attr: "value3", n: 10000, numeric: true } },
   { name: "in-skiplist-string",     params: { func: lookupIn, attr: "value4", n: 10000, numeric: false } },
   { name: "skip-index",             params: { func: skipIndex, attr: "value1", limit: 10 } },
-  { name: "skip-docs",              params: { func: skipDocs, attr: "value1", limit: 10 } },
+  { name: "skip-docs",              params: { func: skipDocs, attr: "value1", limit: 10 } }
 ];
 
 var edgeTests = [
@@ -676,6 +795,19 @@ var edgeTests = [
   { name: "traversal-any-path-5",   params: { func: anyPath, minDepth: 1, maxDepth: 5 } },
   { name: "shortest-outbound",      params: { func: shortestOutbound } },
   { name: "shortest-any",           params: { func: shortestAny } }
+];
+
+var arangosearchTests = [
+  { name: "arangosearch-key-lookup", params: { func: arangosearchLookupByAttribute, attr: "_key", value: "test4242" } },
+  { name: "arangosearch-range-lookup-operator", params: { func: arangosearchRangeLookupOperator, attr: "_key", minValue: "test42", includeMin: true, maxValue: "test4242", includeMax: true } },
+  { name: "arangosearch-range-lookup-function", params: { func: arangosearchRangeLookupFunc, attr: "_key", minValue: "test42", includeMin: true, maxValue: "test4242", includeMax: true } },
+  { name: "arangosearch-basic-conjunction", params: { func: arangosearchBasicConjunction, attr0: "value1", value0: "test42", attr1: "value2", value1: 42 } },
+  { name: "arangosearch-basic-disjunction", params: { func: arangosearchBasicDisjunction, attr0: "value1", value0: "test42", attr1: "value2", value1: 4242 } },
+  { name: "arangosearch-disjunction", params: { func: arangosearchDisjunction, attr: "value8", value: [ "test10", "test42", "test37", "test76", "test98", "test2", "invalid" ] } },
+  { name: "arangosearch-prefix-low", params: { func: arangosearchPrefix, attr: "value1", value: "test4242" } },
+  { name: "arangosearch-prefix-high", params: { func: arangosearchPrefix, attr: "value1", value: "test4" } },
+
+  // FIXME: phrase, min match, with scores, crud with view
 ];
 
 var crudTests = [
@@ -786,6 +918,25 @@ options = {
 var edgeTestsResult = testRunner(edgeTests, options);
 output += toString(edgeTestsResult);
 
+// arangosearch tests
+options = {
+  runs: 5,
+  digits: 4,
+  setup: function (params) {
+    params["view"] = "v_" + params.collection;
+  },
+  teardown: function () {
+  },
+  collections: [
+//    { name: "values10000",    label: "10k" },
+//    { name: "values100000",   label: "100k" },
+    { name: "values1000000",  label: "1000k" }
+  ],
+  removeFromResult: 1
+};
+var arangosearchTestsResult = testRunner(arangosearchTests, options);
+output += toString(arangosearchTestsResult);
+
 // crud tests
 options = {
   runs: 5,
@@ -808,6 +959,7 @@ print("\n" + output + "\n");
 
 toJUnit(documentTestsResult);
 toJUnit(edgeTestsResult);
+toJUnit(arangosearchTestsResult);
 toJUnit(crudTestsResult);
 
 }
