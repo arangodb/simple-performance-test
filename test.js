@@ -364,7 +364,7 @@ var initialize = function () {
 ////// Helper
 var drop = function(params){
   var view = params.view;
-  if(view != null) {
+  if(view !== null) {
     if (db._view(view) !== null) {
       db._dropView(view);
     }
@@ -379,7 +379,7 @@ var create = function(params){
   var name = params.collection;
   db._create(name);
   var view = params.view;
-  if(view != null) {
+  if(view !== null) {
      var viewParams = {
       name : view,
       collections: [ name ],
