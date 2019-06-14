@@ -62,11 +62,11 @@ var testRunner = function (tests, options) {
     for (var i = 0; i < options.runs + 1; ++i) {
       var params = buildParams(test, collection);
 
+      if (typeof options.setup === "function") {
+        options.setup(params);
+      }
       if (typeof params.setup === "function") {
         params.setup(params);
-      }
-      else if (typeof options.setup === "function") {
-        options.setup(params);
       }
 
       if (i === 0) {
@@ -79,11 +79,10 @@ var testRunner = function (tests, options) {
         print("- took: " + duration + " s");
         results.push(duration);
       }
-
       if (typeof params.teardown === "function") {
         params.teardown(params);
       }
-      else if (typeof options.teardown === "function") {
+      if (typeof options.teardown === "function") {
         options.teardown(test.params);
       }
     }
@@ -275,6 +274,86 @@ var initialize = function () {
   createEdges(100000);
   createEdges(1000000);
 
+  function createPhrasesView(n) {
+    var params = {
+      name : "v_valuesPhrases" + n,
+      collections: [ "valuesPhrases" + n ],
+      analyzers: [ "text_en" ]
+    };
+
+    createArangoSearch(params);
+  }
+
+  function createDocumentsWithPhrases(n) {
+    var name = "valuesPhrases" + n;
+    if (db._collection(name) !== null) {
+      return;
+    }
+    db._drop(name);
+
+    internal.print("creating collection " + name);
+    var c = db._create(name);
+    
+    // Short list. Phrases appear frequently
+    var phrasesHigh = [
+      "Quick ",
+      "Brown ",
+      "Slow ",
+      "Fast "
+    ];
+    var highPhraseCounter = 0;
+
+    // Long list. Phrases appear less frequent
+    var phrasesLow = [
+      "Red ",
+      "Hot ",
+      "Chilie ",
+      "Peppers ",
+      "Abbey ",
+      "Road ",
+      "Earth ",
+      "World ",
+      "Planet ",
+      "Tree ",
+      "Bee ",
+      "Yesterday ",
+      "Book ",
+      "Pencil ",
+      "Robot ",
+      "Wheel "
+    ];
+    var lowPhraseCounter = 0;
+
+    for (var i = 0; i < n; ++i) {
+      c.insert({
+        _key: "testPhrase" + i,
+        value2: phrasesHigh[highPhraseCounter] + phrasesLow[lowPhraseCounter],
+      });
+      ++highPhraseCounter;
+      ++lowPhraseCounter;
+      // loop over our phrases
+      if(highPhraseCounter >= phrasesHigh.length) {
+        highPhraseCounter = 0;
+      }
+      if(lowPhraseCounter >= phrasesLow.length) {
+        lowPhraseCounter = 0;
+      }
+    }
+
+    // And some really low frequent phrase
+     c.insert({
+        _key: "testPhrase" + (n+1),
+        value2: "Low Phrase",
+      });
+  }
+
+  createDocumentsWithPhrases(10000);
+  createPhrasesView(10000);
+  createDocumentsWithPhrases(100000);
+  createPhrasesView(100000);
+  createDocumentsWithPhrases(10000000);
+  createPhrasesView(10000000);
+
   internal.wal.flush(true, true);
 };
 
@@ -284,6 +363,12 @@ var initialize = function () {
 
 ////// Helper
 var drop = function(params){
+  var view = params.view;
+  if(view !== null) {
+    if (db._view(view) !== null) {
+      db._dropView(view);
+    }
+  }
   var name = params.collection;
   if (db._collection(name) !== null) {
     db._drop(name);
@@ -293,6 +378,15 @@ var drop = function(params){
 var create = function(params){
   var name = params.collection;
   db._create(name);
+  var view = params.view;
+  if(view !== null) {
+     var viewParams = {
+      name : view,
+      collections: [ name ],
+      analyzers: [ params.analyzers ]
+    };
+    createArangoSearch(viewParams);
+  }
 }
 
 var fill = function(params){
@@ -310,7 +404,6 @@ var fill = function(params){
     c.insert(doc);
   }
 }
-
 ////// Test Functions
 
 var insert = function (params) {
@@ -728,6 +821,60 @@ var arangosearchPrefix = function (params) {
   }, { }, { silent });
 };
 
+var arangosearchMinMatch2of3 =  function (params) {
+  db._query(
+    "FOR d IN @@v SEARCH ANALYZER(MIN_MATCH(d.@attr1 == @value1, d.@attr1 ==  @value2, d.@attr1 == @value3, 2 ), 'text_en') RETURN d", {
+    "@v": params.view,
+    "attr1": params.attr1,
+    "value1": params.value1,
+    "value2": params.value2,
+    "value3": params.value3
+  }, { }, { silent });
+};
+
+var arangosearchScoring =  function (params) {
+  db._query("FOR d IN @@v SEARCH ANALYZER(d.@attr == @value, 'text_en') SORT " + params.scorer + "(d) ASC  RETURN d", {
+    "@v": params.view,
+    "attr": params.attr,
+    "value": params.value
+  }, { }, { silent });
+};
+
+var arangosearchPhrase =  function (params) {
+  db._query("FOR d IN @@v SEARCH PHRASE(d.@attr , @value, 'text_en')  RETURN d", {
+    "@v": params.view,
+    "attr": params.attr,
+    "value": params.value,
+  }, { }, { silent });
+};
+
+var arangosearchCrudCreateViewOnCollection = function (params) {
+  var viewParams = {
+    name : params.view,
+    collections: [ params.collection ],
+    analyzers: [  params.analyzer]
+  };
+  createArangoSearch(viewParams);
+  // make query to force waiting full index commit
+  db._query("FOR d IN @@v  OPTIONS { waitForSync:true } LIMIT 1 RETURN d", {
+    "@v": params.view
+  }, { }, { silent });
+}
+
+var arangosearchCrudUpdateViewOnCollection = function (params) {
+   var view = db._view(params.view);
+   var meta = { links: {  [params.collection]: { fields: { [params.attr]: {} } } } };
+   view.properties(meta, false); // full update
+   // make query to force waiting full index commit
+   db._query("FOR d IN @@v  OPTIONS { waitForSync:true } LIMIT 1 RETURN d", {
+     "@v": params.view
+   }, { }, { silent });
+}
+
+var arangosearchCrudDeleteViewOnCollection = function (params) {
+   dropView(params);
+}
+
 var main = function(){
 
 var documentTests = [
@@ -801,14 +948,24 @@ var arangosearchTests = [
   { name: "arangosearch-key-lookup", params: { func: arangosearchLookupByAttribute, attr: "_key", value: "test4242" } },
   { name: "arangosearch-range-lookup-operator", params: { func: arangosearchRangeLookupOperator, attr: "_key", minValue: "test42", includeMin: true, maxValue: "test4242", includeMax: true } },
   { name: "arangosearch-range-lookup-function", params: { func: arangosearchRangeLookupFunc, attr: "_key", minValue: "test42", includeMin: true, maxValue: "test4242", includeMax: true } },
-  { name: "arangosearch-basic-conjunction", params: { func: arangosearchBasicConjunction, attr0: "value1", value0: "test42", attr1: "value2", value1: 42 } },
-  { name: "arangosearch-basic-disjunction", params: { func: arangosearchBasicDisjunction, attr0: "value1", value0: "test42", attr1: "value2", value1: 4242 } },
+  { name: "arangosearch-basic-conjunction", params: { func: arangosearchBasicConjunction, attr0: "value2", value0: "test42", attr1: "value1", value1: 42 } },
+  { name: "arangosearch-basic-disjunction", params: { func: arangosearchBasicDisjunction, attr0: "value2", value0: "test42", attr1: "value1", value1: 4242 } },
   { name: "arangosearch-disjunction", params: { func: arangosearchDisjunction, attr: "value8", value: [ "test10", "test42", "test37", "test76", "test98", "test2", "invalid" ] } },
-  { name: "arangosearch-prefix-low", params: { func: arangosearchPrefix, attr: "value1", value: "test4242" } },
-  { name: "arangosearch-prefix-high", params: { func: arangosearchPrefix, attr: "value1", value: "test4" } },
-
-  // FIXME: phrase, min match, with scores, crud with view
+  { name: "arangosearch-prefix-low", params: { func: arangosearchPrefix, attr: "value2", value: "test4242" } },
+  { name: "arangosearch-prefix-high", params: { func: arangosearchPrefix, attr: "value2", value: "test4" } },
 ];
+
+var arangosearchPhrasesTests = [
+  { name: "arangosearch-minmatch-low", params: { func: arangosearchMinMatch2of3, attr1: "value2", value1: "low",  value2: "nomatch",  value3: "phrase" } },
+  { name: "arangosearch-minmatch-high", params: { func: arangosearchMinMatch2of3, attr1: "value2", value1: "brown", value2: "tree", value3: "nomatch" } },
+  { name: "arangosearch-score-tfidf-low", params: { func: arangosearchScoring, attr: "value2", value:  "wheel", scorer: "TFIDF"  } },
+  { name: "arangosearch-score-bm25-low", params: { func: arangosearchScoring, attr: "value2", value:  "wheel", scorer: "BM25"  } },
+  { name: "arangosearch-score-tfidf-high", params: { func: arangosearchScoring, attr: "value2", value: "brown", scorer: "TFIDF" } },
+  { name: "arangosearch-score-bm25-high", params: { func: arangosearchScoring, attr: "value2", value: "brown", scorer: "BM25" } },
+  { name: "arangosearch-phrase-low", params: { func: arangosearchPhrase, attr: "value2", value: "Low Phrase"  } },
+  { name: "arangosearch-phrase-high", params: { func: arangosearchPhrase, attr: "value2", value: "Brown Planet" } },
+];
+
 
 var crudTests = [
   //{ name: "testhooks",              params: {
@@ -937,6 +1094,26 @@ options = {
 var arangosearchTestsResult = testRunner(arangosearchTests, options);
 output += toString(arangosearchTestsResult);
 
+// arangosearch phrase tests
+options = {
+  runs: 5,
+  digits: 4,
+  setup: function (params) {
+    params["view"] = "v_" + params.collection;
+  },
+  teardown: function () {
+  },
+  collections: [
+  //  { name: "valuesPhrases10000",    label: "10k" },
+  //  { name: "valuesPhrases100000",   label: "100k" },
+    { name: "valuesPhrases10000000",  label: "10000k" }
+  ],
+  removeFromResult: 1
+};
+var arangosearchPhrasesTestsResult = testRunner(arangosearchPhrasesTests, options);
+output += toString(arangosearchPhrasesTestsResult);
+
+
 // crud tests
 options = {
   runs: 5,
@@ -946,8 +1123,8 @@ options = {
   teardown: function () {
   },
   collections: [
-//    { name: "crud10000",    label: "10k" },
-//    { name: "crud100000",   label: "100k" },
+ //   { name: "crud10000",    label: "10k" },
+ //   { name: "crud100000",   label: "100k" },
     { name: "crud1000000",  label: "1000k" }
   ],
   removeFromResult: 1
@@ -955,12 +1132,34 @@ options = {
 var crudTestsResult = testRunner(crudTests, options);
 output += toString(crudTestsResult);
 
+// arangosearch crud tests
+options = {
+  runs: 5,
+  digits: 4,
+  setup: function (params) {
+    params["view"] = "v_" + params.collection;
+  },
+  teardown: function () {
+  },
+  collections: [
+ //   { name: "crud10000",    label: "10k + ARS " },
+ //   { name: "crud100000",   label: "100k + ARS" },
+    { name: "crud1000000",  label: "1000k + ARS" }
+  ],
+  removeFromResult: 1
+};
+var arangosearchCrudTestsResult = testRunner(crudTests, options);
+output += toString(arangosearchCrudTestsResult);
+
+
 print("\n" + output + "\n");
 
 toJUnit(documentTestsResult);
 toJUnit(edgeTestsResult);
 toJUnit(arangosearchTestsResult);
+toJUnit(arangosearchPhrasesTestsResult);
 toJUnit(crudTestsResult);
+toJUnit(arangosearchCrudTestsResult);
 
 }
 
