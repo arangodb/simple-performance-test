@@ -1,4 +1,4 @@
-(function() {
+(function () {
   "use strict";
 
   const internal = require("internal");
@@ -6,24 +6,24 @@
   const print = internal.print;
   const db = require("org/arangodb").db;
 
-  var silent = true,
-    testRunner = function(tests, options) {
-        var calc = function(values, options) {
-          var sum = function(values) {
-            return values.reduce(function(previous, current) {
+  let silent = true,
+    testRunner = function (tests, options) {
+      let calc = function (values, options) {
+          let sum = function (values) {
+            return values.reduce(function (previous, current) {
               return previous + current;
             });
           };
-          values.sort(function(a, b) {
+          values.sort(function (a, b) {
             return a - b;
           });
-          var removeFromResult = parseInt(options.removeFromResult) || 0;
+          let removeFromResult = parseInt(options.removeFromResult) || 0;
           if (removeFromResult > 0) {
             values.splice(values.length - 1, removeFromResult); // remove last
             values.splice(0, removeFromResult); // remove first
           }
 
-          var n = values.length,
+          let n = values.length,
             result = {
               min: values[0],
               max: values[n - 1],
@@ -37,20 +37,22 @@
             };
           return result;
         },
-        buildParams = function(test, collection) {
-          var params = test.params;
+
+        buildParams = function (test, collection) {
+          let params = test.params;
           params.collection = collection.name;
           return params;
         },
-        measure = function(test, collection, options) {
-          var timedExecution = function(test, collection) {
-              var params = buildParams(test, collection),
+
+        measure = function (test, collection, options) {
+          let timedExecution = function (test, collection) {
+              let params = buildParams(test, collection),
                 start = time();
               if (typeof params.setupEachCall === "function") {
                 params.setupEachCall(params);
               }
               test.params.func(params);
-              var end = time();
+              let end = time();
               if (typeof params.teardownEachCall === "function") {
                 params.teardownEachCall(params);
               }
@@ -59,8 +61,8 @@
             results = [];
           internal.wait(1, true);
 
-          for (var i = 0; i < options.runs + 1; ++i) {
-            var params = buildParams(test, collection);
+          for (let i = 0; i < options.runs + 1; ++i) {
+            let params = buildParams(test, collection);
 
             if (typeof options.setup === "function") {
               options.setup(params);
@@ -75,7 +77,7 @@
               timedExecution(test, collection);
             } else {
               print("- run " + i);
-              var duration = timedExecution(test, collection);
+              let duration = timedExecution(test, collection);
               print("- took: " + duration + " s");
               results.push(duration);
             }
@@ -89,15 +91,16 @@
 
           return results;
         },
-        run = function(tests, options) {
-          var out = [];
 
-          for (var i = 0; i < tests.length; ++i) {
-            var test = tests[i];
+        run = function (tests, options) {
+          let out = [];
+
+          for (let i = 0; i < tests.length; ++i) {
+            let test = tests[i];
             print("running test " + test.name);
 
-            for (var j = 0; j < options.collections.length; ++j) {
-              var collection = options.collections[j],
+            for (let j = 0; j < options.collections.length; ++j) {
+              let collection = options.collections[j],
                 stats = calc(measure(test, collection, options), options);
 
               out.push({
@@ -118,8 +121,9 @@
 
       return run(tests, options);
     },
-    toString = function(out) {
-      var pad = function(s, l, type) {
+
+    toString = function (out) {
+      let pad = function (s, l, type) {
           if (s.length >= l) {
             return s.substr(0, l);
           }
@@ -158,8 +162,8 @@
 
       s.push(Array(lineLength).join("-"));
 
-      for (var i = 0; i < out.length; ++i) {
-        var test = out[i];
+      for (let i = 0; i < out.length; ++i) {
+        let test = out[i];
         s.push(
           pad(test.name, headLength, "right") +
             sep +
@@ -181,10 +185,11 @@
 
       return s.join("\n");
     },
-    toJUnit = function(out) {
-      var fs = require("fs");
-      for (var i = 0; i < out.length; ++i) {
-        var test = out[i];
+
+    toJUnit = function (out) {
+      let fs = require("fs");
+      for (let i = 0; i < out.length; ++i) {
+        let test = out[i];
         fs.writeFileSync(
           `${test.name}.xml`,
           `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${
@@ -196,13 +201,13 @@
       }
     };
 
-  function createArangoSearch(params) {
+  function createArangoSearch (params) {
     if (db._view(params.name) !== null) {
       return;
     }
 
-    var meta = { links: {} };
-    params.collections.forEach(function(c) {
+    let meta = { links: {} };
+    params.collections.forEach(function (c) {
       meta.links[c] = { includeAllFields: true, analyzers: params.analyzers };
     });
 
@@ -211,18 +216,18 @@
     db._createView(params.name, "arangosearch", meta);
   }
 
-  var initialize = function() {
-      function createDocuments(n) {
-        var name = "values" + n;
+  let initialize = function () {
+      function createDocuments (n) {
+        let name = "values" + n;
         if (db._collection(name) !== null) {
           return;
         }
         db._drop(name);
         internal.print("creating collection " + name);
-        var c = db._create(name),
+        let c = db._create(name),
           g = n / 100;
 
-        for (var i = 0; i < n; ++i) {
+        for (let i = 0; i < n; ++i) {
           c.insert({
             _key: "test" + i,
             value1: i,
@@ -246,8 +251,8 @@
       createDocuments(100000);
       createDocuments(1000000);
 
-      function createView(n) {
-        var params = {
+      function createView (n) {
+        let params = {
           name: "v_values" + n,
           collections: ["values" + n],
           analyzers: ["identity"]
@@ -260,18 +265,18 @@
       createView(100000);
       createView(1000000);
 
-      function createEdges(n) {
-        var name = "edges" + n;
+      function createEdges (n) {
+        let name = "edges" + n;
         if (db._collection(name) !== null) {
           return;
         }
         db._drop(name);
         internal.print("creating collection " + name);
-        var c = db._createEdgeCollection(name),
+        let c = db._createEdgeCollection(name),
           j = 0,
           k = 50,
           l = 0;
-        for (var i = 0; i < n; ++i) {
+        for (let i = 0; i < n; ++i) {
           c.insert({
             _key: "test" + i,
             _from: "values" + n + "/test" + j,
@@ -292,8 +297,8 @@
       createEdges(100000);
       createEdges(1000000);
 
-      function createPhrasesView(n) {
-        var params = {
+      function createPhrasesView (n) {
+        let params = {
           name: "v_valuesPhrases" + n,
           collections: ["valuesPhrases" + n],
           analyzers: ["text_en"]
@@ -302,15 +307,15 @@
         createArangoSearch(params);
       }
 
-      function createDocumentsWithPhrases(n) {
-        var name = "valuesPhrases" + n;
+      function createDocumentsWithPhrases (n) {
+        let name = "valuesPhrases" + n;
         if (db._collection(name) !== null) {
           return;
         }
         db._drop(name);
 
         internal.print("creating collection " + name);
-        var c = db._create(name),
+        let c = db._create(name),
           // Short list. Phrases appear frequently
           phrasesHigh = ["Quick ", "Brown ", "Slow ", "Fast "],
           highPhraseCounter = 0,
@@ -335,7 +340,7 @@
           ],
           lowPhraseCounter = 0;
 
-        for (var i = 0; i < n; ++i) {
+        for (let i = 0; i < n; ++i) {
           c.insert({
             _key: "testPhrase" + i,
             value2:
@@ -368,29 +373,30 @@
 
       internal.wal.flush(true, true);
     },
+
     // /////////////////////////////////////////////////////////////////////////////
-    // CRUD
+    // CRUD Helper
     // /////////////////////////////////////////////////////////////////////////////
 
-    // //// Helper
-    drop = function(params) {
-      var view = params.view;
+    drop = function (params) {
+      let view = params.view;
       if (view !== null) {
         if (db._view(view) !== null) {
           db._dropView(view);
         }
       }
-      var name = params.collection;
+      let name = params.collection;
       if (db._collection(name) !== null) {
         db._drop(name);
       }
     },
-    create = function(params) {
-      var name = params.collection;
+
+    create = function (params) {
+      let name = params.collection;
       db._create(name);
-      var view = params.view;
+      let view = params.view;
       if (view !== null) {
-        var viewParams = {
+        let viewParams = {
           name: view,
           collections: [name],
           analyzers: [params.analyzers]
@@ -398,67 +404,79 @@
         createArangoSearch(viewParams);
       }
     },
-    fill = function(params) {
-      var c = db._collection(params.collection),
+
+    fill = function (params) {
+      let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10),
         docSize = parseInt(params.docSize) || 0,
         doc = {};
-      for (var i = 0; i < docSize; ++i) {
+      for (let i = 0; i < docSize; ++i) {
         doc["value" + i] = i;
       }
 
-      for (var i = 0; i < n; ++i) {
+      for (let i = 0; i < n; ++i) {
         doc._key = "test" + i;
         c.insert(doc);
       }
     },
-    // //// Test Functions
 
-    insert = function(params) {
+    // /////////////////////////////////////////////////////////////////////////////
+    // CRUD Tests
+    // /////////////////////////////////////////////////////////////////////////////
+
+    insert = function (params) {
       fill(params);
     },
-    update = function(params) {
-      var c = db._collection(params.collection),
+
+    update = function (params) {
+      let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (var i = 0; i < n; ++i) {
+      for (let i = 0; i < n; ++i) {
         c.update("test" + i, { value: i + 1, value2: "test" + i, value3: i });
       }
     },
-    replace = function(params) {
-      var c = db._collection(params.collection),
+
+    replace = function (params) {
+      let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (var i = 0; i < n; ++i) {
+      for (let i = 0; i < n; ++i) {
         c.replace("test" + i, { value: i + 1, value2: "test" + i, value3: i });
       }
     },
-    remove = function(params) {
-      var c = db._collection(params.collection),
+
+    remove = function (params) {
+      let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (var i = 0; i < n; ++i) {
+      for (let i = 0; i < n; ++i) {
         c.remove("test" + i);
       }
     },
-    count = function(params) {
-      var c = db._collection(params.collection);
+
+    count = function (params) {
+      let c = db._collection(params.collection);
       c.count();
     },
-    anyCrud = function(params) {
-      var c = db._collection(params.collection);
+
+    anyCrud = function (params) {
+      let c = db._collection(params.collection);
       c.any();
     },
-    all = function(params) {
-      var c = db._collection(params.collection);
+
+    all = function (params) {
+      let c = db._collection(params.collection);
       c.toArray();
     },
-    truncate = function(params) {
-      var c = db._collection(params.collection);
+
+    truncate = function (params) {
+      let c = db._collection(params.collection);
       c.truncate();
     },
+
     // /////////////////////////////////////////////////////////////////////////////
     // edgeTests
     // /////////////////////////////////////////////////////////////////////////////
 
-    outbound = function(params) {
+    outbound = function (params) {
       db._query(
         "FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
         {
@@ -471,7 +489,8 @@
         { silent }
       );
     },
-    any = function(params) {
+
+    any = function (params) {
       db._query(
         "FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN v",
         {
@@ -484,7 +503,8 @@
         { silent }
       );
     },
-    outboundPath = function(params) {
+
+    outboundPath = function (params) {
       db._query(
         "FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p",
         {
@@ -497,7 +517,8 @@
         { silent }
       );
     },
-    anyPath = function(params) {
+
+    anyPath = function (params) {
       db._query(
         "FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p",
         {
@@ -510,7 +531,8 @@
         { silent }
       );
     },
-    shortestOutbound = function(params) {
+
+    shortestOutbound = function (params) {
       db._query(
         "FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
@@ -522,7 +544,8 @@
         { silent }
       );
     },
-    shortestAny = function(params) {
+
+    shortestAny = function (params) {
       db._query(
         "FOR v IN ANY SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
@@ -534,11 +557,12 @@
         { silent }
       );
     },
+
     // /////////////////////////////////////////////////////////////////////////////
     // documentTests
     // /////////////////////////////////////////////////////////////////////////////
 
-    subquery = function(params) {
+    subquery = function (params) {
       db._query(
         "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
         {
@@ -549,7 +573,8 @@
         { silent }
       );
     },
-    min = function(params) {
+
+    min = function (params) {
       db._query(
         "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
         {
@@ -560,7 +585,8 @@
         { silent }
       );
     },
-    max = function(params) {
+
+    max = function (params) {
       db._query(
         "RETURN MAX(FOR c IN @@c RETURN c.@attr)",
         {
@@ -571,7 +597,8 @@
         { silent }
       );
     },
-    concat = function(params) {
+
+    concat = function (params) {
       db._query(
         "FOR c IN @@c RETURN CONCAT(c._key, '-', c.@attr)",
         {
@@ -582,7 +609,8 @@
         { silent }
       );
     },
-    merge = function(params) {
+
+    merge = function (params) {
       db._query(
         "FOR c IN @@c RETURN MERGE(c, { 'testValue': c.@attr })",
         {
@@ -593,7 +621,8 @@
         { silent }
       );
     },
-    keep = function(params) {
+
+    keep = function (params) {
       db._query(
         "FOR c IN @@c RETURN KEEP(c, '_key', '_rev', '_id')",
         {
@@ -603,7 +632,8 @@
         { silent }
       );
     },
-    unset = function(params) {
+
+    unset = function (params) {
       db._query(
         "FOR c IN @@c RETURN UNSET(c, '_key', '_rev', '_id')",
         {
@@ -613,7 +643,8 @@
         { silent }
       );
     },
-    attributes = function(params) {
+
+    attributes = function (params) {
       db._query(
         "FOR c IN @@c RETURN ATTRIBUTES(c)",
         {
@@ -623,7 +654,8 @@
         { silent }
       );
     },
-    values = function(params) {
+
+    values = function (params) {
       db._query(
         "FOR c IN @@c RETURN VALUES(c)",
         {
@@ -633,7 +665,8 @@
         { silent }
       );
     },
-    has = function(params) {
+
+    has = function (params) {
       db._query(
         "FOR c IN @@c RETURN HAS(c, c.@attr)",
         {
@@ -644,7 +677,8 @@
         { silent }
       );
     },
-    md5 = function(params) {
+
+    md5 = function (params) {
       db._query(
         "FOR c IN @@c RETURN MD5(c.@attr)",
         {
@@ -655,7 +689,8 @@
         { silent }
       );
     },
-    sha1 = function(params) {
+
+    sha1 = function (params) {
       db._query(
         "FOR c IN @@c RETURN SHA1(c.@attr)",
         {
@@ -666,7 +701,8 @@
         { silent }
       );
     },
-    skipIndex = function(params) {
+
+    skipIndex = function (params) {
       let size = parseInt(params.collection.replace(/[^0-9]/g, "")),
         offset = size - params.limit;
       db._query(
@@ -681,7 +717,8 @@
         { silent }
       );
     },
-    skipDocs = function(params) {
+
+    skipDocs = function (params) {
       let size = parseInt(params.collection.replace(/[^0-9]/g, "")),
         offset = size - params.limit;
       db._query(
@@ -696,7 +733,8 @@
         { silent }
       );
     },
-    sortAll = function(params) {
+
+    sortAll = function (params) {
       // Use a "sort everything" implementation.
       db._query(
         "FOR c IN @@c SORT c.@attr LIMIT 1 RETURN c.@attr",
@@ -708,7 +746,8 @@
         { silent, optimizer: { rules: ["-sort-limit"] } }
       );
     },
-    sortHeap = function(params) {
+
+    sortHeap = function (params) {
       // Use a heap of size 20 for the sort.
       db._query(
         "FOR c IN @@c SORT c.@attr LIMIT 20 RETURN c.@attr",
@@ -720,7 +759,8 @@
         { silent }
       );
     },
-    filter = function(params) {
+
+    filter = function (params) {
       db._query(
         "FOR c IN @@c FILTER c.@attr == @value RETURN c.@attr",
         {
@@ -732,7 +772,8 @@
         { silent }
       );
     },
-    extract = function(params) {
+
+    extract = function (params) {
       if (params.attr === undefined) {
         db._query(
           "FOR c IN @@c RETURN c",
@@ -754,7 +795,8 @@
         );
       }
     },
-    join = function(params) {
+
+    join = function (params) {
       db._query(
         "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1",
         {
@@ -765,10 +807,11 @@
         { silent }
       );
     },
-    lookup = function(params) {
-      var key,
+
+    lookup = function (params) {
+      let key,
         numeric = params.numeric;
-      for (var i = 0; i < params.n; ++i) {
+      for (let i = 0; i < params.n; ++i) {
         if (numeric) {
           key = i;
         } else {
@@ -786,10 +829,11 @@
         );
       }
     },
-    lookupIn = function(params) {
-      var keys = [],
+
+    lookupIn = function (params) {
+      let keys = [],
         numeric = params.numeric;
-      for (var i = 0; i < params.n; ++i) {
+      for (let i = 0; i < params.n; ++i) {
         if (numeric) {
           keys.push(i);
         } else {
@@ -807,7 +851,8 @@
         { silent }
       );
     },
-    collect = function(params) {
+
+    collect = function (params) {
       if (params.count) {
         db._query(
           "FOR c IN @@c COLLECT g = c.@attr WITH COUNT INTO l RETURN [ g, l ]",
@@ -830,7 +875,8 @@
         );
       }
     },
-    passthru = function(params) {
+
+    passthru = function (params) {
       db._query(
         "FOR c IN @@c RETURN NOOPT(" + params.name + "(@value))",
         {
@@ -841,18 +887,20 @@
         { silent }
       );
     },
-    numericSequence = function(n) {
-      var result = [];
-      for (var i = 0; i < n; ++i) {
+
+    numericSequence = function (n) {
+      let result = [];
+      for (let i = 0; i < n; ++i) {
         result.push(i);
       }
       return result;
     },
+
     // /////////////////////////////////////////////////////////////////////////////
     // arangosearchTests
     // /////////////////////////////////////////////////////////////////////////////
 
-    arangosearchLookupByAttribute = function(params) {
+    arangosearchLookupByAttribute = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr == @value RETURN d",
         {
@@ -864,7 +912,8 @@
         { silent }
       );
     },
-    arangosearchRangeLookupOperator = function(params) {
+
+    arangosearchRangeLookupOperator = function (params) {
       if (params.includeMin && params.includeMax) {
         db._query(
           "FOR d IN @@v SEARCH d.@attr >= @minValue && d.@attr <= @maxValue RETURN d",
@@ -915,7 +964,8 @@
         );
       }
     },
-    arangosearchRangeLookupFunc = function(params) {
+
+    arangosearchRangeLookupFunc = function (params) {
       db._query(
         "FOR d IN @@v SEARCH IN_RANGE(d.@attr, @minValue, @maxValue, @includeMin, @includeMax) RETURN d",
         {
@@ -930,7 +980,8 @@
         { silent }
       );
     },
-    arangosearchBasicConjunction = function(params) {
+
+    arangosearchBasicConjunction = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr0 == @value0 && d.@attr1 == @value1 RETURN d",
         {
@@ -944,7 +995,8 @@
         { silent }
       );
     },
-    arangosearchBasicDisjunction = function(params) {
+
+    arangosearchBasicDisjunction = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr0 == @value0 || d.@attr1 == @value1 RETURN d",
         {
@@ -958,7 +1010,8 @@
         { silent }
       );
     },
-    arangosearchDisjunction = function(params) {
+
+    arangosearchDisjunction = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr IN @value RETURN d",
         {
@@ -970,7 +1023,8 @@
         { silent }
       );
     },
-    arangosearchPrefix = function(params) {
+
+    arangosearchPrefix = function (params) {
       db._query(
         "FOR d IN @@v SEARCH STARTS_WITH(d.@attr, @value) RETURN d",
         {
@@ -982,7 +1036,8 @@
         { silent }
       );
     },
-    arangosearchMinMatch2of3 = function(params) {
+
+    arangosearchMinMatch2of3 = function (params) {
       db._query(
         "FOR d IN @@v SEARCH ANALYZER(MIN_MATCH(d.@attr1 == @value1, d.@attr1 ==  @value2, d.@attr1 == @value3, 2 ), 'text_en') RETURN d",
         {
@@ -996,7 +1051,8 @@
         { silent }
       );
     },
-    arangosearchScoring = function(params) {
+
+    arangosearchScoring = function (params) {
       db._query(
         "FOR d IN @@v SEARCH ANALYZER(d.@attr == @value, 'text_en') SORT " +
           params.scorer +
@@ -1010,7 +1066,8 @@
         { silent }
       );
     },
-    arangosearchPhrase = function(params) {
+
+    arangosearchPhrase = function (params) {
       db._query(
         "FOR d IN @@v SEARCH PHRASE(d.@attr , @value, 'text_en')  RETURN d",
         {
@@ -1022,8 +1079,9 @@
         { silent }
       );
     },
-    arangosearchCrudCreateViewOnCollection = function(params) {
-      var viewParams = {
+
+    arangosearchCrudCreateViewOnCollection = function (params) {
+      let viewParams = {
         name: params.view,
         collections: [params.collection],
         analyzers: [params.analyzer]
@@ -1039,8 +1097,9 @@
         { silent }
       );
     },
-    arangosearchCrudUpdateViewOnCollection = function(params) {
-      var view = db._view(params.view),
+
+    arangosearchCrudUpdateViewOnCollection = function (params) {
+      let view = db._view(params.view),
         meta = {
           links: { [params.collection]: { fields: { [params.attr]: {} } } }
         };
@@ -1055,11 +1114,17 @@
         { silent }
       );
     },
-    arangosearchCrudDeleteViewOnCollection = function(params) {
+
+    arangosearchCrudDeleteViewOnCollection = function (params) {
       dropView(params);
     },
-    main = function() {
-      var documentTests = [
+
+    // /////////////////////////////////////////////////////////////////////////////
+    // main
+    // /////////////////////////////////////////////////////////////////////////////
+
+    main = function () {
+      let documentTests = [
           //  { name: "isarray-const",          params: { func: passthru, name: "IS_ARRAY", values: numericSequence(2000) } },
           //  { name: "length-const",           params: { func: passthru, name: "LENGTH", values: numericSequence(2000) } },
           //  { name: "min-const",              params: { func: passthru, name: "MIN", values: numericSequence(2000) } },
@@ -1186,6 +1251,7 @@
             params: { func: skipDocs, attr: "value1", limit: 10 }
           }
         ],
+
         edgeTests = [
           {
             name: "traversal-outbound-1",
@@ -1214,6 +1280,7 @@
           { name: "shortest-outbound", params: { func: shortestOutbound } },
           { name: "shortest-any", params: { func: shortestAny } }
         ],
+
         arangosearchTests = [
           {
             name: "arangosearch-key-lookup",
@@ -1294,6 +1361,7 @@
             params: { func: arangosearchPrefix, attr: "value2", value: "test4" }
           }
         ],
+
         arangosearchPhrasesTests = [
           {
             name: "arangosearch-minmatch-low",
@@ -1368,6 +1436,7 @@
             }
           }
         ],
+
         crudTests = [
           // { name: "testhooks",              params: {
           //                                          func: function(){},
@@ -1381,7 +1450,7 @@
             name: "insert",
             params: {
               func: insert,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
               },
@@ -1392,7 +1461,7 @@
             name: "insert docSize4",
             params: {
               func: insert,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
               },
@@ -1404,7 +1473,7 @@
             name: "update",
             params: {
               func: update,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1416,7 +1485,7 @@
             name: "replace",
             params: {
               func: replace,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1428,7 +1497,7 @@
             name: "remove",
             params: {
               func: remove,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1440,7 +1509,7 @@
             name: "count",
             params: {
               func: count,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1452,7 +1521,7 @@
             name: "all",
             params: {
               func: all,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1464,7 +1533,7 @@
             name: "truncate",
             params: {
               func: truncate,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1476,7 +1545,7 @@
             name: "any",
             params: {
               func: anyCrud,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1487,17 +1556,17 @@
         ];
 
       initialize(); // initializes values colletion
-      var output = "",
+      let output = "",
         options;
 
       // document tests
       options = {
         runs: 5,
         digits: 4,
-        setup: function(params) {
+        setup: function (params) {
           db._collection(params.collection).load();
         },
-        teardown: function() {},
+        teardown: function () {},
         collections: [
           //    { name: "values10000",    label: "10k" },
           //    { name: "values100000",   label: "100k" },
@@ -1505,17 +1574,17 @@
         ],
         removeFromResult: 1
       };
-      var documentTestsResult = testRunner(documentTests, options);
+      let documentTestsResult = testRunner(documentTests, options);
       output += toString(documentTestsResult);
 
       // edge tests
       options = {
         runs: 5,
         digits: 4,
-        setup: function(params) {
+        setup: function (params) {
           db._collection(params.collection).load();
         },
-        teardown: function() {},
+        teardown: function () {},
         collections: [
           //    { name: "edges10000",    label: "10k" },
           //    { name: "edges100000",   label: "100k" },
@@ -1523,17 +1592,17 @@
         ],
         removeFromResult: 1
       };
-      var edgeTestsResult = testRunner(edgeTests, options);
+      let edgeTestsResult = testRunner(edgeTests, options);
       output += toString(edgeTestsResult);
 
       // arangosearch tests
       options = {
         runs: 5,
         digits: 4,
-        setup: function(params) {
+        setup: function (params) {
           params["view"] = "v_" + params.collection;
         },
-        teardown: function() {},
+        teardown: function () {},
         collections: [
           //    { name: "values10000",    label: "10k" },
           //    { name: "values100000",   label: "100k" },
@@ -1541,17 +1610,17 @@
         ],
         removeFromResult: 1
       };
-      var arangosearchTestsResult = testRunner(arangosearchTests, options);
+      let arangosearchTestsResult = testRunner(arangosearchTests, options);
       output += toString(arangosearchTestsResult);
 
       // arangosearch phrase tests
       options = {
         runs: 5,
         digits: 4,
-        setup: function(params) {
+        setup: function (params) {
           params["view"] = "v_" + params.collection;
         },
-        teardown: function() {},
+        teardown: function () {},
         collections: [
           //  { name: "valuesPhrases10000",    label: "10k" },
           //  { name: "valuesPhrases100000",   label: "100k" },
@@ -1559,7 +1628,7 @@
         ],
         removeFromResult: 1
       };
-      var arangosearchPhrasesTestsResult = testRunner(
+      let arangosearchPhrasesTestsResult = testRunner(
         arangosearchPhrasesTests,
         options
       );
@@ -1569,8 +1638,8 @@
       options = {
         runs: 5,
         digits: 4,
-        setup: function(params) {},
-        teardown: function() {},
+        setup: function (/* params */) {},
+        teardown: function () {},
         collections: [
           //   { name: "crud10000",    label: "10k" },
           //   { name: "crud100000",   label: "100k" },
@@ -1578,17 +1647,17 @@
         ],
         removeFromResult: 1
       };
-      var crudTestsResult = testRunner(crudTests, options);
+      let crudTestsResult = testRunner(crudTests, options);
       output += toString(crudTestsResult);
 
       // arangosearch crud tests
       options = {
         runs: 5,
         digits: 4,
-        setup: function(params) {
+        setup: function (params) {
           params["view"] = "v_" + params.collection;
         },
-        teardown: function() {},
+        teardown: function () {},
         collections: [
           //   { name: "crud10000",    label: "10k + ARS " },
           //   { name: "crud100000",   label: "100k + ARS" },
@@ -1596,7 +1665,7 @@
         ],
         removeFromResult: 1
       };
-      var arangosearchCrudTestsResult = testRunner(crudTests, options);
+      let arangosearchCrudTestsResult = testRunner(crudTests, options);
       output += toString(arangosearchCrudTestsResult);
 
       print("\n" + output + "\n");
