@@ -1,4 +1,4 @@
-exports.test = function(global) {
+exports.test = function (global) {
   "use strict";
 
   global.small = global.small || true;
@@ -18,14 +18,14 @@ exports.test = function(global) {
   const db = require("org/arangodb").db;
 
   let silent = true,
-    testRunner = function(tests, options) {
-      let calc = function(values, options) {
-          let sum = function(values) {
-            return values.reduce(function(previous, current) {
+    testRunner = function (tests, options) {
+      let calc = function (values, options) {
+          let sum = function (values) {
+            return values.reduce(function (previous, current) {
               return previous + current;
             });
           };
-          values.sort(function(a, b) {
+          values.sort(function (a, b) {
             return a - b;
           });
           let removeFromResult = parseInt(options.removeFromResult) || 0;
@@ -48,13 +48,13 @@ exports.test = function(global) {
             };
           return result;
         },
-        buildParams = function(test, collection) {
+        buildParams = function (test, collection) {
           let params = test.params;
           params.collection = collection.name;
           return params;
         },
-        measure = function(test, collection, options) {
-          let timedExecution = function(test, collection) {
+        measure = function (test, collection, options) {
+          let timedExecution = function (test, collection) {
               let params = buildParams(test, collection),
                 start = time();
               if (typeof params.setupEachCall === "function") {
@@ -100,7 +100,7 @@ exports.test = function(global) {
 
           return results;
         },
-        run = function(tests, options) {
+        run = function (tests, options) {
           let out = [];
 
           for (let i = 0; i < tests.length; ++i) {
@@ -129,8 +129,8 @@ exports.test = function(global) {
 
       return run(tests, options);
     },
-    toString = function(out) {
-      let pad = function(s, l, type) {
+    toString = function (out) {
+      let pad = function (s, l, type) {
           if (s.length >= l) {
             return s.substr(0, l);
           }
@@ -192,7 +192,7 @@ exports.test = function(global) {
 
       return s.join("\n");
     },
-    toJUnit = function(out) {
+    toJUnit = function (out) {
       let fs = require("fs");
       for (let i = 0; i < out.length; ++i) {
         let test = out[i];
@@ -207,13 +207,13 @@ exports.test = function(global) {
       }
     };
 
-  function createArangoSearch(params) {
+  function createArangoSearch (params) {
     if (db._view(params.name) !== null) {
       return;
     }
 
     let meta = { links: {} };
-    params.collections.forEach(function(c) {
+    params.collections.forEach(function (c) {
       meta.links[c] = { includeAllFields: true, analyzers: params.analyzers };
     });
 
@@ -222,8 +222,8 @@ exports.test = function(global) {
     db._createView(params.name, "arangosearch", meta);
   }
 
-  let initialize = function() {
-      function createDocuments(n) {
+  let initialize = function () {
+      function createDocuments (n) {
         let name = "values" + n;
         if (db._collection(name) !== null) {
           return;
@@ -265,7 +265,7 @@ exports.test = function(global) {
         createDocuments(1000000);
       }
 
-      function createView(n) {
+      function createView (n) {
         let params = {
           name: "v_values" + n,
           collections: ["values" + n],
@@ -287,7 +287,7 @@ exports.test = function(global) {
         createView(1000000);
       }
 
-      function createEdges(n) {
+      function createEdges (n) {
         let name = "edges" + n;
         if (db._collection(name) !== null) {
           return;
@@ -327,7 +327,7 @@ exports.test = function(global) {
         createEdges(1000000);
       }
 
-      function createPhrasesView(n) {
+      function createPhrasesView (n) {
         let params = {
           name: "v_valuesPhrases" + n,
           collections: ["valuesPhrases" + n],
@@ -337,7 +337,7 @@ exports.test = function(global) {
         createArangoSearch(params);
       }
 
-      function createDocumentsWithPhrases(n) {
+      function createDocumentsWithPhrases (n) {
         let name = "valuesPhrases" + n;
         if (db._collection(name) !== null) {
           return;
@@ -415,7 +415,7 @@ exports.test = function(global) {
     // CRUD Helper
     // /////////////////////////////////////////////////////////////////////////////
 
-    drop = function(params) {
+    drop = function (params) {
       let view = params.view;
       if (view !== undefined) {
         if (db._view(view) !== null) {
@@ -427,7 +427,7 @@ exports.test = function(global) {
         db._drop(name);
       }
     },
-    create = function(params) {
+    create = function (params) {
       let name = params.collection;
       db._create(name);
       let view = params.view;
@@ -440,7 +440,7 @@ exports.test = function(global) {
         createArangoSearch(viewParams);
       }
     },
-    fill = function(params) {
+    fill = function (params) {
       let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10),
         docSize = parseInt(params.docSize) || 0,
@@ -458,43 +458,43 @@ exports.test = function(global) {
     // CRUD Tests
     // /////////////////////////////////////////////////////////////////////////////
 
-    insert = function(params) {
+    insert = function (params) {
       fill(params);
     },
-    update = function(params) {
+    update = function (params) {
       let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
       for (let i = 0; i < n; ++i) {
         c.update("test" + i, { value: i + 1, value2: "test" + i, value3: i });
       }
     },
-    replace = function(params) {
+    replace = function (params) {
       let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
       for (let i = 0; i < n; ++i) {
         c.replace("test" + i, { value: i + 1, value2: "test" + i, value3: i });
       }
     },
-    remove = function(params) {
+    remove = function (params) {
       let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
       for (let i = 0; i < n; ++i) {
         c.remove("test" + i);
       }
     },
-    count = function(params) {
+    count = function (params) {
       let c = db._collection(params.collection);
       c.count();
     },
-    anyCrud = function(params) {
+    anyCrud = function (params) {
       let c = db._collection(params.collection);
       c.any();
     },
-    all = function(params) {
+    all = function (params) {
       let c = db._collection(params.collection);
       c.toArray();
     },
-    truncate = function(params) {
+    truncate = function (params) {
       let c = db._collection(params.collection);
       c.truncate();
     },
@@ -502,7 +502,7 @@ exports.test = function(global) {
     // edgeTests
     // /////////////////////////////////////////////////////////////////////////////
 
-    outbound = function(params) {
+    outbound = function (params) {
       db._query(
         "WITH @@c FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
         {
@@ -515,7 +515,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    any = function(params) {
+    any = function (params) {
       db._query(
         "WITH @@c FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN v",
         {
@@ -528,7 +528,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    outboundPath = function(params) {
+    outboundPath = function (params) {
       db._query(
         "WITH @@c FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p",
         {
@@ -541,7 +541,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    anyPath = function(params) {
+    anyPath = function (params) {
       db._query(
         "WITH @@c FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p",
         {
@@ -554,7 +554,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    shortestOutbound = function(params) {
+    shortestOutbound = function (params) {
       db._query(
         "WITH @@c FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
@@ -566,7 +566,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    shortestAny = function(params) {
+    shortestAny = function (params) {
       db._query(
         "WITH @@c FOR v IN ANY SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
@@ -582,7 +582,7 @@ exports.test = function(global) {
     // documentTests
     // /////////////////////////////////////////////////////////////////////////////
 
-    subquery = function(params) {
+    subquery = function (params) {
       db._query(
         "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
         {
@@ -593,7 +593,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    min = function(params) {
+    min = function (params) {
       db._query(
         "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
         {
@@ -604,7 +604,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    max = function(params) {
+    max = function (params) {
       db._query(
         "RETURN MAX(FOR c IN @@c RETURN c.@attr)",
         {
@@ -615,7 +615,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    concat = function(params) {
+    concat = function (params) {
       db._query(
         "FOR c IN @@c RETURN CONCAT(c._key, '-', c.@attr)",
         {
@@ -626,7 +626,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    merge = function(params) {
+    merge = function (params) {
       db._query(
         "FOR c IN @@c RETURN MERGE(c, { 'testValue': c.@attr })",
         {
@@ -637,7 +637,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    keep = function(params) {
+    keep = function (params) {
       db._query(
         "FOR c IN @@c RETURN KEEP(c, '_key', '_rev', '_id')",
         {
@@ -647,7 +647,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    unset = function(params) {
+    unset = function (params) {
       db._query(
         "FOR c IN @@c RETURN UNSET(c, '_key', '_rev', '_id')",
         {
@@ -657,7 +657,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    attributes = function(params) {
+    attributes = function (params) {
       db._query(
         "FOR c IN @@c RETURN ATTRIBUTES(c)",
         {
@@ -667,7 +667,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    values = function(params) {
+    values = function (params) {
       db._query(
         "FOR c IN @@c RETURN VALUES(c)",
         {
@@ -677,7 +677,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    has = function(params) {
+    has = function (params) {
       db._query(
         "FOR c IN @@c RETURN HAS(c, c.@attr)",
         {
@@ -688,7 +688,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    md5 = function(params) {
+    md5 = function (params) {
       db._query(
         "FOR c IN @@c RETURN MD5(c.@attr)",
         {
@@ -699,7 +699,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    sha1 = function(params) {
+    sha1 = function (params) {
       db._query(
         "FOR c IN @@c RETURN SHA1(c.@attr)",
         {
@@ -710,7 +710,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    skipIndex = function(params) {
+    skipIndex = function (params) {
       let size = parseInt(params.collection.replace(/[^0-9]/g, "")),
         offset = size - params.limit;
       db._query(
@@ -725,7 +725,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    skipDocs = function(params) {
+    skipDocs = function (params) {
       let size = parseInt(params.collection.replace(/[^0-9]/g, "")),
         offset = size - params.limit;
       db._query(
@@ -740,7 +740,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    sortAll = function(params) {
+    sortAll = function (params) {
       // Use a "sort everything" implementation.
       db._query(
         "FOR c IN @@c SORT c.@attr LIMIT 1 RETURN c.@attr",
@@ -752,7 +752,7 @@ exports.test = function(global) {
         { silent, optimizer: { rules: ["-sort-limit"] } }
       );
     },
-    sortHeap = function(params) {
+    sortHeap = function (params) {
       // Use a heap of size 20 for the sort.
       db._query(
         "FOR c IN @@c SORT c.@attr LIMIT 20 RETURN c.@attr",
@@ -764,7 +764,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    filter = function(params) {
+    filter = function (params) {
       db._query(
         "FOR c IN @@c FILTER c.@attr == @value RETURN c.@attr",
         {
@@ -776,7 +776,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    extract = function(params) {
+    extract = function (params) {
       if (params.attr === undefined) {
         db._query(
           "FOR c IN @@c RETURN c",
@@ -798,7 +798,7 @@ exports.test = function(global) {
         );
       }
     },
-    join = function(params) {
+    join = function (params) {
       db._query(
         "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1",
         {
@@ -809,7 +809,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    lookup = function(params) {
+    lookup = function (params) {
       let key,
         numeric = params.numeric;
       for (let i = 0; i < params.n; ++i) {
@@ -830,7 +830,7 @@ exports.test = function(global) {
         );
       }
     },
-    lookupIn = function(params) {
+    lookupIn = function (params) {
       let keys = [],
         numeric = params.numeric;
       for (let i = 0; i < params.n; ++i) {
@@ -851,7 +851,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    collect = function(params) {
+    collect = function (params) {
       if (params.count) {
         db._query(
           "FOR c IN @@c COLLECT g = c.@attr WITH COUNT INTO l RETURN [ g, l ]",
@@ -874,7 +874,7 @@ exports.test = function(global) {
         );
       }
     },
-    passthru = function(params) {
+    passthru = function (params) {
       db._query(
         "FOR c IN @@c RETURN NOOPT(" + params.name + "(@value))",
         {
@@ -885,7 +885,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    numericSequence = function(n) {
+    numericSequence = function (n) {
       let result = [];
       for (let i = 0; i < n; ++i) {
         result.push(i);
@@ -896,7 +896,7 @@ exports.test = function(global) {
     // arangosearchTests
     // /////////////////////////////////////////////////////////////////////////////
 
-    arangosearchLookupByAttribute = function(params) {
+    arangosearchLookupByAttribute = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr == @value RETURN d",
         {
@@ -908,7 +908,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchRangeLookupOperator = function(params) {
+    arangosearchRangeLookupOperator = function (params) {
       if (params.includeMin && params.includeMax) {
         db._query(
           "FOR d IN @@v SEARCH d.@attr >= @minValue && d.@attr <= @maxValue RETURN d",
@@ -959,7 +959,7 @@ exports.test = function(global) {
         );
       }
     },
-    arangosearchRangeLookupFunc = function(params) {
+    arangosearchRangeLookupFunc = function (params) {
       db._query(
         "FOR d IN @@v SEARCH IN_RANGE(d.@attr, @minValue, @maxValue, @includeMin, @includeMax) RETURN d",
         {
@@ -974,7 +974,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchBasicConjunction = function(params) {
+    arangosearchBasicConjunction = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr0 == @value0 && d.@attr1 == @value1 RETURN d",
         {
@@ -988,7 +988,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchBasicDisjunction = function(params) {
+    arangosearchBasicDisjunction = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr0 == @value0 || d.@attr1 == @value1 RETURN d",
         {
@@ -1002,7 +1002,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchDisjunction = function(params) {
+    arangosearchDisjunction = function (params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr IN @value RETURN d",
         {
@@ -1014,7 +1014,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchPrefix = function(params) {
+    arangosearchPrefix = function (params) {
       db._query(
         "FOR d IN @@v SEARCH STARTS_WITH(d.@attr, @value) RETURN d",
         {
@@ -1026,7 +1026,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchMinMatch2of3 = function(params) {
+    arangosearchMinMatch2of3 = function (params) {
       db._query(
         "FOR d IN @@v SEARCH ANALYZER(MIN_MATCH(d.@attr1 == @value1, d.@attr1 ==  @value2, d.@attr1 == @value3, 2 ), 'text_en') RETURN d",
         {
@@ -1040,7 +1040,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchScoring = function(params) {
+    arangosearchScoring = function (params) {
       db._query(
         "FOR d IN @@v SEARCH ANALYZER(d.@attr == @value, 'text_en') SORT " +
           params.scorer +
@@ -1054,7 +1054,7 @@ exports.test = function(global) {
         { silent }
       );
     },
-    arangosearchPhrase = function(params) {
+    arangosearchPhrase = function (params) {
       db._query(
         "FOR d IN @@v SEARCH PHRASE(d.@attr , @value, 'text_en')  RETURN d",
         {
@@ -1070,7 +1070,7 @@ exports.test = function(global) {
     // main
     // /////////////////////////////////////////////////////////////////////////////
 
-    main = function() {
+    main = function () {
       let documentTests = [
           {
             name: "aql-isarray-const",
@@ -1492,7 +1492,7 @@ exports.test = function(global) {
             name: "insert",
             params: {
               func: insert,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
               },
@@ -1503,7 +1503,7 @@ exports.test = function(global) {
             name: "insert-size4",
             params: {
               func: insert,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
               },
@@ -1515,7 +1515,7 @@ exports.test = function(global) {
             name: "update",
             params: {
               func: update,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1527,7 +1527,7 @@ exports.test = function(global) {
             name: "replace",
             params: {
               func: replace,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1539,7 +1539,7 @@ exports.test = function(global) {
             name: "remove",
             params: {
               func: remove,
-              setupEachCall: function(params) {
+              setupEachCall: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1551,7 +1551,7 @@ exports.test = function(global) {
             name: "count",
             params: {
               func: count,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1563,7 +1563,7 @@ exports.test = function(global) {
             name: "all",
             params: {
               func: all,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1575,7 +1575,7 @@ exports.test = function(global) {
             name: "truncate",
             params: {
               func: truncate,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1587,7 +1587,7 @@ exports.test = function(global) {
             name: "any",
             params: {
               func: anyCrud,
-              setup: function(params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill(params);
@@ -1606,10 +1606,10 @@ exports.test = function(global) {
         options = {
           runs: 5,
           digits: 4,
-          setup: function(params) {
+          setup: function (params) {
             db._collection(params.collection).load();
           },
-          teardown: function() {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
@@ -1637,10 +1637,10 @@ exports.test = function(global) {
         options = {
           runs: 5,
           digits: 4,
-          setup: function(params) {
+          setup: function (params) {
             db._collection(params.collection).load();
           },
-          teardown: function() {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
@@ -1668,10 +1668,10 @@ exports.test = function(global) {
         options = {
           runs: 5,
           digits: 4,
-          setup: function(params) {
+          setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
-          teardown: function() {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
@@ -1699,10 +1699,10 @@ exports.test = function(global) {
         options = {
           runs: 5,
           digits: 4,
-          setup: function(params) {
+          setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
-          teardown: function() {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
@@ -1742,8 +1742,8 @@ exports.test = function(global) {
         options = {
           runs: 5,
           digits: 4,
-          setup: function(/* params */) {},
-          teardown: function() {},
+          setup: function (/* params */) {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
@@ -1771,10 +1771,10 @@ exports.test = function(global) {
         options = {
           runs: 5,
           digits: 4,
-          setup: function(params) {
+          setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
-          teardown: function() {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
