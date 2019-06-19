@@ -12,10 +12,11 @@ exports.test = function (global) {
   global.crud = global.crud || false;
   global.crudSearch = global.crudSearch || false;
 
-  const internal = require("internal");
+  const internal = require('internal');
   const time = internal.time;
   const print = internal.print;
-  const db = require("org/arangodb").db;
+  const db = require('org/arangodb').db;
+  const AsciiTable = require('ascii-table');
 
   let silent = true,
     testRunner = function (tests, options) {
@@ -57,12 +58,12 @@ exports.test = function (global) {
           let timedExecution = function (test, collection) {
               let params = buildParams(test, collection),
                 start = time();
-              if (typeof params.setupEachCall === "function") {
+              if (typeof params.setupEachCall === 'function') {
                 params.setupEachCall(params);
               }
               test.params.func(params);
               let end = time();
-              if (typeof params.teardownEachCall === "function") {
+              if (typeof params.teardownEachCall === 'function') {
                 params.teardownEachCall(params);
               }
               return end - start;
@@ -73,27 +74,27 @@ exports.test = function (global) {
           for (let i = 0; i < options.runs + 1; ++i) {
             let params = buildParams(test, collection);
 
-            if (typeof options.setup === "function") {
+            if (typeof options.setup === 'function') {
               options.setup(params);
             }
-            if (typeof params.setup === "function") {
+            if (typeof params.setup === 'function') {
               params.setup(params);
             }
 
             if (i === 0) {
-              print("- warmup");
+              print('- warmup');
               timedExecution(test, collection);
               timedExecution(test, collection);
             } else {
-              print("- run " + i);
+              print('- run ' + i);
               let duration = timedExecution(test, collection);
-              print("- took: " + duration + " s");
+              print('- took: ' + duration + ' s');
               results.push(duration);
             }
-            if (typeof params.teardown === "function") {
+            if (typeof params.teardown === 'function') {
               params.teardown(params);
             }
-            if (typeof options.teardown === "function") {
+            if (typeof options.teardown === 'function') {
               options.teardown(test.params);
             }
           }
@@ -105,7 +106,7 @@ exports.test = function (global) {
 
           for (let i = 0; i < tests.length; ++i) {
             let test = tests[i];
-            print("running test " + test.name);
+            print('running test ' + test.name);
 
             for (let j = 0; j < options.collections.length; ++j) {
               let collection = options.collections[j],
@@ -129,71 +130,36 @@ exports.test = function (global) {
 
       return run(tests, options);
     },
-    toString = function (out) {
-      let pad = function (s, l, type) {
-          if (s.length >= l) {
-            return s.substr(0, l);
-          }
-          if (type === "right") {
-            return s + Array(l - s.length).join(" ");
-          }
-          return Array(l - s.length).join(" ") + s;
-        },
-        headLength = 30,
-        collectionLength = 12,
-        runsLength = 8,
-        cellLength = 12,
-        sep = " | ",
-        lineLength =
-          headLength + runsLength + 6 * cellLength + 6 * sep.length - 1,
-        s = [];
 
-      s.push("\n");
-      s.push(
-        pad("test name", headLength, "right") +
-          sep +
-          pad("collection", collectionLength, "right") +
-          sep +
-          pad("runs", runsLength, "left") +
-          sep +
-          pad("min (s)", cellLength, "left") +
-          sep +
-          pad("max (s)", cellLength, "left") +
-          sep +
-          pad("% dev", cellLength, "left") +
-          sep +
-          pad("avg (s)", cellLength, "left") +
-          sep +
-          pad("med (s)", cellLength, "left")
-      );
-
-      s.push(Array(lineLength).join("-"));
+    toString = function (title, out) {
+      var table = new AsciiTable(title);
+      table.setHeading('testname', 'collection', 'runs', 'min (s)', 'max (s)', '% dev', 'avg (s)', 'med (s)')
+           .setAlign(2, AsciiTable.RIGHT)
+           .setAlign(3, AsciiTable.RIGHT)
+           .setAlign(4, AsciiTable.RIGHT)
+           .setAlign(5, AsciiTable.RIGHT)
+           .setAlign(6, AsciiTable.RIGHT)
+           .setAlign(7, AsciiTable.RIGHT);
 
       for (let i = 0; i < out.length; ++i) {
         let test = out[i];
-        s.push(
-          pad(test.name, headLength, "right") +
-            sep +
-            pad(test.collectionLabel, collectionLength, "right") +
-            sep +
-            pad(test.runs, runsLength, "left") +
-            sep +
-            pad(test.min, cellLength, "left") +
-            sep +
-            pad(test.max, cellLength, "left") +
-            sep +
-            pad(test.dev, cellLength, "left") +
-            sep +
-            pad(test.avg, cellLength, "left") +
-            sep +
-            pad(test.med, cellLength, "left")
+        table.addRow(
+          test.name,
+          test.collectionLabel,
+          test.runs,
+          test.min,
+          test.max,
+          test.dev,
+          test.avg,
+          test.med
         );
       }
 
-      return s.join("\n");
+      return table.toString();
     },
+
     toJUnit = function (out) {
-      let fs = require("fs");
+      let fs = require('fs');
       for (let i = 0; i < out.length; ++i) {
         let test = out[i];
         fs.writeFileSync(
@@ -1627,7 +1593,7 @@ exports.test = function (global) {
         }
 
         let documentTestsResult = testRunner(documentTests, options);
-        output += toString(documentTestsResult);
+        output += toString("Documents", documentTestsResult);
 
         toJUnit(documentTestsResult);
       }
@@ -1658,7 +1624,7 @@ exports.test = function (global) {
         }
 
         let edgeTestsResult = testRunner(edgeTests, options);
-        output += toString(edgeTestsResult);
+        output += toString("Edges", edgeTestsResult);
 
         toJUnit(edgeTestsResult);
       }
@@ -1689,7 +1655,7 @@ exports.test = function (global) {
         }
 
         let arangosearchTestsResult = testRunner(arangosearchTests, options);
-        output += toString(arangosearchTestsResult);
+        output += toString('Arango Search', arangosearchTestsResult);
 
         toJUnit(arangosearchTestsResult);
       }
@@ -1732,7 +1698,7 @@ exports.test = function (global) {
           arangosearchPhrasesTests,
           options
         );
-        output += toString(arangosearchPhrasesTestsResult);
+        output += toString('Arango Search Phrases', arangosearchPhrasesTestsResult);
 
         toJUnit(arangosearchPhrasesTestsResult);
       }
@@ -1761,7 +1727,7 @@ exports.test = function (global) {
         }
 
         let crudTestsResult = testRunner(crudTests, options);
-        output += toString(crudTestsResult);
+        output += toString('CRUD', crudTestsResult);
 
         toJUnit(crudTestsResult);
       }
@@ -1795,7 +1761,7 @@ exports.test = function (global) {
         }
 
         let arangosearchCrudTestsResult = testRunner(crudTests, options);
-        output += toString(arangosearchCrudTestsResult);
+        output += toString('Arango Search CRUD"', arangosearchCrudTestsResult);
 
         toJUnit(arangosearchCrudTestsResult);
       }

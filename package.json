@@ -16,7 +16,9 @@
     "url": "https://github.com/arangodb/simple-performance-test/issues"
   },
   "homepage": "https://github.com/arangodb/simple-performance-test#readme",
-  "dependencies": {},
+  "dependencies": {
+    "ascii-table": "0.0.9"
+  },
   "devDependencies": {
     "eslint": "^5.16.0",
     "eslint-config-standard": "^12.0.0",

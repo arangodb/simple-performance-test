@@ -1,6 +1,13 @@
 # How to start
 
-    arangod -c none --javascript.app-path /tmp/app --javascript.startup-directory /usr/share/arangodb3/js --server.rest-server false DATABASE_DIR --javascript.script CONFIGURATION.js
+    arangod \
+        -c none \
+        --javascript.app-path /tmp/app \
+        --javascript.startup-directory /usr/share/arangodb3/js \
+        --server.rest-server false \
+        --javascript.module-directory `pwd` \
+        DATABASE_DIR \
+        --javascript.script CONFIGURATION.js
 
 ## Configurations
 
