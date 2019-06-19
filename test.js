@@ -380,7 +380,7 @@
 
     drop = function (params) {
       let view = params.view;
-      if (view !== null) {
+      if (view !== undefined) {
         if (db._view(view) !== null) {
           db._dropView(view);
         }
@@ -395,7 +395,7 @@
       let name = params.collection;
       db._create(name);
       let view = params.view;
-      if (view !== null) {
+      if (view !== undefined) {
         let viewParams = {
           name: view,
           collections: [name],
@@ -478,7 +478,7 @@
 
     outbound = function (params) {
       db._query(
-        "FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
+        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
         {
           "@c": params.collection,
           minDepth: params.minDepth,
@@ -492,7 +492,7 @@
 
     any = function (params) {
       db._query(
-        "FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN v",
+        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN v",
         {
           "@c": params.collection,
           minDepth: params.minDepth,
@@ -506,7 +506,7 @@
 
     outboundPath = function (params) {
       db._query(
-        "FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p",
+        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p",
         {
           "@c": params.collection,
           minDepth: params.minDepth,
@@ -520,7 +520,7 @@
 
     anyPath = function (params) {
       db._query(
-        "FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p",
+        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p",
         {
           "@c": params.collection,
           minDepth: params.minDepth,
@@ -534,7 +534,7 @@
 
     shortestOutbound = function (params) {
       db._query(
-        "FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v",
+        "WITH @@c FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
           "@c": params.collection,
           start: params.collection.replace(/edges/, "values") + "/test1",
@@ -547,7 +547,7 @@
 
     shortestAny = function (params) {
       db._query(
-        "FOR v IN ANY SHORTEST_PATH @start TO @dest @@c RETURN v",
+        "WITH @@c FOR v IN ANY SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
           "@c": params.collection,
           start: params.collection.replace(/edges/, "values") + "/test1",
@@ -1078,45 +1078,6 @@
         {},
         { silent }
       );
-    },
-
-    arangosearchCrudCreateViewOnCollection = function (params) {
-      let viewParams = {
-        name: params.view,
-        collections: [params.collection],
-        analyzers: [params.analyzer]
-      };
-      createArangoSearch(viewParams);
-      // make query to force waiting full index commit
-      db._query(
-        "FOR d IN @@v  OPTIONS { waitForSync:true } LIMIT 1 RETURN d",
-        {
-          "@v": params.view
-        },
-        {},
-        { silent }
-      );
-    },
-
-    arangosearchCrudUpdateViewOnCollection = function (params) {
-      let view = db._view(params.view),
-        meta = {
-          links: { [params.collection]: { fields: { [params.attr]: {} } } }
-        };
-      view.properties(meta, false); // full update
-      // make query to force waiting full index commit
-      db._query(
-        "FOR d IN @@v  OPTIONS { waitForSync:true } LIMIT 1 RETURN d",
-        {
-          "@v": params.view
-        },
-        {},
-        { silent }
-      );
-    },
-
-    arangosearchCrudDeleteViewOnCollection = function (params) {
-      dropView(params);
     },
 
     // /////////////////////////////////////////////////////////////////////////////
