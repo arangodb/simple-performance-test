@@ -498,9 +498,10 @@ exports.test = function(global) {
 
     outbound = function(params) {
       db._query(
-        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
+        "WITH @@v FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
         {
           "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
           minDepth: params.minDepth,
           maxDepth: params.maxDepth,
           start: params.collection.replace(/edges/, "values") + "/test1"
@@ -511,9 +512,10 @@ exports.test = function(global) {
     },
     any = function(params) {
       db._query(
-        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN v",
+        "WITH @@v FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN v",
         {
           "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
           minDepth: params.minDepth,
           maxDepth: params.maxDepth,
           start: params.collection.replace(/edges/, "values") + "/test1"
@@ -524,9 +526,10 @@ exports.test = function(global) {
     },
     outboundPath = function(params) {
       db._query(
-        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p",
+        "WITH @@v FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p",
         {
           "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
           minDepth: params.minDepth,
           maxDepth: params.maxDepth,
           start: params.collection.replace(/edges/, "values") + "/test1"
@@ -537,9 +540,10 @@ exports.test = function(global) {
     },
     anyPath = function(params) {
       db._query(
-        "WITH @@c FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p",
+        "WITH @@v FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p",
         {
           "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
           minDepth: params.minDepth,
           maxDepth: params.maxDepth,
           start: params.collection.replace(/edges/, "values") + "/test1"
@@ -550,9 +554,10 @@ exports.test = function(global) {
     },
     shortestOutbound = function(params) {
       db._query(
-        "WITH @@c FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v",
+        "WITH @@v FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
           "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
           start: params.collection.replace(/edges/, "values") + "/test1",
           dest: params.collection.replace(/edges/, "values") + "/test9999"
         },
@@ -562,9 +567,10 @@ exports.test = function(global) {
     },
     shortestAny = function(params) {
       db._query(
-        "WITH @@c FOR v IN ANY SHORTEST_PATH @start TO @dest @@c RETURN v",
+        "WITH @@v FOR v IN ANY SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
           "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
           start: params.collection.replace(/edges/, "values") + "/test1",
           dest: params.collection.replace(/edges/, "values") + "/test9999"
         },
