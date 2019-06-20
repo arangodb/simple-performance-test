@@ -12,6 +12,9 @@ exports.test = function (global) {
   global.crud = global.crud || false;
   global.crudSearch = global.crudSearch || false;
 
+  global.outputXml = global.outputXml || false;
+  global.xmlDirectory = global.xmlDirectory || '.';
+
   const internal = require('internal');
   const time = internal.time;
   const print = internal.print;
@@ -158,16 +161,22 @@ exports.test = function (global) {
       return table.toString();
     },
 
-    toJUnit = function (out) {
+    toJUnit = function (out, prefix, postfix) {
       let fs = require('fs');
+
+      prefix = prefix || '';
+      postfix = postfix || '';
+
       for (let i = 0; i < out.length; ++i) {
         let test = out[i];
+        let name = prefix + test.name + postfix;
+
         fs.writeFileSync(
-          `pref-${test.name}.xml`,
+          fs.join(global.xmlDirectory, `pref-${name}.xml`),
           `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${
-            test.name
+            name
           }" name="avg" time="${test.avg * 1000}" /><testcase classname="${
-            test.name
+            name
           }" name="med" time="${test.med * 1000}" /></testsuite>`
         );
       }
@@ -1263,6 +1272,7 @@ exports.test = function (global) {
             params: { func: skipDocs, attr: "value1", limit: 10 }
           }
         ],
+
         edgeTests = [
           {
             name: "traversal-outbound-1",
@@ -1288,12 +1298,19 @@ exports.test = function (global) {
             name: "traversal-any-path-5",
             params: { func: anyPath, minDepth: 1, maxDepth: 5 }
           },
-          { name: "shortest-outbound", params: { func: shortestOutbound } },
-          { name: "shortest-any", params: { func: shortestAny } }
+          {
+            name: "shortest-outbound",
+            params: { func: shortestOutbound }
+          },
+          {
+            name: "shortest-any",
+            params: { func: shortestAny }
+          }
         ],
+
         arangosearchTests = [
           {
-            name: "arangosearch-key-lookup",
+            name: "ars-aql-key-lookup",
             params: {
               func: arangosearchLookupByAttribute,
               attr: "_key",
@@ -1301,7 +1318,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-range-lookup-operator",
+            name: "ars-aql-range-lookup-operator",
             params: {
               func: arangosearchRangeLookupOperator,
               attr: "_key",
@@ -1312,7 +1329,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-range-lookup-function",
+            name: "ars-aql-range-lookup-function",
             params: {
               func: arangosearchRangeLookupFunc,
               attr: "_key",
@@ -1323,7 +1340,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-basic-conjunction",
+            name: "ars-aql-basic-conjunction",
             params: {
               func: arangosearchBasicConjunction,
               attr0: "value2",
@@ -1333,7 +1350,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-basic-disjunction",
+            name: "ars-aql-basic-disjunction",
             params: {
               func: arangosearchBasicDisjunction,
               attr0: "value2",
@@ -1343,7 +1360,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-disjunction",
+            name: "ars-aql-disjunction",
             params: {
               func: arangosearchDisjunction,
               attr: "value8",
@@ -1359,7 +1376,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-prefix-low",
+            name: "ars-aql-prefix-low",
             params: {
               func: arangosearchPrefix,
               attr: "value2",
@@ -1367,13 +1384,14 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-prefix-high",
+            name: "ars-aql-prefix-high",
             params: { func: arangosearchPrefix, attr: "value2", value: "test4" }
           }
         ],
+
         arangosearchPhrasesTests = [
           {
-            name: "arangosearch-minmatch-low",
+            name: "ars-aql-phrase-minmatch-low",
             params: {
               func: arangosearchMinMatch2of3,
               attr1: "value2",
@@ -1383,7 +1401,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-minmatch-high",
+            name: "ars-aql-phrase-minmatch-high",
             params: {
               func: arangosearchMinMatch2of3,
               attr1: "value2",
@@ -1393,7 +1411,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-score-tfidf-low",
+            name: "ars-aql-phrase-score-tfidf-low",
             params: {
               func: arangosearchScoring,
               attr: "value2",
@@ -1402,7 +1420,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-score-bm25-low",
+            name: "ars-aql-phrase-score-bm25-low",
             params: {
               func: arangosearchScoring,
               attr: "value2",
@@ -1411,7 +1429,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-score-tfidf-high",
+            name: "ars-aql-phrase-score-tfidf-high",
             params: {
               func: arangosearchScoring,
               attr: "value2",
@@ -1420,7 +1438,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-score-bm25-high",
+            name: "ars-aql-phrase-score-bm25-high",
             params: {
               func: arangosearchScoring,
               attr: "value2",
@@ -1429,7 +1447,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-phrase-low",
+            name: "ars-aql-phrase-low",
             params: {
               func: arangosearchPhrase,
               attr: "value2",
@@ -1437,7 +1455,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "arangosearch-phrase-high",
+            name: "ars-aql-phrase-high",
             params: {
               func: arangosearchPhrase,
               attr: "value2",
@@ -1445,17 +1463,10 @@ exports.test = function (global) {
             }
           }
         ],
+
         crudTests = [
-          // { name: "testhooks",              params: {
-          //                                          func: function(){},
-          //                                          setup : function(){ internal.print("setup")},
-          //                                          teardown : function(){ internal.print("teardown")},
-          //                                          setupEachCall : function(){ internal.print("setup each")},
-          //                                          teardownEachCall : function(){ internal.print("teardown each")},
-          //                                          }
-          // },
           {
-            name: "insert",
+            name: "crud-insert",
             params: {
               func: insert,
               setupEachCall: function (params) {
@@ -1466,7 +1477,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "insert-size4",
+            name: "crud-insert-size4",
             params: {
               func: insert,
               setupEachCall: function (params) {
@@ -1478,7 +1489,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "update",
+            name: "crud-update",
             params: {
               func: update,
               setupEachCall: function (params) {
@@ -1490,7 +1501,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "replace",
+            name: "crud-replace",
             params: {
               func: replace,
               setupEachCall: function (params) {
@@ -1502,7 +1513,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "remove",
+            name: "crud-remove",
             params: {
               func: remove,
               setupEachCall: function (params) {
@@ -1514,7 +1525,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "count",
+            name: "crud-count",
             params: {
               func: count,
               setup: function (params) {
@@ -1526,7 +1537,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "all",
+            name: "crud-all",
             params: {
               func: all,
               setup: function (params) {
@@ -1538,7 +1549,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "truncate",
+            name: "crud-truncate",
             params: {
               func: truncate,
               setup: function (params) {
@@ -1550,7 +1561,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "any",
+            name: "crud-any",
             params: {
               func: anyCrud,
               setup: function (params) {
@@ -1593,9 +1604,11 @@ exports.test = function (global) {
         }
 
         let documentTestsResult = testRunner(documentTests, options);
-        output += toString("Documents", documentTestsResult);
+        output += toString("Documents", documentTestsResult) + '\n\n';
 
-        toJUnit(documentTestsResult);
+        if (global.outputXml) {
+          toJUnit(documentTestsResult);
+        }
       }
 
       // edge tests
@@ -1624,9 +1637,11 @@ exports.test = function (global) {
         }
 
         let edgeTestsResult = testRunner(edgeTests, options);
-        output += toString("Edges", edgeTestsResult);
+        output += toString("Edges", edgeTestsResult) + '\n\n';
 
-        toJUnit(edgeTestsResult);
+        if (global.outputXml) {
+          toJUnit(edgeTestsResult);
+        }
       }
 
       // arangosearch tests
@@ -1655,9 +1670,11 @@ exports.test = function (global) {
         }
 
         let arangosearchTestsResult = testRunner(arangosearchTests, options);
-        output += toString('Arango Search', arangosearchTestsResult);
+        output += toString('Arango Search', arangosearchTestsResult) + '\n\n';
 
-        toJUnit(arangosearchTestsResult);
+        if (global.outputXml) {
+          toJUnit(arangosearchTestsResult);
+        }
       }
 
       // arangosearch phrase tests
@@ -1698,9 +1715,11 @@ exports.test = function (global) {
           arangosearchPhrasesTests,
           options
         );
-        output += toString('Arango Search Phrases', arangosearchPhrasesTestsResult);
+        output += toString('Arango Search Phrases', arangosearchPhrasesTestsResult) + '\n\n';
 
-        toJUnit(arangosearchPhrasesTestsResult);
+        if (global.outputXml) {
+          toJUnit(arangosearchPhrasesTestsResult);
+        }
       }
 
       // crud tests
@@ -1727,9 +1746,11 @@ exports.test = function (global) {
         }
 
         let crudTestsResult = testRunner(crudTests, options);
-        output += toString('CRUD', crudTestsResult);
+        output += toString('CRUD', crudTestsResult) + '\n\n';
 
-        toJUnit(crudTestsResult);
+        if (global.outputXml) {
+          toJUnit(crudTestsResult);
+        }
       }
 
       // arangosearch crud tests
@@ -1761,9 +1782,11 @@ exports.test = function (global) {
         }
 
         let arangosearchCrudTestsResult = testRunner(crudTests, options);
-        output += toString('Arango Search CRUD"', arangosearchCrudTestsResult);
+        output += toString('Arango Search CRUD', arangosearchCrudTestsResult) + '\n\n';
 
-        toJUnit(arangosearchCrudTestsResult);
+        if (global.outputXml) {
+          toJUnit(arangosearchCrudTestsResult, 'ars-', '');
+        }
       }
 
       print("\n" + output + "\n");
