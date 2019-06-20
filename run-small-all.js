@@ -1,5 +1,6 @@
 function main () {
   require('./test').test({
+    outputCsv: true,
     small: true,
 
     documents: true,
