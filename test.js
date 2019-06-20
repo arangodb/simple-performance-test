@@ -1740,8 +1740,8 @@ exports.test = function(global) {
 
         if (global.big) {
           options.collections.push({
-            name: "valuesPhrases1000000",
-            label: "1000k"
+            name: "valuesPhrases10000000",
+            label: "10000k"
           });
         }
 
