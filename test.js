@@ -1,7 +1,7 @@
 exports.test = function(global) {
   "use strict";
 
-  global.small = global.small || true;
+  global.small = global.small || false;
   global.medium = global.medium || false;
   global.big = global.big || false;
 
@@ -55,11 +55,13 @@ exports.test = function(global) {
             };
           return result;
         },
+
         buildParams = function(test, collection) {
           let params = test.params;
           params.collection = collection.name;
           return params;
         },
+
         measure = function(test, collection, options) {
           let timedExecution = function(test, collection) {
               let params = buildParams(test, collection),
@@ -107,6 +109,7 @@ exports.test = function(global) {
 
           return results;
         },
+
         run = function(tests, options) {
           let out = [];
 
@@ -195,7 +198,7 @@ exports.test = function(global) {
 
       for (let i = 0; i < out.length; ++i) {
         let test = out[i];
-        csv += `${test.name},${test.avg},${test.med},${test.min},${test.max},${test.dev}\n`;
+        csv += `${test.name},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel}\n`;
       }
 
       return csv;
