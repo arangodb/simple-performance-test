@@ -18,11 +18,14 @@ exports.test = function(global) {
   global.outputCsv = global.outputCsv || false;
 
   const internal = require("internal");
-  const time = internal.time;
-  const print = internal.print;
-  const db = require("org/arangodb").db;
   const AsciiTable = require("ascii-table");
   const fs = require("fs");
+  const semver = require("semver");
+
+  const db = require("org/arangodb").db;
+  const time = internal.time;
+  const print = internal.print;
+  const serverVersion = internal.version;
 
   let silent = true,
     testRunner = function(tests, options) {
@@ -115,22 +118,26 @@ exports.test = function(global) {
 
           for (let i = 0; i < tests.length; ++i) {
             let test = tests[i];
-            print("running test " + test.name);
+            if (test.version === undefined || semver.satisfies(serverVersion, test.version)) {
+              print("running test " + test.name);
 
-            for (let j = 0; j < options.collections.length; ++j) {
-              let collection = options.collections[j],
-                stats = calc(measure(test, collection, options), options);
+              for (let j = 0; j < options.collections.length; ++j) {
+                let collection = options.collections[j],
+                  stats = calc(measure(test, collection, options), options);
 
-              out.push({
-                name: test.name,
-                collectionLabel: collection.label,
-                runs: String(options.runs),
-                min: stats.min.toFixed(options.digits),
-                max: stats.max.toFixed(options.digits),
-                dev: (stats.dev * 100).toFixed(2),
-                avg: stats.avg.toFixed(options.digits),
-                med: stats.med.toFixed(options.digits)
-              });
+                out.push({
+                  name: test.name,
+                  collectionLabel: collection.label,
+                  runs: String(options.runs),
+                  min: stats.min.toFixed(options.digits),
+                  max: stats.max.toFixed(options.digits),
+                  dev: (stats.dev * 100).toFixed(2),
+                  avg: stats.avg.toFixed(options.digits),
+                  med: stats.med.toFixed(options.digits)
+                });
+              }
+            } else {
+              print("skipping test " + test.name + ", requires version " + test.version);
             }
           }
 
@@ -895,6 +902,7 @@ exports.test = function(global) {
       }
       return result;
     },
+
     // /////////////////////////////////////////////////////////////////////////////
     // arangosearchTests
     // /////////////////////////////////////////////////////////////////////////////
@@ -911,6 +919,7 @@ exports.test = function(global) {
         { silent }
       );
     },
+
     arangosearchRangeLookupOperator = function(params) {
       if (params.includeMin && params.includeMax) {
         db._query(
@@ -962,6 +971,7 @@ exports.test = function(global) {
         );
       }
     },
+
     arangosearchRangeLookupFunc = function(params) {
       db._query(
         "FOR d IN @@v SEARCH IN_RANGE(d.@attr, @minValue, @maxValue, @includeMin, @includeMax) RETURN d",
@@ -977,6 +987,7 @@ exports.test = function(global) {
         { silent }
       );
     },
+
     arangosearchBasicConjunction = function(params) {
       db._query(
         "FOR d IN @@v SEARCH d.@attr0 == @value0 && d.@attr1 == @value1 RETURN d",
@@ -1356,6 +1367,7 @@ exports.test = function(global) {
           },
           {
             name: "ars-aql-range-lookup-function",
+            version: ">= 3.4.5",
             params: {
               func: arangosearchRangeLookupFunc,
               attr: "_key",
