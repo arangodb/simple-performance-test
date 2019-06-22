@@ -200,12 +200,15 @@ exports.test = function(global) {
       }
     },
 
-    toCsv = function(out) {
+    toCsv = function(out, prefix, postfix) {
+      prefix = prefix || "";
+      postfix = postfix || "";
+
       let csv = "";
 
       for (let i = 0; i < out.length; ++i) {
         let test = out[i];
-        csv += `${test.name},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel}\n`;
+        csv += `${prefix}${test.name}${postfix},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel}\n`;
       }
 
       return csv;
@@ -1849,7 +1852,7 @@ exports.test = function(global) {
         }
 
         if (global.outputCsv) {
-          csv += toCsv(arangosearchCrudTestsResult);
+          csv += toCsv(arangosearchCrudTestsResult, "ars-", "");
         }
       }
 
