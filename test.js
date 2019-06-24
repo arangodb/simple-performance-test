@@ -28,7 +28,7 @@ exports.test = function(global) {
   const serverVersion = internal.version;
 
   const supportsAnalyzers = ! semver.satisfies(serverVersion,
-    "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.2 || 3.5.0-rc.4");
+    "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
 
   let silent = true,
     testRunner = function(tests, options) {
