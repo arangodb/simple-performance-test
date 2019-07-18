@@ -65,6 +65,7 @@ exports.test = function(global) {
         buildParams = function(test, collection) {
           let params = test.params;
           params.collection = collection.name;
+          params.collectionSize = collection.size;
           return params;
         },
 
@@ -1133,6 +1134,40 @@ exports.test = function(global) {
         { silent }
       );
     },
+    arangosearchCountOnView = function(params) {
+      db._query(
+        "FOR d IN @@v COLLECT WITH COUNT INTO c RETURN c",
+        {
+          "@v": params.view
+        },
+        {},
+        { silent }
+      );
+    },
+    arangosearchCountOnViewLimited = function(params) {
+      db._query(
+        "FOR d IN @@v LIMIT @offset, @limit COLLECT WITH COUNT INTO c RETURN c",
+        {
+          "@v": params.view,
+          offset: params.offset,
+          limit: params.limit
+        },
+        {},
+        { silent }
+      );
+    },
+    arangosearchCountOnViewSearched = function(params) {
+      db._query(
+        "FOR d IN @@v  SEARCH d.@attr IN @value  COLLECT WITH COUNT INTO c RETURN c",
+        {
+          "@v": params.view,
+          attr: params.attr,
+          value: params.value
+        },
+        {},
+        { silent }
+      );
+    },
     // /////////////////////////////////////////////////////////////////////////////
     // main
     // /////////////////////////////////////////////////////////////////////////////
@@ -1477,6 +1512,26 @@ exports.test = function(global) {
           {
             name: "ars-aql-prefix-high",
             params: { func: arangosearchPrefix, attr: "value2", value: "test4" }
+          },
+          {
+            name: "ars-aql-collect-count",
+            params: {
+              func: arangosearchCountOnView
+            }
+          },
+          {
+            name: "ars-aql-collect-count-limited",
+            params: {
+              func: arangosearchCountOnViewLimited
+            }
+          },
+          {
+            name: "ars-aql-collect-count-searched",
+            params: {
+              func: arangosearchCountOnViewSearched,
+              attr: "value6",
+              value: "test333"
+            }
           }
         ],
         arangosearchPhrasesTests = [
@@ -1690,15 +1745,15 @@ exports.test = function(global) {
         };
 
         if (global.small) {
-          options.collections.push({ name: "values10000", label: "10k" });
+          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
         }
 
         if (global.medium) {
-          options.collections.push({ name: "values100000", label: "100k" });
+          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         }
 
         if (global.big) {
-          options.collections.push({ name: "values1000000", label: "1000k" });
+          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
         let documentTestsResult = testRunner(documentTests, options);
@@ -1727,15 +1782,15 @@ exports.test = function(global) {
         };
 
         if (global.small) {
-          options.collections.push({ name: "edges10000", label: "10k" });
+          options.collections.push({ name: "edges10000", label: "10k", size: 10000 });
         }
 
         if (global.medium) {
-          options.collections.push({ name: "edges100000", label: "100k" });
+          options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
         }
 
         if (global.big) {
-          options.collections.push({ name: "edges1000000", label: "1000k" });
+          options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
         }
 
         let edgeTestsResult = testRunner(edgeTests, options);
@@ -1757,6 +1812,8 @@ exports.test = function(global) {
           digits: 4,
           setup: function(params) {
             params["view"] = "v_" + params.collection;
+            params["offset"] = params.collectionSize / 10;
+            params["limit"] = params.collectionSize / 2;
           },
           teardown: function() {},
           collections: [],
@@ -1764,15 +1821,15 @@ exports.test = function(global) {
         };
 
         if (global.small) {
-          options.collections.push({ name: "values10000", label: "10k" });
+          options.collections.push({ name: "values10000", label: "10k", size: 10000});
         }
 
         if (global.medium) {
-          options.collections.push({ name: "values100000", label: "100k" });
+          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         }
 
         if (global.big) {
-          options.collections.push({ name: "values1000000", label: "1000k" });
+          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
         let arangosearchTestsResult = testRunner(arangosearchTests, options);
@@ -1803,21 +1860,24 @@ exports.test = function(global) {
         if (global.small) {
           options.collections.push({
             name: "valuesPhrases10000",
-            label: "10k"
+            label: "10k",
+            size: 10000
           });
         }
 
         if (global.medium) {
           options.collections.push({
             name: "valuesPhrases100000",
-            label: "100k"
+            label: "100k",
+            size: 100000
           });
         }
 
         if (global.big) {
           options.collections.push({
             name: "valuesPhrases10000000",
-            label: "10000k"
+            label: "10000k",
+            size: 10000000
           });
         }
 
@@ -1850,15 +1910,15 @@ exports.test = function(global) {
         };
 
         if (global.small) {
-          options.collections.push({ name: "crud10000", label: "10k" });
+          options.collections.push({ name: "crud10000", label: "10k", size: 10000 });
         }
 
         if (global.medium) {
-          options.collections.push({ name: "crud100000", label: "100k" });
+          options.collections.push({ name: "crud100000", label: "100k", size: 100000 });
         }
 
         if (global.big) {
-          options.collections.push({ name: "crud1000000", label: "1000k" });
+          options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
         }
 
         let crudTestsResult = testRunner(crudTests, options);
@@ -1881,23 +1941,24 @@ exports.test = function(global) {
           setup: function(params) {
             params["view"] = "v_" + params.collection;
           },
-          teardown: function() {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
         if (global.small) {
-          options.collections.push({ name: "crud10000", label: "10k + ARS" });
+          options.collections.push({ name: "crud10000", label: "10k + ARS", size: 10000 });
         }
 
         if (global.medium) {
-          options.collections.push({ name: "crud100000", label: "100k + ARS" });
+          options.collections.push({ name: "crud100000", label: "100k + ARS", size: 100000 });
         }
 
         if (global.big) {
           options.collections.push({
             name: "crud1000000",
-            label: "1000k + ARS"
+            label: "1000k + ARS",
+            size: 1000000
           });
         }
 
