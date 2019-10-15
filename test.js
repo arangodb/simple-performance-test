@@ -635,6 +635,68 @@ exports.test = function(global) {
       );
     },
 
+    subqueryExistsPath = function (params) {
+      const vertices = params.collection.replace("edges", "values");
+      // Test if we have a path leading back to values/test2
+      // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
+      db._query(`
+        FOR v IN @@c
+          LET hasPath = (FOR s IN INBOUND SHORTEST_PATH v TO @source @@e RETURN 1)
+          FILTER LENGTH(hasPath) > 0
+          RETURN v
+      `,
+      {
+        "@c": vertices,
+        "@e": params.collection,
+        source: `${vertices}/test2`
+      },
+      {},
+      { silent }
+      );
+    },
+
+    twoStepTraversalGroupByCollect = function (params) {
+      const vertices = params.collection.replace("edges", "values");
+      // Test if we have a path leading back to values/test2
+      // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
+      db._query(`
+        FOR v IN @@c
+          FOR main IN 1 OUTBOUND v @@e
+            FOR sub IN 1 OUTBOUND main @@e
+            COLLECT m = main INTO group
+            RETURN {main: m, subs: group.sub }
+      `,
+      {
+        "@c": vertices,
+        "@e": params.collection
+      },
+      {},
+      { silent }
+      );
+    },
+
+    twoStepTraversalGroupBySubquery = function (params) {
+      const vertices = params.collection.replace("edges", "values");
+      // Test if we have a path leading back to values/test2
+      // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
+      db._query(`
+        FOR v IN @@c
+          FOR main IN 1 OUTBOUND v @@e
+          LET subs = (
+            FOR sub IN 1 OUTBOUND main @@e
+              RETURN sub
+          )
+          RETURN {main, subs}
+      `,
+      {
+        "@c": vertices,
+        "@e": params.collection
+      },
+      {},
+      { silent }
+      );
+    },
+
     min = function(params) {
       db._query(
         "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
@@ -1431,6 +1493,18 @@ exports.test = function(global) {
           {
             name: "shortest-any",
             params: { func: shortestAny }
+          },
+          {
+            name: "subquery-exists-path",
+            params: { func: subqueryExistsPath }
+          },
+          {
+            name: "two-step-traversal-group-collect",
+            params: { func: twoStepTraversalGroupByCollect }
+          },
+          {
+            name: "two-step-traversal-group-by-subquery",
+            params: { func: twoStepTraversalGroupBySubquery }
           }
         ],
         arangosearchTests = [
