@@ -1,4 +1,4 @@
-function main () {
+function main() {
   require('./test').test({
     outputCsv: true,
     small: false,
@@ -11,4 +11,7 @@ function main () {
     crud: true,
     crudSearch: true
   });
+}
+if (!require('internal').isArangod()) {
+  main();
 }

@@ -1,4 +1,4 @@
-function main () {
+function main() {
   require('./test').test({
     outputXml: true,
     xmlDirectory: 'xml',
@@ -12,4 +12,7 @@ function main () {
     crud: true,
     crudSearch: true
   });
+}
+if (!require('internal').isArangod()) {
+  main();
 }

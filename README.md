@@ -9,6 +9,23 @@
         DATABASE_DIR \
         --javascript.script CONFIGURATION.js
 
+# Start from arangosh
+
+    arangosh \
+         -c none \
+         --javascript.startup-directory /usr/share/arangodb3/js \
+         --javascript.module-directory `pwd` \
+         --javascript.execute CONFIGURATION.js \
+         --server.endpoint tcp://127.0.0.1:8529 \
+         --server.username <user>
+         --server.password <secret>
+
+Note: You need to have an ArangoDB running on this endpoint (or change it)
+Also Note: the test will create now collections with the _system database on this endpoint.
+Also Note: if you do not use authentication you either want to set the --server.password to some
+random value or use --server.authentication false otherwise a prompt asking for the
+password will halt the execution until responded.
+
 ## Configurations
 
 - run-small-crud.js
