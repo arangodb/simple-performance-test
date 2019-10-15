@@ -280,6 +280,7 @@ exports.test = function(global) {
       }
 
       function createView(n) {
+/*
         let params = {
           name: "v_values" + n,
           collections: ["values" + n],
@@ -287,6 +288,7 @@ exports.test = function(global) {
         };
 
         createArangoSearch(params);
+*/
       }
 
       if (global.small) {
@@ -302,6 +304,7 @@ exports.test = function(global) {
       }
 
       function createEdges(n) {
+/*
         let name = "edges" + n;
         if (db._collection(name) !== null) {
           return;
@@ -327,6 +330,7 @@ exports.test = function(global) {
             }
           }
         }
+*/
       }
 
       if (global.small) {
@@ -624,14 +628,20 @@ exports.test = function(global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     subquery = function(params) {
+      let optimizer = { rules: []};
+      if (params.splice) {
+optimizer.rules.push("+splice-subqueries");
+} else {
+optimizer.rules.push("-splice-subqueries");
+}
       db._query(
         "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
         {
           "@c": params.collection,
           attr: params.attr
         },
-        {},
-        { silent }
+        {optimizer},
+        { silent, optimizer }
       );
     },
 
@@ -1174,6 +1184,7 @@ exports.test = function(global) {
 
     main = function() {
       let documentTests = [
+/*
           {
             name: "aql-isarray-const",
             params: {
@@ -1222,10 +1233,16 @@ exports.test = function(global) {
             name: "aql-collect-count-string",
             params: { func: collect, attr: "value8", count: true }
           },
+*/
           {
             name: "aql-subquery",
-            params: { func: subquery, attr: "value1" }
+            params: { func: subquery, attr: "value1", splice: false }
           },
+          {
+            name: "aql-subquery-spliced",
+            params: { func: subquery, attr: "value1", splice: true }
+          },
+/*
           {
             name: "aql-concat",
             params: { func: concat, attr: "value5" }
@@ -1394,6 +1411,7 @@ exports.test = function(global) {
             name: "aql-skip-index",
             params: { func: skipIndex, attr: "value1", limit: 10 }
           },
+*/
           {
             name: "aql-skip-docs",
             params: { func: skipDocs, attr: "value1", limit: 10 }
@@ -1404,7 +1422,7 @@ exports.test = function(global) {
             name: "traversal-outbound-1",
             params: { func: outbound, minDepth: 1, maxDepth: 1 }
           },
-          {
+          { 
             name: "traversal-outbound-5",
             params: { func: outbound, minDepth: 1, maxDepth: 5 }
           },
