@@ -16,6 +16,8 @@ exports.test = function(global) {
   global.xmlDirectory = global.xmlDirectory || ".";
 
   global.outputCsv = global.outputCsv || false;
+  
+  const numberOfShards = global.numberOfShards || 9;
 
   const internal = require("internal");
   const AsciiTable = require("ascii-table");
@@ -244,7 +246,7 @@ exports.test = function(global) {
         }
         db._drop(name);
         internal.print("creating collection " + name);
-        let c = db._create(name),
+        let c = db._create(name, {numberOfShards}),
           g = n / 100;
 
         for (let i = 0; i < n; ++i) {
@@ -308,7 +310,7 @@ exports.test = function(global) {
         }
         db._drop(name);
         internal.print("creating collection " + name);
-        let c = db._createEdgeCollection(name),
+        let c = db._createEdgeCollection(name, {numberOfShards}),
           j = 0,
           k = 50,
           l = 0;
@@ -363,7 +365,7 @@ exports.test = function(global) {
         db._drop(name);
 
         internal.print("creating collection " + name);
-        let c = db._create(name),
+        let c = db._create(name, {numberOfShards}),
           // Short list. Phrases appear frequently
           phrasesHigh = ["Quick ", "Brown ", "Slow ", "Fast "],
           highPhraseCounter = 0,
@@ -448,7 +450,7 @@ exports.test = function(global) {
 
     create = function(params) {
       let name = params.collection;
-      db._create(name);
+      db._create(name, {numberOfShards});
       let view = params.view;
       if (view !== undefined) {
         let viewParams = {
