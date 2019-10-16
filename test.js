@@ -535,12 +535,13 @@ exports.test = function (global) {
 
     outbound = function (params) {
       db._query(
-        "WITH @@v FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
+        "WITH @@v FOR i IN 1 .. @loops FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
         {
           "@c": params.collection,
           "@v": params.collection.replace("edges", "values"),
           minDepth: params.minDepth,
           maxDepth: params.maxDepth,
+          loops: params.loops || 1
           start: params.collection.replace(/edges/, "values") + "/test1"
         },
         {},
@@ -1466,7 +1467,7 @@ exports.test = function (global) {
         edgeTests = [
           {
             name: "traversal-outbound-1",
-            params: { func: outbound, minDepth: 1, maxDepth: 1 }
+            params: { func: outbound, minDepth: 1, maxDepth: 1, loops: 1000 }
           },
           {
             name: "traversal-outbound-5",
