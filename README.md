@@ -1,5 +1,7 @@
 # How to start
 
+## Directly running in a Single Server
+
     arangod \
         -c none \
         --javascript.app-path /tmp/app \
@@ -9,7 +11,9 @@
         DATABASE_DIR \
         --javascript.script CONFIGURATION.js
 
-# Start from arangosh
+## Start from arangosh
+
+If you want to run against a running instance, use
 
     arangosh \
          -c none \
