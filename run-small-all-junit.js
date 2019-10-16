@@ -1,7 +1,7 @@
-function main() {
-  require('./test').test({
+function main () {
+  require("./test").test({
     outputXml: true,
-    xmlDirectory: 'xml',
+    xmlDirectory: "xml",
 
     small: true,
 
@@ -13,6 +13,6 @@ function main() {
     crudSearch: true
   });
 }
-if (!require('internal').isArangod()) {
+if (!require("internal").isArangod()) {
   main();
 }

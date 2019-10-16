@@ -1,6 +1,6 @@
-function main() {
-  require('./test').test({small: true, documents: true});
+function main () {
+  require("./test").test({small: true, documents: true});
 }
-if (!require('internal').isArangod()) {
+if (!require("internal").isArangod()) {
   main();
 }
