@@ -541,7 +541,7 @@ exports.test = function (global) {
           "@v": params.collection.replace("edges", "values"),
           minDepth: params.minDepth,
           maxDepth: params.maxDepth,
-          loops: params.loops || 1
+          loops: params.loops || 1,
           start: params.collection.replace(/edges/, "values") + "/test1"
         },
         {},
