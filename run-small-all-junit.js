@@ -13,6 +13,6 @@ function main () {
     crudSearch: true
   });
 }
-if (!require("internal").isArangod()) {
+if (typeof arango !== undefined) {
   main();
 }
