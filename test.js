@@ -11,6 +11,7 @@ exports.test = function (global) {
   global.phrase = global.phrase || false;
   global.crud = global.crud || false;
   global.crudSearch = global.crudSearch || false;
+  global.subqueryTests = global.subqueryTests || false;
 
   global.outputXml = global.outputXml || false;
   global.xmlDirectory = global.xmlDirectory || ".";
@@ -1233,6 +1234,29 @@ exports.test = function (global) {
         { silent }
       );
     },
+
+    // /////////////////////////////////////////////////////////////////////////////
+    // subqueryTests
+    // /////////////////////////////////////////////////////////////////////////////
+    subquerySplicing = function (params) {
+      let optimizer = { rules: [] };
+      if (params.splice) {
+        optimizer.rules.push("+splice-subqueries");
+      } else {
+        optimizer.rules.push("-splice-subqueries");
+      }
+
+      db._query(
+        "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
+        {
+          "@c": params.collection,
+          attr: params.attr
+        },
+        { optimizer },
+        { silent, optimizer }
+      );
+    },
+
     // /////////////////////////////////////////////////////////////////////////////
     // main
     // /////////////////////////////////////////////////////////////////////////////
@@ -1801,7 +1825,17 @@ exports.test = function (global) {
               teardown: drop
             }
           }
-        ];
+        ],
+        subqueryTests = [
+          {
+            name: "aql-subquery-no-splicing",
+            params: { func: subquerySplicing, attr: "value1", splice: false }
+          },
+          {
+            name: "aql-subquery-yes-splicing",
+            params: { func: subquerySplicing, attr: "value1", splice: true }
+          },
+	];
 
       initialize(); // initializes values colletion
       let output = "",
@@ -2049,6 +2083,46 @@ exports.test = function (global) {
 
         if (global.outputCsv) {
           csv += toCsv(arangosearchCrudTestsResult, "ars-", "");
+        }
+      }
+
+      if (global.subqueryTests) {
+        options = {
+          runs: 5,
+          digits: 4,
+          setup: function (params) {
+            db._collection(params.collection).load();
+	  },
+	  teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+
+        if (global.small) {
+          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
+          options.collections.push({ name: "edges10000", label: "10k", size: 10000 });
+        }
+
+        if (global.medium) {
+          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+          options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
+        }
+
+        if (global.big) {
+          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+          options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
+        }
+
+        let subqueryTestsResult = testRunner(subqueryTests, options);
+        output +=
+          toString("Subquery Performance", subqueryTestsResult) + "\n\n";
+
+        if (global.outputXml) {
+          toJUnit(subqueryTestsResult);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(subqueryTestsResult);
         }
       }
 
