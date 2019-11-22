@@ -1238,24 +1238,55 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
     // subqueryTests
     // /////////////////////////////////////////////////////////////////////////////
-    subquerySplicing = function (params) {
-      let optimizer = { rules: [] };
-      if (params.splice) {
-        optimizer.rules.push("+splice-subqueries");
-      } else {
-        optimizer.rules.push("-splice-subqueries");
-      }
 
-      db._query(
-        "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
+    // currently unused, useful for validation
+    subquerySplicingValidation = function (params) {
+      let spliceoptimizer = { rules: ["+splice-subqueries"] };
+      let spliced = db._query(
+        params.queryString,
         {
           "@c": params.collection,
           attr: params.attr
         },
-        { optimizer },
-        { silent, optimizer }
+        { optimizer: spliceoptimizer }
+      );
+      let nonspliceoptimizer = { rules: ["-splice-subqueries"] };
+      let nonspliced = db._query(
+        params.queryString,
+        {
+          "@c": params.collection,
+          attr: params.attr
+        },
+        { optimizer: nonspliceoptimizer }
+      );
+      let splicedarray = spliced.toArray();
+      let nonsplicedarray = nonspliced.toArray();
+      if (splicedarray.length != nonsplicedarray.length) {
+	print(spliced);
+	print(nonspliced);
+        throw "Results don't match";
+      }
+      if (JSON.stringify(splicedarray.sort()) != JSON.stringify(nonsplicedarray.sort())) {
+	print(spliced);
+	print(nonspliced);
+	throw "Results do not match";
+      }
+    },
+    genericSubquerySplicing = function (params) {
+      let myOptimizer = { rules: [] };
+      if (params.splice) {
+        myOptimizer.rules.push("+splice-subqueries");
+      } else {
+        myOptimizer.rules.push("-splice-subqueries");
+      }
+      let result = db._query(
+        params.queryString,
+	      { "@c": params.collection,
+	        attr: params.attr }, 
+        { optimizer: myOptimizer }
       );
     },
+
 
     // /////////////////////////////////////////////////////////////////////////////
     // main
@@ -1827,14 +1858,35 @@ exports.test = function (global) {
           }
         ],
         subqueryTests = [
+/*          {
+            name: "aql-subquery-splicing-compare",
+            params: { func: subquerySplicingValidation, attr: "value1" }
+          }, */
           {
-            name: "aql-subquery-no-splicing",
-            params: { func: subquerySplicing, attr: "value1", splice: false }
-          },
+            name: "aql-subquery-yes-splicing-1",
+            params: { func: genericSubquerySplicing,
+                      queryString: "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
+		      attr: "value1", splice: true }
+	  },
           {
-            name: "aql-subquery-yes-splicing",
-            params: { func: subquerySplicing, attr: "value1", splice: true }
-          },
+            name: "aql-subquery-no-splicing-1",
+            params: { func: genericSubquerySplicing,
+                      queryString: "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
+		      attr: "value1", splice: false }
+	  },
+          {
+            name: "aql-subquery-yes-splicing-2",
+            params: { func: genericSubquerySplicing,
+		      queryString: "FOR c IN @@c LET sub = (FOR s IN 1..5 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
+		      attr: "value1", splice: true }
+	  },
+          {
+            name: "aql-subquery-no-splicing-2",
+            params: { func: genericSubquerySplicing,
+		      queryString: "FOR c IN @@c LET sub = (FOR s IN 1..5 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
+		      attr: "value1", splice: false }
+	  },
+
 	];
 
       initialize(); // initializes values colletion
@@ -2100,17 +2152,14 @@ exports.test = function (global) {
 
         if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-          options.collections.push({ name: "edges10000", label: "10k", size: 10000 });
         }
 
         if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-          options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
         }
 
         if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
-          options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
         }
 
         let subqueryTestsResult = testRunner(subqueryTests, options);
