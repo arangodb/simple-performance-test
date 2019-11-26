@@ -9,7 +9,8 @@ function main () {
     search: true,
     phrase: true,
     crud: true,
-    crudSearch: true
+    crudSearch: true,
+    subqueryTests: true
   });
 }
 if (typeof arango !== undefined) {
