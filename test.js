@@ -11,6 +11,7 @@ exports.test = function (global) {
   global.phrase = global.phrase || false;
   global.crud = global.crud || false;
   global.crudSearch = global.crudSearch || false;
+  global.subqueryTests = global.subqueryTests || false;
 
   global.outputXml = global.outputXml || false;
   global.xmlDirectory = global.xmlDirectory || ".";
@@ -23,6 +24,7 @@ exports.test = function (global) {
   const AsciiTable = require("ascii-table");
   const fs = require("fs");
   const semver = require("semver");
+  const _ = require("lodash");
 
   const db = require("org/arangodb").db;
   const time = internal.time;
@@ -1233,6 +1235,66 @@ exports.test = function (global) {
         { silent }
       );
     },
+
+    // /////////////////////////////////////////////////////////////////////////////
+    // subqueryTests
+    // /////////////////////////////////////////////////////////////////////////////
+
+    // currently unused, useful for validation
+    subquerySplicingValidation = function (params) {
+      let spliceoptimizer = { rules: ["+splice-subqueries"] };
+      let spliced = db._query(
+        params.queryString,
+        {
+          "@c": params.collection,
+          attr: params.attr
+        },
+        { optimizer: spliceoptimizer }
+      );
+      let nonspliceoptimizer = { rules: ["-splice-subqueries"] };
+      let nonspliced = db._query(
+        params.queryString,
+        {
+          "@c": params.collection,
+          attr: params.attr
+        },
+        { optimizer: nonspliceoptimizer }
+      );
+      let splicedarray = spliced.toArray();
+      let nonsplicedarray = nonspliced.toArray();
+      if (splicedarray.length != nonsplicedarray.length) {
+	print(spliced);
+	print(nonspliced);
+        throw "Results don't match";
+      }
+      if (JSON.stringify(splicedarray.sort()) != JSON.stringify(nonsplicedarray.sort())) {
+	print(spliced);
+	print(nonspliced);
+	throw "Results do not match";
+      }
+    },
+    genericSubquerySplicing = function (params) {
+      let myOptimizer = { rules: [] };
+      let bindParam = { "@c": params.collection };
+      if ('bindParamModifier' in params) {
+        params.bindParamModifier(params, bindParam);
+      }
+      if (params.edgesRequired == true) {
+        bindParam["@e"] = bindParam["@c"].replace("values", "edges");
+      }
+      if (params.splice) {
+        myOptimizer.rules.push("+splice-subqueries");
+      } else {
+        myOptimizer.rules.push("-splice-subqueries");
+      }
+      let result = db._query(
+        params.queryString,
+          bindParam,
+        { optimizer: myOptimizer }
+      );
+    },
+
+
     // /////////////////////////////////////////////////////////////////////////////
     // main
     // /////////////////////////////////////////////////////////////////////////////
@@ -1801,7 +1863,125 @@ exports.test = function (global) {
               teardown: drop
             }
           }
-        ];
+        ],
+        subqueryTests = [
+/*          {
+            name: "aql-subquery-splicing-compare",
+            params: { func: subquerySplicingValidation, attr: "value1" }
+          }, */
+          {
+            name: "aql-subquery-1",
+            params: { func: genericSubquerySplicing,
+                      queryString: "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
+		              bindParamModifier: function(param, bindParam) {
+                          bindParam.attr = "value1";
+                      }
+                    }
+	      },
+          {
+            name: "aql-subquery-2",
+            params: { func: genericSubquerySplicing,
+		      queryString: "FOR c IN @@c LET sub = (FOR s IN 1..5 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
+              bindParamModifier: function(param, bindParam) {
+                bindParam.attr = "value1";
+              }
+            }
+	      },
+          {
+            name: "aql-subquery-min",
+            params: { func: genericSubquerySplicing,
+                      queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
+                      bindParamModifier: function(param, bindParam) {
+                          bindParam.attr = "value1";
+                      }
+                    }
+          },
+          {
+           name: "aql-subquery-min-no-index",
+           params: { func: genericSubquerySplicing,
+                     queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
+                     bindParamModifier: function(param, bindParam) {
+                     bindParam.attr = "value6";
+                   }
+                 }
+          },
+          {
+            name: "aql-subquery-max",
+            params: { func: genericSubquerySplicing,
+                      queryString: "RETURN MAX(FOR c IN @@c RETURN c.@attr)",
+                      bindParamModifier: function(param, bindParam) {
+                        bindParam.attr = "value1";
+                      }
+                    }
+          },
+          {
+            name: "aql-subquery-shortest-path",
+            params: { func: genericSubquerySplicing,
+                      queryString: `
+                         FOR v IN @@c
+                           LET hasPath = (FOR s IN INBOUND SHORTEST_PATH v TO @source @@e RETURN 1)
+                           FILTER LENGTH(hasPath) > 0
+                         RETURN v
+                      `,
+                      edgesRequired: true,
+                      bindParamModifier: function(param, bindParam) {
+                        bindParam.source = `${param.collection}/test2`;
+                      }
+                    }
+          },
+          {
+              name: "aql-subquery-traversal",
+              params: { func: genericSubquerySplicing,
+                        queryString: `
+                         FOR v IN @@c
+                           FOR main IN 1 OUTBOUND v @@e
+                           LET subs = (
+                             FOR sub IN 1 OUTBOUND main @@e
+                               RETURN sub
+                           )
+                         RETURN {main, subs}
+                      `,
+                        attr: "value1",
+                        edgesRequired: true,
+                        bindParamModifier: function(param, bindParam) { delete bindParam.attr; }
+                      }
+          },
+          {
+             name: "aql-multi-subqueries-some-no-index",
+             params: { func: genericSubquerySplicing,
+                        queryString: `FOR c IN @@c
+                                         LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
+                                         LET sub2 = (FOR s IN @@c FILTER s.@attr2 == c.@attr RETURN s)
+                                         LET sub3 = (FOR s IN @@c FILTER s.@attr3 == c.@attr RETURN s)
+                                         LET sub4 = (FOR s IN @@c FILTER s.@attr4 == c.@attr RETURN s)
+                                         LET sub5 = (FOR s IN @@c FILTER s.@attr5 == c.@attr RETURN s)
+                                      RETURN LENGTH(sub1) + LENGTH(sub2) + LENGTH(sub3) + LENGTH(sub4) + LENGTH(sub5)
+                        `,
+                        bindParamModifier: function(param, bindParam) {
+                            bindParam.attr = "value1";
+                            bindParam.attr2 = "value2";
+                            bindParam.attr3 = "value3";
+                            bindParam.attr4 = "value4";
+                            bindParam.attr5 = "value5";
+                        }
+             }
+	      },
+          {
+             name: "aql-multi-subqueries",
+             params: { func: genericSubquerySplicing,
+                        queryString: `FOR c IN @@c
+                                         LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
+                                         LET sub2 = (FOR s IN @@c FILTER s.@attr2 == c.@attr RETURN s)
+                                      RETURN LENGTH(sub1) + LENGTH(sub2)
+                        `,
+                        bindParamModifier: function(param, bindParam) {
+                            bindParam.attr = "value1";
+                            bindParam.attr2 = "value2";
+                        }
+             }
+	      },
+
+    ];
 
       initialize(); // initializes values colletion
       let output = "",
@@ -2049,6 +2229,59 @@ exports.test = function (global) {
 
         if (global.outputCsv) {
           csv += toCsv(arangosearchCrudTestsResult, "ars-", "");
+        }
+      }
+
+      if (global.subqueryTests) {
+        options = {
+          runs: 5,
+          digits: 4,
+          setup: function (params) {
+            db._collection(params.collection).load();
+            if (params.edgesRequired == true) {
+              db._collection(params.collection.replace("vertices", "edges")).load();
+            }
+	      },
+	      teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+
+        if (global.small) {
+          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
+        }
+
+        if (global.medium) {
+          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+        }
+
+        if (global.big) {
+          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        }
+
+        /* We run each test case with splicing enabled and with splicing disabled */
+        var subqueryTestsCases = [];
+        subqueryTests.forEach( function(item, index) {
+            var noSplicingCase = _.cloneDeep(item);
+            noSplicingCase.name = noSplicingCase.name + "-no-splicing";
+            noSplicingCase.params.splice = false;
+            subqueryTestsCases.push(noSplicingCase);
+            var yesSplicingCase = _.cloneDeep(item);
+            yesSplicingCase.name = yesSplicingCase.name + "-yes-splicing";
+            yesSplicingCase.params.splice = true;
+            subqueryTestsCases.push(yesSplicingCase);
+        });
+
+        let subqueryTestsResult = testRunner(subqueryTestsCases, options);
+        output +=
+          toString("Subquery Performance", subqueryTestsResult) + "\n\n";
+
+        if (global.outputXml) {
+          toJUnit(subqueryTestsResult);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(subqueryTestsResult);
         }
       }
 
