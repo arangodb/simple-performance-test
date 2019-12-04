@@ -1263,14 +1263,14 @@ exports.test = function (global) {
       let splicedarray = spliced.toArray();
       let nonsplicedarray = nonspliced.toArray();
       if (splicedarray.length != nonsplicedarray.length) {
-	print(spliced);
-	print(nonspliced);
+        print(spliced);
+        print(nonspliced);
         throw "Results don't match";
       }
       if (JSON.stringify(splicedarray.sort()) != JSON.stringify(nonsplicedarray.sort())) {
-	print(spliced);
-	print(nonspliced);
-	throw "Results do not match";
+        print(spliced);
+        print(nonspliced);
+        throw "Results do not match";
       }
     },
     genericSubquerySplicing = function (params) {
@@ -1873,20 +1873,20 @@ exports.test = function (global) {
             name: "aql-subquery-1",
             params: { func: genericSubquerySplicing,
                       queryString: "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
-		              bindParamModifier: function(param, bindParam) {
+                          bindParamModifier: function(param, bindParam) {
                           bindParam.attr = "value1";
                       }
                     }
-	      },
+          },
           {
             name: "aql-subquery-2",
             params: { func: genericSubquerySplicing,
-		      queryString: "FOR c IN @@c LET sub = (FOR s IN 1..5 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
+              queryString: "FOR c IN @@c LET sub = (FOR s IN 1..5 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
               bindParamModifier: function(param, bindParam) {
                 bindParam.attr = "value1";
               }
             }
-	      },
+          },
           {
             name: "aql-subquery-min",
             params: { func: genericSubquerySplicing,
@@ -1965,7 +1965,7 @@ exports.test = function (global) {
                             bindParam.attr5 = "value5";
                         }
              }
-	      },
+        },
           {
              name: "aql-multi-subqueries",
              params: { func: genericSubquerySplicing,
@@ -1979,7 +1979,7 @@ exports.test = function (global) {
                             bindParam.attr2 = "value2";
                         }
              }
-	      },
+        },
 
     ];
 
@@ -2241,8 +2241,8 @@ exports.test = function (global) {
             if (params.edgesRequired == true) {
               db._collection(params.collection.replace("vertices", "edges")).load();
             }
-	      },
-	      teardown: function () {},
+        },
+        teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
