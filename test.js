@@ -1946,6 +1946,10 @@ exports.test = function (global) {
                         bindParamModifier: function(param, bindParam) { delete bindParam.attr; }
                       }
           },
+          /* 
+           * This test is disabled, because it takes far too long for a simple
+           * performance test. This is because some of the involved attributes
+           * are not indexed.
           {
              name: "aql-multi-subqueries-some-no-index",
              params: { func: genericSubquerySplicing,
@@ -1965,7 +1969,7 @@ exports.test = function (global) {
                             bindParam.attr5 = "value5";
                         }
              }
-	      },
+	  }, */
           {
              name: "aql-multi-subqueries",
              params: { func: genericSubquerySplicing,
