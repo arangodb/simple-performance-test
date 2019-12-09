@@ -1,3 +1,6 @@
+/*jshint globalstrict:false, strict:false */
+/*global print */
+
 /* 1 for one shard, 1 or 9 for regular cluster */
 let numberOfShards = 1;
 
@@ -16,7 +19,7 @@ const batchSize = 5000;
 const db = require("@arangodb").db;
 const internal = require("internal");
 const time = internal.time;
-const print = internal.print;
+// const print = internal.print; // already declared
 
 require("@arangodb/aql/queries").properties({ slowQueryThreshold: 999999999999 });
 
@@ -202,10 +205,13 @@ Object.keys(queries).forEach(function(name) {
 let testsCases = [
   {
     "name" : "insert",
-    "params" : { func : function(c) {
-    for (let i = 0; i < scale / 100; ++i) {
-      c.insert({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
-    }}
+    "params" : { func :
+      function(c) {
+        for (let i = 0; i < scale / 100; ++i) {
+          c.insert({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
+        }
+      }
+    } //params
   },
   {
     "name" : "insert-batch",
@@ -218,26 +224,25 @@ let testsCases = [
           docs = [];
         }
       }
-    },
+    }}
   },
   {
     "name" : "insert-aql",
     "params" : { func : function(c) {
       db._query(`FOR i IN 0..${scale - 1} INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO ` + c.name());
-    },
+    }}
   },
   {
     "name" : "update-aql-indexed",
     "params" : { func : function(c) {
-    "update-aql-indexed": function(c) {
       db._query(`FOR o IN orders FILTER o.product == 'product235' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
-    },
+    }}
   },
   {
     "name" : "update-aql-noindex",
     "params" : { func : function(c) {
       db._query(`FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00' FILTER o.dt < '2019-11-02' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
-    },
+    }}
   },
 ];
 
@@ -260,6 +265,6 @@ let runOneshardTest = function(name, cb) {
 };
 
 
-Object.keys(tests).forEach(function(t) {
-  test(t.name, tests.parms.func);
+Object.keys(testsCases).forEach(function(t) {
+  runOneshardTest(t.name, t.parms.func);
 });
