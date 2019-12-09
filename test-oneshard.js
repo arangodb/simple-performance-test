@@ -1,4 +1,3 @@
-function main() {
 /* 1 for one shard, 1 or 9 for regular cluster */
 let numberOfShards = 1;
 
@@ -13,24 +12,6 @@ let replicationFactor = 3;
 let numExecutions = 3;
 
 const batchSize = 5000;
-
-let queries = {
-  "filter-active": `FOR u IN users FILTER u.active == true RETURN u.name`,
-  "filter-category": `FOR p IN products FILTER p.category IN ['category1', 'category10', 'category12', 'category42'] SORT p.name RETURN p`,
-  "product-orders": `FOR p IN products FILTER p._key == 'product9854' FOR o IN orders FILTER o.product == p._key RETURN { p, o }`,
-  "category-orders-date": `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' RETURN { p, o }`,
-  "category-orders-user-date": `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' FOR u IN users FILTER o.user == u._key RETURN { p, o, u }`,
-  "orders-by-category": `FOR o IN orders FILTER o.canceled == false FILTER o.dt >= '2019-11-01T00:00:00' FOR p IN products FILTER o.product == p._key COLLECT category = p.category WITH COUNT INTO count RETURN { category, count }`,
-  "orders-by-user": `FOR o IN orders FOR u IN users FILTER o.user == u._key FILTER o.dt >= '2019-11-01T00:00:00' FILTER u.active == false COLLECT user = u._key AGGREGATE total = SUM(o.amount) SORT null RETURN { user, total }`,
-  "traverse-4": `WITH users FOR v, e IN 0..4 OUTBOUND 'users/user1' usersGraph RETURN { v, e }`,
-  "traverse-inactive": `WITH users FOR u IN users FILTER u.active == false FOR v, e IN 1..2 OUTBOUND u._id usersGraph RETURN v`,
-  "traverse-single-user": `WITH users, products FOR u IN users FILTER u._key == 'user5994' FOR v, e IN 1..1 OUTBOUND u._id ordersGraph RETURN v.description`,
-  "shortest-path": `WITH users FOR u IN users FILTER u.active == false LET p = (FOR v IN OUTBOUND SHORTEST_PATH u._id TO 'users/user83' usersGraph RETURN v) FILTER LENGTH(p) > 0 LIMIT 50 RETURN { u, p }`,
-  "subqueries": `FOR u IN users FILTER u.active == false LET count = (FOR o IN orders FILTER o.user == u._key COLLECT WITH COUNT INTO count RETURN count)[0] COLLECT AGGREGATE sum = SUM(count) RETURN sum`,
-  "orders-by-year": `FOR o IN orders FILTER o.canceled == false COLLECT year = SUBSTRING(o.dt, 0, 4) AGGREGATE amount = SUM(o.amount) RETURN { year, amount }`,
-  "orders-user": `FOR o IN ordersGraph FILTER o._from == 'users/user1' RETURN o._to`,
-  "search": `FOR doc IN search SEARCH ANALYZER(STARTS_WITH(doc.description, 'testmann1234'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann2345'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann3333'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann412'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann509'), 'text_en') SORT BM25(doc) RETURN doc`,
-};
 
 const db = require("@arangodb").db;
 const internal = require("internal");
@@ -161,6 +142,44 @@ v.properties({
 /* make sure view is populated */
 db._query("FOR doc IN search SEARCH doc.category == 'category1' OPTIONS { waitForSync: true } RETURN 1", null, { silent: true });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+let queries = {
+  "filter-active": `FOR u IN users FILTER u.active == true RETURN u.name`,
+  "filter-category": `FOR p IN products FILTER p.category IN ['category1', 'category10', 'category12', 'category42'] SORT p.name RETURN p`,
+  "product-orders": `FOR p IN products FILTER p._key == 'product9854' FOR o IN orders FILTER o.product == p._key RETURN { p, o }`,
+  "category-orders-date": `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' RETURN { p, o }`,
+  "category-orders-user-date": `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' FOR u IN users FILTER o.user == u._key RETURN { p, o, u }`,
+  "orders-by-category": `FOR o IN orders FILTER o.canceled == false FILTER o.dt >= '2019-11-01T00:00:00' FOR p IN products FILTER o.product == p._key COLLECT category = p.category WITH COUNT INTO count RETURN { category, count }`,
+  "orders-by-user": `FOR o IN orders FOR u IN users FILTER o.user == u._key FILTER o.dt >= '2019-11-01T00:00:00' FILTER u.active == false COLLECT user = u._key AGGREGATE total = SUM(o.amount) SORT null RETURN { user, total }`,
+  "traverse-4": `WITH users FOR v, e IN 0..4 OUTBOUND 'users/user1' usersGraph RETURN { v, e }`,
+  "traverse-inactive": `WITH users FOR u IN users FILTER u.active == false FOR v, e IN 1..2 OUTBOUND u._id usersGraph RETURN v`,
+  "traverse-single-user": `WITH users, products FOR u IN users FILTER u._key == 'user5994' FOR v, e IN 1..1 OUTBOUND u._id ordersGraph RETURN v.description`,
+  "shortest-path": `WITH users FOR u IN users FILTER u.active == false LET p = (FOR v IN OUTBOUND SHORTEST_PATH u._id TO 'users/user83' usersGraph RETURN v) FILTER LENGTH(p) > 0 LIMIT 50 RETURN { u, p }`,
+  "subqueries": `FOR u IN users FILTER u.active == false LET count = (FOR o IN orders FILTER o.user == u._key COLLECT WITH COUNT INTO count RETURN count)[0] COLLECT AGGREGATE sum = SUM(count) RETURN sum`,
+  "orders-by-year": `FOR o IN orders FILTER o.canceled == false COLLECT year = SUBSTRING(o.dt, 0, 4) AGGREGATE amount = SUM(o.amount) RETURN { year, amount }`,
+  "orders-user": `FOR o IN ordersGraph FILTER o._from == 'users/user1' RETURN o._to`,
+  "search": `FOR doc IN search SEARCH ANALYZER(STARTS_WITH(doc.description, 'testmann1234'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann2345'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann3333'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann412'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann509'), 'text_en') SORT BM25(doc) RETURN doc`,
+};
+
+
+
+
 Object.keys(queries).forEach(function(name) {
   let q = queries[name];
   db._query(q); /* warmup */
@@ -177,34 +196,53 @@ Object.keys(queries).forEach(function(name) {
   print(Array(12 - value.length).join(" ") + value + " s   " + name);
 });
 
-let tests = {
-  "insert": function(c) {
+
+
+
+let testsCases = [
+  {
+    "name" : "insert",
+    "params" : { func : function(c) {
     for (let i = 0; i < scale / 100; ++i) {
       c.insert({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
-    }
+    }}
   },
-  "insert-batch": function(c) {
-    let docs = [];
-    for (let i = 0; i < scale; ++i) {
-      docs.push({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
-      if (docs.length === batchSize) {
-        c.insert(docs);
-        docs = [];
+  {
+    "name" : "insert-batch",
+    "params" : { func : function(c) {
+      let docs = [];
+      for (let i = 0; i < scale; ++i) {
+        docs.push({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
+        if (docs.length === batchSize) {
+          c.insert(docs);
+          docs = [];
+        }
       }
-    }
+    },
   },
-  "insert-aql": function(c) {
-    db._query(`FOR i IN 0..${scale - 1} INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO ` + c.name());
+  {
+    "name" : "insert-aql",
+    "params" : { func : function(c) {
+      db._query(`FOR i IN 0..${scale - 1} INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO ` + c.name());
+    },
   },
-  "update-aql-indexed": function(c) {
-    db._query(`FOR o IN orders FILTER o.product == 'product235' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
+  {
+    "name" : "update-aql-indexed",
+    "params" : { func : function(c) {
+    "update-aql-indexed": function(c) {
+      db._query(`FOR o IN orders FILTER o.product == 'product235' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
+    },
   },
-  "update-aql-noindex": function(c) {
-    db._query(`FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00' FILTER o.dt < '2019-11-02' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
+  {
+    "name" : "update-aql-noindex",
+    "params" : { func : function(c) {
+      db._query(`FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00' FILTER o.dt < '2019-11-02' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
+    },
   },
-};
+];
 
-let test = function(name, cb) {
+
+let runOneshardTest = function(name, cb) {
   let value = 0;
   for (let i = 0; i < numExecutions; ++i) {
     db._drop("testmann");
@@ -221,12 +259,7 @@ let test = function(name, cb) {
   print(Array(12 - value.length).join(" ") + value + " s   " + name);
 };
 
+
 Object.keys(tests).forEach(function(t) {
-  test(t, tests[t]);
+  test(t.name, tests.parms.func);
 });
-
-} //main
-
-if (typeof arango !== undefined) {
-  main();
-}

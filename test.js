@@ -2290,9 +2290,10 @@ exports.test = function (global) {
         }
       }
 
+      // OneShard Feature /////////////////////////////////////////////////////
       if (global.oneshardTests) {
         options = {
-          runs: 5,
+          runs: 3,
           digits: 4,
           setup: function (params) {
             db._collection(params.collection).load();
@@ -2306,33 +2307,24 @@ exports.test = function (global) {
         };
 
         if (global.small) {
-          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
+          //options.collections.push({ name: "values10000", label: "10k", size: 10000 });
         }
 
         if (global.medium) {
-          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+          //options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         }
 
         if (global.big) {
-          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+          //options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
         /* We run each test case with splicing enabled and with splicing disabled */
-        var oneshardTestsCases = [];
-        oneshardTests.forEach( function(item, index) {
-            var noSplicingCase = _.cloneDeep(item);
-            noSplicingCase.name = noSplicingCase.name + "-no-splicing";
-            noSplicingCase.params.splice = false;
-            oneshardTestsCases.push(noSplicingCase);
-            var yesSplicingCase = _.cloneDeep(item);
-            yesSplicingCase.name = yesSplicingCase.name + "-yes-splicing";
-            yesSplicingCase.params.splice = true;
-            oneshardTestsCases.push(yesSplicingCase);
-        });
+        const oneshard = require("test-oneshard.js")
+        var oneshardTestsCases = oneshard.testCases;
 
-        let oneshardTestsResult = testRunner(subqueryTestsCases, options);
+        let oneshardTestsResult = testRunner(oneshardTestsCases, options);
         output +=
-          toString("Subquery Performance", oneshardTestsResult) + "\n\n";
+          toString("OneShard Performance", oneshardTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(oneshardTestsResult);
@@ -2342,6 +2334,7 @@ exports.test = function (global) {
           csv += toCsv(oneshardTestsResult);
         }
       }
+      // OneShard Feature - End ///////////////////////////////////////////////
 
       print("\n" + output + "\n");
 
