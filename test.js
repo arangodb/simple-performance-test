@@ -2296,35 +2296,42 @@ exports.test = function (global) {
 
     // OneShard Feature /////////////////////////////////////////////////////
     if (global.oneshardTests) {
+      const oneshard = require("test-oneshard.js");
+
       options = {
         runs: 3,
         digits: 4,
         setup: function (params) {
-          db._collection(params.collection).load();
-          if (params.edgesRequired === true) {
-            db._collection(params.collection.replace("vertices", "edges")).load();
-          }
-      },
-      teardown: function () {},
+          print("test setup");
+          print(params);
+        },
+        teardown: function () {},
         collections: [],
         removeFromResult: 1
       };
 
-      if (global.small) {
-        //options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-      }
+      oneshard.setup();
 
-      if (global.medium) {
-        //options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-      }
+      //if (global.small) {
+      //  //options.collections.push({ name: "values10000", label: "10k", size: 10000 });
+      //}
 
-      if (global.big) {
-        //options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
-      }
+      //if (global.medium) {
+      //  //options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+      //}
 
-      /* We run each test case with splicing enabled and with splicing disabled */
-      const oneshard = require("test-oneshard.js");
-      var oneshardTestsCases = oneshard.testCases;
+      //if (global.big) {
+      //  //options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+      //}
+
+      ///* We run each test case with splicing enabled and with splicing disabled */
+      //var oneshardTestsCases = [] ;
+
+      print("running test runner:")
+      print("oneshardTestsCases:")
+      print(oneshard.testsCases1)
+      print("options: ")
+      print(options)
 
       let oneshardTestsResult = testRunner(oneshardTestsCases, options);
       output +=
