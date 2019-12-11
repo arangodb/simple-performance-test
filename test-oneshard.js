@@ -19,8 +19,10 @@ const internal = require("internal");
 const time = internal.time;
 // const print = internal.print; // already declared
 
-const tearDown = (_) => {
-  print("global teardown oneshard");
+const tearDown = (show_topic = true) => {
+  if (show_topic) {
+    print("global teardown oneshard");
+  }
 
   print("dropping search");
   db._dropView("search");
@@ -39,9 +41,9 @@ const setup = (options) => {
   let replicationFactor = options.replicationFactor;
   require("@arangodb/aql/queries").properties({ slowQueryThreshold: 999999999999 });
 
-  tearDown();
+  tearDown(false);
 
-  print("global setup oneshardi - scale: " + scale);
+  print("global setup oneshard - scale: " + scale);
   print("create users");
   let docs = [];
   db._create("users", { numberOfShards, replicationFactor: 1 });

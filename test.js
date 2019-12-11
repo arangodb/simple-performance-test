@@ -2313,7 +2313,6 @@ exports.test = function (global) {
         replicationFactor : 3
       };
 
-      oneshard.setup(options.scale);
 
       if (global.small) {
         options.scale = 10;
@@ -2328,6 +2327,10 @@ exports.test = function (global) {
       if (global.big) {
         options.scale = 100 * 1000;
         options.runs = 8;
+      }
+
+      if(runTestCases1 || runTestCases2) {
+        oneshard.setup(options);
       }
 
       if(runTestCases1) {
