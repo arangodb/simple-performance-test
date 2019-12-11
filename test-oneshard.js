@@ -1,23 +1,10 @@
 /*jshint globalstrict:false, strict:false */
 /*global print */
 
-
-/* 1 for one shard, 1 or 9 for regular cluster */
-
-/* 1000 * 1000: creates 1M users, 10M products, 100M orders */
-/*  100 * 1000: creates 100k users, 1M products, 10M orders */
-
-/* replication factor used for write operations */
-
-/* number of executions for each test */
-let numExecutions = 3;
-
 const batchSize = 5000;
-
 const db = require("@arangodb").db;
 const internal = require("internal");
 const time = internal.time;
-// const print = internal.print; // already declared
 
 const tearDown = (show_topic = true) => {
   if (show_topic) {
@@ -39,11 +26,12 @@ const setup = (options) => {
   let scale = options.scale;
   let numberOfShards = options.numberOfShards;
   let replicationFactor = options.replicationFactor;
-  require("@arangodb/aql/queries").properties({ slowQueryThreshold: 999999999999 });
+  print("global setup oneshard - scale: " + scale);
 
+  require("@arangodb/aql/queries").properties({ slowQueryThreshold: 999999999999 });
   tearDown(false);
 
-  print("global setup oneshard - scale: " + scale);
+
   print("create users");
   let docs = [];
   db._create("users", { numberOfShards, replicationFactor: 1 });
@@ -59,7 +47,6 @@ const setup = (options) => {
       docs = [];
     }
   }
-
 
 
   print("create usersGraph");
@@ -82,7 +69,6 @@ const setup = (options) => {
   }
 
 
-
   print("create products");
   docs = [];
   db._create("products", { numberOfShards, replicationFactor: 1 });
@@ -100,7 +86,6 @@ const setup = (options) => {
     }
   }
   db.products.ensureIndex({ type: "hash", fields: ["category"] });
-
 
 
   print("create orders");
@@ -159,7 +144,6 @@ const setup = (options) => {
   db.orders.ensureIndex({ type: "hash", fields: ["product", "dt"] });
 
 
-
   print("create view");
   docs = [];
   db._createView("search", "arangosearch", {});
@@ -184,110 +168,98 @@ let testCases1 = [
   {
     "name" : "filter-active",
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR u IN users FILTER u.active == true RETURN u.name`,
     }
   },
   {
     "name" : "filter-category", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR p IN products FILTER p.category IN ['category1', 'category10', 'category12', 'category42'] SORT p.name RETURN p`,
     }
   },
   {
     "name" : "product-orders", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR p IN products FILTER p._key == 'product9854' FOR o IN orders FILTER o.product == p._key RETURN { p, o }`,
     }
   },
   {
     "name" : "category-orders-date", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' RETURN { p, o }`,
     }
   },
   {
     "name" : "category-orders-user-date", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' FOR u IN users FILTER o.user == u._key RETURN { p, o, u }`,
     }
   },
   {
     "name" : "orders-by-category", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR o IN orders FILTER o.canceled == false FILTER o.dt >= '2019-11-01T00:00:00' FOR p IN products FILTER o.product == p._key COLLECT category = p.category WITH COUNT INTO count RETURN { category, count }`,
     }
   },
   {
     "name" : "orders-by-user", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR o IN orders FOR u IN users FILTER o.user == u._key FILTER o.dt >= '2019-11-01T00:00:00' FILTER u.active == false COLLECT user = u._key AGGREGATE total = SUM(o.amount) SORT null RETURN { user, total }`,
     }
   },
   {
     "name" : "traverse-4", 
     "params" : {
-      "func" : testFunction1,
       "query" : `WITH users FOR v, e IN 0..4 OUTBOUND 'users/user1' usersGraph RETURN { v, e }`,
     }
   },
   {
     "name" : "traverse-inactive", 
     "params" : {
-      "func" : testFunction1,
       "query" : `WITH users FOR u IN users FILTER u.active == false FOR v, e IN 1..2 OUTBOUND u._id usersGraph RETURN v`,
     }
   },
   {
     "name" : "traverse-single-user", 
     "params" : {
-      "func" : testFunction1,
       "query" : `WITH users, products FOR u IN users FILTER u._key == 'user5994' FOR v, e IN 1..1 OUTBOUND u._id ordersGraph RETURN v.description`,
     }
   },
   {
     "name" : "shortest-path", 
     "params" : {
-      "func" : testFunction1,
       "query" : `WITH users FOR u IN users FILTER u.active == false LET p = (FOR v IN OUTBOUND SHORTEST_PATH u._id TO 'users/user83' usersGraph RETURN v) FILTER LENGTH(p) > 0 LIMIT 50 RETURN { u, p }`,
     }
   },
   {
     "name" : "subqueries", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR u IN users FILTER u.active == false LET count = (FOR o IN orders FILTER o.user == u._key COLLECT WITH COUNT INTO count RETURN count)[0] COLLECT AGGREGATE sum = SUM(count) RETURN sum`,
     }
   },
   {
     "name" : "orders-by-year", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR o IN orders FILTER o.canceled == false COLLECT year = SUBSTRING(o.dt, 0, 4) AGGREGATE amount = SUM(o.amount) RETURN { year, amount }`,
     }
   },
   {
     "name" : "orders-user", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR o IN ordersGraph FILTER o._from == 'users/user1' RETURN o._to`,
     }
   },
   {
     "name" : "search", 
     "params" : {
-      "func" : testFunction1,
       "query" : `FOR doc IN search SEARCH ANALYZER(STARTS_WITH(doc.description, 'testmann1234'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann2345'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann3333'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann412'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann509'), 'text_en') SORT BM25(doc) RETURN doc`,
     }
   }
 ];
 
+testCases1.forEach((desc) => {
+  desc.params.func = testFunction1;
+})
 
 let testCases2 = [
   {
