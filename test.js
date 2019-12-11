@@ -2327,13 +2327,13 @@ exports.test = function (global) {
       ///* We run each test case with splicing enabled and with splicing disabled */
       //var oneshardTestsCases = [] ;
 
-      print("running test runner:")
-      print("oneshardTestsCases:")
-      print(oneshard.testsCases1)
-      print("options: ")
-      print(options)
+      print("running test runner:");
+      print("oneshardTestsCases:");
+      print(oneshard.testsCases1);
+      print("options: ");
+      print(options);
 
-      let oneshardTestsResult = testRunner(oneshardTestsCases, options);
+      let oneshardTestsResult = testRunner(oneshard.testsCases1, options);
       output +=
         toString("OneShard Performance", oneshardTestsResult) + "\n\n";
 

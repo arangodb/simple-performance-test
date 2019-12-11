@@ -26,7 +26,7 @@ const time = internal.time;
 const setup = () => {
   require("@arangodb/aql/queries").properties({ slowQueryThreshold: 999999999999 });
 
-  print("drop databases")
+  print("drop databases");
   db._dropView("search");
   db._drop("users");
   db._drop("usersGraph");
@@ -36,7 +36,7 @@ const setup = () => {
 
 
 
-  print("create users")
+  print("create users");
   let docs = [];
   db._create("users", { numberOfShards, replicationFactor: 1 });
   for (let i = 0; i < 1 * scale; ++i) {
@@ -54,7 +54,7 @@ const setup = () => {
 
 
 
-  print("create usersGraph")
+  print("create usersGraph");
   docs = [];
   db._createEdgeCollection("usersGraph", { numberOfShards, replicationFactor: 1 });
   let f = { from: 0, to: 0, base: db.users.count() };
@@ -75,7 +75,7 @@ const setup = () => {
 
 
 
-  print("create products")
+  print("create products");
   docs = [];
   db._create("products", { numberOfShards, replicationFactor: 1 });
   for (let i = 0; i < 10 * scale; ++i) {
@@ -95,7 +95,7 @@ const setup = () => {
 
 
 
-  print("create orders")
+  print("create orders");
   docs = [];
   db._create("orders", { numberOfShards, replicationFactor: 1 });
 
@@ -122,7 +122,7 @@ const setup = () => {
     }
   }
 
-  print("create ordersGraph")
+  print("create ordersGraph");
 
   db._createEdgeCollection("ordersGraph", { numberOfShards, replicationFactor: 1 });
   u = { current: 0, base: db.users.count() };
@@ -152,7 +152,7 @@ const setup = () => {
 
 
 
-  print("create view")
+  print("create view");
   docs = [];
   db._createView("search", "arangosearch", {});
   let v = db._view("search");
@@ -166,8 +166,8 @@ const setup = () => {
   /* make sure view is populated */
   db._query("FOR doc IN search SEARCH doc.category == 'category1' OPTIONS { waitForSync: true } RETURN 1", null, { silent: true });
 
-  print("setup done")
-} // setup - end
+  print("setup done");
+}; // setup - end
 
 
 let testFunction1 = (params) => { db._query(params.query, null, {silent: true}); };
@@ -299,7 +299,7 @@ let testCases1 = [
 
 
 
-let testsCases2 = [
+let testCases2 = [
   {
     "name" : "insert",
     "params" : {
