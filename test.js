@@ -1951,7 +1951,7 @@ exports.test = function (global) {
                       bindParamModifier: function(param, bindParam) { delete bindParam.attr; }
                     }
         },
-        /* 
+        /*
          * This test is disabled, because it takes far too long for a simple
          * performance test. This is because some of the involved attributes
          * are not indexed.
@@ -2365,6 +2365,8 @@ exports.test = function (global) {
           csv += toCsv(oneshardTestsResult2);
         }
       }
+
+      oneshard.tearDown(options.scale);
 
     }
     // OneShard Feature - End ///////////////////////////////////////////////

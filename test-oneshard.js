@@ -20,7 +20,7 @@ const time = internal.time;
 // const print = internal.print; // already declared
 
 const tearDown = (_) => {
-  print("drop databases");
+  print("global teardown oneshard");
 
   print("dropping search");
   db._dropView("search");
@@ -41,6 +41,7 @@ const setup = (options) => {
 
   tearDown();
 
+  print("global setup oneshard");
   print("create users");
   let docs = [];
   db._create("users", { numberOfShards, replicationFactor: 1 });
