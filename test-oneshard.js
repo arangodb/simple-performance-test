@@ -31,7 +31,7 @@ const tearDown = (_) => {
      db._drop(name);
     }
   );
-}
+};
 
 const setup = (options) => {
   let scale = options.scale;
@@ -306,7 +306,7 @@ let testCases2 = [
         let docs = [];
         let c = db._collection("testmann");
         for (let i = 0; i < params.scale; ++i) {
-          docs.push({ _key: "testmann" + i, value2: i, value2: "testmann" + i });
+          docs.push({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
           if (docs.length === batchSize) {
             c.insert(docs);
             docs = [];

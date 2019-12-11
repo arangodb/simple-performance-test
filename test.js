@@ -81,8 +81,8 @@ exports.test = function (global) {
 
     let measure = function (test, collection, options) {
       let timedExecution = function (test, collection) {
-          let params = buildParams(test, collection, options)
-            start = time();
+          let params = buildParams(test, collection);
+          const start = time();
           if (typeof params.setupEachCall === "function") {
             params.setupEachCall(params);
           }
@@ -108,7 +108,6 @@ exports.test = function (global) {
 
         if (i === 0) {
           print("- warmup");
-          timedExecution(test, collection);
           timedExecution(test, collection);
         } else {
           print("- run " + i);
@@ -2299,25 +2298,39 @@ exports.test = function (global) {
     if (global.oneshardTests) {
       const oneshard = require("test-oneshard.js");
 
-      options = {
+      const runTestCases1 = true;
+      const runTestCases2 = true;
+
+      let options = {
         runs: 3,
         digits: 4,
         setup: function (params) {},
         teardown: function () {},
         collections: [ "fakeCollectionOneShard" ],
         removeFromResult: 1,
-        scale : 10,
+        scale : 100 * 1000,
         numberOfShards : 1,
         replicationFactor : 3
       };
 
       oneshard.setup(options.scale);
 
-      //if (global.small) {
-      //  //options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-      //}
+      if (global.small) {
+        options.scale = 10;
+        options.runs = 6;
+      }
 
-      if(false) {
+      if (global.medium) {
+        options.scale = 100 * 1000;
+        options.runs = 4;
+      }
+
+      if (global.big) {
+        options.scale = 100 * 1000;
+        options.runs = 8;
+      }
+
+      if(runTestCases1) {
         let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
         output += toString("OneShard Performance Tests1", oneshardTestsResult1) + "\n\n";
 
@@ -2330,19 +2343,16 @@ exports.test = function (global) {
         }
       }
 
-      if(true) {
+      if(runTestCases2) {
         options.setup = (params) => {
-          print("test setup2");
-          print(params)
           db._drop("testmann");
           db._create("testmann", { numberOfShards : options.numberOfShards,
                                    replicationFactor : options.replicationFactor });
-          print("testmann created");
-        }
+        };
 
         options.teardown = (params) => {
           db._drop("testmann");
-        }
+        };
 
         let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
         output += toString("OneShard Performance Tests2", oneshardTestsResult2) + "\n\n";
