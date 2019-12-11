@@ -3,14 +3,11 @@
 
 
 /* 1 for one shard, 1 or 9 for regular cluster */
-let numberOfShards = 1;
 
 /* 1000 * 1000: creates 1M users, 10M products, 100M orders */
 /*  100 * 1000: creates 100k users, 1M products, 10M orders */
-let scale = 100 * 1000;
 
 /* replication factor used for write operations */
-let replicationFactor = 3;
 
 /* number of executions for each test */
 let numExecutions = 3;
@@ -22,19 +19,27 @@ const internal = require("internal");
 const time = internal.time;
 // const print = internal.print; // already declared
 
+const tearDown = (_) => {
+  print("drop databases");
 
-const setup = () => {
+  print("dropping search");
+  db._dropView("search");
+
+  [ "users", "usersGraph", "products", "orders", "ordersGraph" ].forEach(
+    (name) => {
+      print("dropping" + name);
+     db._drop(name);
+    }
+  );
+}
+
+const setup = (options) => {
+  let scale = options.scale;
+  let numberOfShards = options.numberOfShards;
+  let replicationFactor = options.replicationFactor;
   require("@arangodb/aql/queries").properties({ slowQueryThreshold: 999999999999 });
 
-  print("drop databases");
-  db._dropView("search");
-  db._drop("users");
-  db._drop("usersGraph");
-  db._drop("products");
-  db._drop("orders");
-  db._drop("ordersGraph");
-
-
+  tearDown();
 
   print("create users");
   let docs = [];
@@ -281,31 +286,14 @@ let testCases1 = [
 ];
 
 
-//  Object.keys(queries).forEach(function(name) {
-//    let q = queries[name];
-//    db._query(q); /* warmup */
-//
-//    require("internal").wait(1, true); /* gc */
-//
-//    let s = time();
-//    for (let i = 0; i < numExecutions; ++i) {
-//      db._query(q, null, {silent: true});
-//    }
-//    s = (time() - s) / numExecutions;
-//
-//    let value = s.toFixed(4);
-//    print(Array(12 - value.length).join(" ") + value + " s   " + name);
-//  });
-
-
-
 let testCases2 = [
   {
     "name" : "insert",
     "params" : {
       func :
-      function(c) {
-        for (let i = 0; i < scale / 100; ++i) {
+      function(params) {
+        let c = db._collection("testmann");
+        for (let i = 0; i < params.scale / 100; ++i) {
           c.insert({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
         }
       }
@@ -314,10 +302,11 @@ let testCases2 = [
   {
     "name" : "insert-batch",
     "params" : { 
-      func : (c) => {
+      func : (params) => {
         let docs = [];
-        for (let i = 0; i < scale; ++i) {
-          docs.push({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
+        let c = db._collection("testmann");
+        for (let i = 0; i < params.scale; ++i) {
+          docs.push({ _key: "testmann" + i, value2: i, value2: "testmann" + i });
           if (docs.length === batchSize) {
             c.insert(docs);
             docs = [];
@@ -329,8 +318,8 @@ let testCases2 = [
   {
     "name" : "insert-aql",
     "params" : {
-      func : function(c) {
-        db._query(`FOR i IN 0..${scale - 1} INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO ` + c.name());
+      func : function(params) {
+        db._query(`FOR i IN 0..${params.scale - 1} INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO testmann`);
       }
     } // params
   },
@@ -353,28 +342,7 @@ let testCases2 = [
 ];
 
 
-//  let runOneshardTest = function(name, cb) {
-//    let value = 0;
-//    for (let i = 0; i < numExecutions; ++i) {
-//      db._drop("testmann");
-//      let c = db._create("testmann", { numberOfShards, replicationFactor });
-//
-//      internal.wait(1, true);
-//
-//      let s = time();
-//      cb(c);
-//      value += time() - s;
-//    }
-//    value /= numExecutions;
-//    value = value.toFixed(4);
-//    print(Array(12 - value.length).join(" ") + value + " s   " + name);
-//  };
-//
-//
-//  Object.keys(testsCases).forEach(function(t) {
-//    runOneshardTest(t.name, t.parms.func);
-//  });
-
 module.exports.setup = setup;
+module.exports.tearDown = tearDown;
 module.exports.testCases1 = testCases1;
 module.exports.testCases2 = testCases2;

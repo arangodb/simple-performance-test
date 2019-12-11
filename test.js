@@ -1,5 +1,5 @@
 exports.test = function (global) {
-  "use strict";
+
 
   global.small = global.small || false;
   global.medium = global.medium || false;
@@ -75,12 +75,13 @@ exports.test = function (global) {
       let params = test.params;
       params.collection = collection.name;
       params.collectionSize = collection.size;
+      params.scale = options.scale;
       return params;
     };
 
     let measure = function (test, collection, options) {
       let timedExecution = function (test, collection) {
-          let params = buildParams(test, collection),
+          let params = buildParams(test, collection, options)
             start = time();
           if (typeof params.setupEachCall === "function") {
             params.setupEachCall(params);
@@ -2301,49 +2302,60 @@ exports.test = function (global) {
       options = {
         runs: 3,
         digits: 4,
-        setup: function (params) {
-          print("test setup");
-          print(params);
-        },
+        setup: function (params) {},
         teardown: function () {},
-        collections: [],
-        removeFromResult: 1
+        collections: [ "fakeCollectionOneShard" ],
+        removeFromResult: 1,
+        scale : 10,
+        numberOfShards : 1,
+        replicationFactor : 3
       };
 
-      oneshard.setup();
+      oneshard.setup(options.scale);
 
       //if (global.small) {
       //  //options.collections.push({ name: "values10000", label: "10k", size: 10000 });
       //}
 
-      //if (global.medium) {
-      //  //options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-      //}
+      if(false) {
+        let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
+        output += toString("OneShard Performance Tests1", oneshardTestsResult1) + "\n\n";
 
-      //if (global.big) {
-      //  //options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
-      //}
+        if (global.outputXml) {
+          toJUnit(oneshardTestsResult1);
+        }
 
-      ///* We run each test case with splicing enabled and with splicing disabled */
-      //var oneshardTestsCases = [] ;
-
-      print("running test runner:");
-      print("oneshardTestsCases:");
-      print(oneshard.testsCases1);
-      print("options: ");
-      print(options);
-
-      let oneshardTestsResult = testRunner(oneshard.testsCases1, options);
-      output +=
-        toString("OneShard Performance", oneshardTestsResult) + "\n\n";
-
-      if (global.outputXml) {
-        toJUnit(oneshardTestsResult);
+        if (global.outputCsv) {
+          csv += toCsv(oneshardTestsResult1);
+        }
       }
 
-      if (global.outputCsv) {
-        csv += toCsv(oneshardTestsResult);
+      if(true) {
+        options.setup = (params) => {
+          print("test setup2");
+          print(params)
+          db._drop("testmann");
+          db._create("testmann", { numberOfShards : options.numberOfShards,
+                                   replicationFactor : options.replicationFactor });
+          print("testmann created");
+        }
+
+        options.teardown = (params) => {
+          db._drop("testmann");
+        }
+
+        let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
+        output += toString("OneShard Performance Tests2", oneshardTestsResult2) + "\n\n";
+
+        if (global.outputXml) {
+          toJUnit(oneshardTestsResult2);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(oneshardTestsResult2);
+        }
       }
+
     }
     // OneShard Feature - End ///////////////////////////////////////////////
 
