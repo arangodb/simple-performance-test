@@ -259,7 +259,7 @@ let testCases1 = [
 
 testCases1.forEach((desc) => {
   desc.params.func = testFunction1;
-})
+});
 
 let testCases2 = [
   {
