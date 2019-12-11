@@ -2369,7 +2369,7 @@ exports.test = function (global) {
         }
       }
 
-      oneshard.tearDwn(options.scale);
+      oneshard.tearDown();
 
     }
     // OneShard Feature - End ///////////////////////////////////////////////
