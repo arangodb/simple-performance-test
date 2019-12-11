@@ -2366,7 +2366,7 @@ exports.test = function (global) {
         }
       }
 
-      oneshard.tearDown(options.scale);
+      oneshard.tearDwn(options.scale);
 
     }
     // OneShard Feature - End ///////////////////////////////////////////////

@@ -41,7 +41,7 @@ const setup = (options) => {
 
   tearDown();
 
-  print("global setup oneshard");
+  print("global setup oneshardi - scale: " + scale);
   print("create users");
   let docs = [];
   db._create("users", { numberOfShards, replicationFactor: 1 });
