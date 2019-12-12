@@ -1,5 +1,5 @@
 exports.test = function (global) {
-
+  "use strict";
 
   global.small = global.small || false;
   global.medium = global.medium || false;
