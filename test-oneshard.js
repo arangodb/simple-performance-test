@@ -258,6 +258,7 @@ let testCases1 = [
                 `,
     }
   },
+/* // needs 500 seconds to run - disabling for now
   {
     "name" : "shortest-path",
     "params" : {
@@ -271,6 +272,7 @@ let testCases1 = [
                 `,
     }
   },
+*/
   {
     "name" : "subqueries",
     "params" : {
