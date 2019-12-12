@@ -168,91 +168,151 @@ let testCases1 = [
   {
     "name" : "filter-active",
     "params" : {
-      "query" : `FOR u IN users FILTER u.active == true RETURN u.name`,
+      "query" : `FOR u IN users FILTER u.active == true
+                   RETURN u.name
+                `,
     }
   },
   {
     "name" : "filter-category",
     "params" : {
-      "query" : `FOR p IN products FILTER p.category IN ['category1', 'category10', 'category12', 'category42'] SORT p.name RETURN p`,
+      "query" : `FOR p IN products FILTER p.category IN ['category1', 'category10', 'category12', 'category42'] SORT p.name
+                   RETURN p
+                `,
     }
   },
   {
     "name" : "product-orders",
     "params" : {
-      "query" : `FOR p IN products FILTER p._key == 'product9854' FOR o IN orders FILTER o.product == p._key RETURN { p, o }`,
+      "query" : `FOR p IN products FILTER p._key == 'product9854'
+                   FOR o IN orders FILTER o.product == p._key
+                     RETURN { p, o }
+                `,
     }
   },
   {
     "name" : "category-orders-date",
     "params" : {
-      "query" : `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' RETURN { p, o }`,
+      "query" : `FOR p IN products FILTER p.category == 'category23'
+                   FOR o IN orders FILTER o.product == p._key
+                                   FILTER o.dt >= '2019-11-01T00:00:00'
+                     RETURN { p, o }
+                `,
     }
   },
   {
     "name" : "category-orders-user-date",
     "params" : {
-      "query" : `FOR p IN products FILTER p.category == 'category23' FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00' FOR u IN users FILTER o.user == u._key RETURN { p, o, u }`,
+      "query" : `FOR p IN products FILTER p.category == 'category23'
+                   FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00'
+                     FOR u IN users FILTER o.user == u._key
+                       RETURN { p, o, u }
+                `,
     }
   },
   {
     "name" : "orders-by-category",
     "params" : {
-      "query" : `FOR o IN orders FILTER o.canceled == false FILTER o.dt >= '2019-11-01T00:00:00' FOR p IN products FILTER o.product == p._key COLLECT category = p.category WITH COUNT INTO count RETURN { category, count }`,
+      "query" : `FOR o IN orders FILTER o.canceled == false
+                                 FILTER o.dt >= '2019-11-01T00:00:00'
+                   FOR p IN products FILTER o.product == p._key
+                     COLLECT category = p.category WITH COUNT INTO count
+                     RETURN { category, count }
+                `,
     }
   },
   {
     "name" : "orders-by-user",
     "params" : {
-      "query" : `FOR o IN orders FOR u IN users FILTER o.user == u._key FILTER o.dt >= '2019-11-01T00:00:00' FILTER u.active == false COLLECT user = u._key AGGREGATE total = SUM(o.amount) SORT null RETURN { user, total }`,
+      "query" : `FOR o IN orders FOR u IN users FILTER o.user == u._key
+                                                FILTER o.dt >= '2019-11-01T00:00:00'
+                                                FILTER u.active == false
+                   COLLECT user = u._key AGGREGATE total = SUM(o.amount) SORT null
+                   RETURN { user, total }
+                `,
     }
   },
   {
     "name" : "traverse-4",
     "params" : {
-      "query" : `WITH users FOR v, e IN 0..4 OUTBOUND 'users/user1' usersGraph RETURN { v, e }`,
+      "query" : `WITH users FOR v, e IN 0..4 OUTBOUND 'users/user1' usersGraph
+                   RETURN { v, e }
+                `,
     }
   },
   {
     "name" : "traverse-inactive",
     "params" : {
-      "query" : `WITH users FOR u IN users FILTER u.active == false FOR v, e IN 1..2 OUTBOUND u._id usersGraph RETURN v`,
+      "query" : `WITH users FOR u IN users FILTER u.active == false
+                 FOR v, e IN 1..2 OUTBOUND u._id usersGraph
+                   RETURN v
+                `,
     }
   },
   {
     "name" : "traverse-single-user",
     "params" : {
-      "query" : `WITH users, products FOR u IN users FILTER u._key == 'user5994' FOR v, e IN 1..1 OUTBOUND u._id ordersGraph RETURN v.description`,
+      "query" : `WITH users, products FOR u IN users FILTER u._key == 'user5994'
+                 FOR v, e IN 1..1 OUTBOUND u._id ordersGraph
+                   RETURN v.description
+                `,
     }
   },
   {
     "name" : "shortest-path",
     "params" : {
-      "query" : `WITH users FOR u IN users FILTER u.active == false LET p = (FOR v IN OUTBOUND SHORTEST_PATH u._id TO 'users/user83' usersGraph RETURN v) FILTER LENGTH(p) > 0 LIMIT 50 RETURN { u, p }`,
+      "query" : `WITH users FOR u IN users FILTER u.active == false
+                   LET p = (
+                     FOR v IN OUTBOUND SHORTEST_PATH u._id TO 'users/user83' usersGraph
+                       RETURN v
+                   )
+                   FILTER LENGTH(p) > 0 LIMIT 50
+                     RETURN { u, p }
+                `,
     }
   },
   {
     "name" : "subqueries",
     "params" : {
-      "query" : `FOR u IN users FILTER u.active == false LET count = (FOR o IN orders FILTER o.user == u._key COLLECT WITH COUNT INTO count RETURN count)[0] COLLECT AGGREGATE sum = SUM(count) RETURN sum`,
+      "query" : `FOR u IN users FILTER u.active == false
+                   LET count = (
+                     FOR o IN orders FILTER o.user == u._key
+                       COLLECT WITH COUNT INTO count
+                       RETURN count
+                   )[0]
+                   COLLECT AGGREGATE sum = SUM(count)
+                   RETURN sum
+                `,
     }
   },
   {
     "name" : "orders-by-year",
     "params" : {
-      "query" : `FOR o IN orders FILTER o.canceled == false COLLECT year = SUBSTRING(o.dt, 0, 4) AGGREGATE amount = SUM(o.amount) RETURN { year, amount }`,
+      "query" : `FOR o IN orders FILTER o.canceled == false COLLECT year = SUBSTRING(o.dt, 0, 4)
+                   AGGREGATE amount = SUM(o.amount)
+                   RETURN { year, amount }
+                `,
     }
   },
   {
     "name" : "orders-user",
     "params" : {
-      "query" : `FOR o IN ordersGraph FILTER o._from == 'users/user1' RETURN o._to`,
+      "query" : `FOR o IN ordersGraph FILTER o._from == 'users/user1'
+                   RETURN o._to
+                `,
     }
   },
   {
     "name" : "search",
     "params" : {
-      "query" : `FOR doc IN search SEARCH ANALYZER(STARTS_WITH(doc.description, 'testmann1234'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann2345'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann3333'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann412'), 'text_en') || ANALYZER(STARTS_WITH(doc.description, 'testmann509'), 'text_en') SORT BM25(doc) RETURN doc`,
+      "query" : `FOR doc IN search SEARCH ANALYZER(STARTS_WITH(doc.description, 'testmann1234'), 'text_en') ||
+                                          ANALYZER(STARTS_WITH(doc.description, 'testmann2345'), 'text_en') ||
+                                          ANALYZER(STARTS_WITH(doc.description, 'testmann3333'), 'text_en') ||
+                                          ANALYZER(STARTS_WITH(doc.description, 'testmann412'), 'text_en') ||
+                                          ANALYZER(STARTS_WITH(doc.description, 'testmann509'), 'text_en')
+                                          SORT BM25(doc)
+                 RETURN doc
+                `,
     }
   }
 ];
@@ -294,7 +354,9 @@ let testCases2 = [
     "name" : "insert-aql",
     "params" : {
       func : function(params) {
-        db._query(`FOR i IN 0..${params.scale - 1} INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO testmann`);
+        db._query(`FOR i IN 0..${params.scale - 1}
+                     INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO testmann
+                  `);
       }
     } // params
   },
@@ -302,7 +364,10 @@ let testCases2 = [
     "name" : "update-aql-indexed",
     "params" : {
       func : function(c) {
-        db._query(`FOR o IN orders FILTER o.product == 'product235' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
+        db._query(`FOR o IN orders FILTER o.product == 'product235'
+                                   FILTER o.canceled == true
+                     UPDATE o WITH { fulfilled: false } IN orders
+                  `);
       }
     } // params
   },
@@ -310,7 +375,11 @@ let testCases2 = [
     "name" : "update-aql-noindex",
     "params" : {
       func : function(c) {
-        db._query(`FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00' FILTER o.dt < '2019-11-02' FILTER o.canceled == true UPDATE o WITH { fulfilled: false } IN orders`);
+        db._query(`FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00'
+                                   FILTER o.dt < '2019-11-02'
+                                   FILTER o.canceled == true
+                     UPDATE o WITH { fulfilled: false } IN orders
+                  `);
       }
     } // params
   },
