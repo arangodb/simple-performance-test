@@ -2296,6 +2296,13 @@ exports.test = function (global) {
 
     // OneShard Feature /////////////////////////////////////////////////////
     if (global.oneshardTests) {
+      let numberOfShards = 1;
+      let checkForOneShardRule = true;
+      if(global.numberOfShards) {
+        numberOfShards = global.numberOfShards;
+        checkForOneShardRule = false;
+      }
+
       const oneshard = require("test-oneshard.js");
 
       const runTestCases1 = true;
@@ -2309,8 +2316,9 @@ exports.test = function (global) {
         collections: [ "fakeCollectionOneShard" ],
         removeFromResult: 1,
         scale : 100 * 1000,
-        numberOfShards : 1,
-        replicationFactor : 3
+        "numberOfShards" : numberOfShards,
+        replicationFactor : 1,
+        checkForOneShardRule: checkForOneShardRule,
       };
 
 
