@@ -2321,6 +2321,14 @@ exports.test = function (global) {
         checkForOneShardRule: checkForOneShardRule,
       };
 
+      let testPrefix = "OneShard - ";
+      if (options.numberOfShards == 1) {
+        testPrefix += "Single Shard - "
+      } else {
+        testPrefix += "Multi Shard (for comparison) - "
+      }
+
+
 
       if (global.small) {
         options.scale = 10;
@@ -2343,7 +2351,7 @@ exports.test = function (global) {
 
       if(runTestCases1) {
         let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
-        output += toString("OneShard Performance Tests1", oneshardTestsResult1) + "\n\n";
+        output += toString(testPrefix + "Mixed Queries", oneshardTestsResult1) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(oneshardTestsResult1);
@@ -2366,7 +2374,7 @@ exports.test = function (global) {
         };
 
         let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
-        output += toString("OneShard Performance Tests2", oneshardTestsResult2) + "\n\n";
+        output += toString(testPrefix + "CRUD operations", oneshardTestsResult2) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(oneshardTestsResult2);

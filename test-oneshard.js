@@ -162,7 +162,10 @@ const setup = (options) => {
 }; // setup - end
 
 
-let testFunction1 = (params) => { db._query(params.query, null, {silent: true}); };
+let testFunction1 = (params) => {
+    //db._explain(params.query, null, {silent: true});
+    db._query(params.query, null, {silent: true});
+};
 
 let testCases1 = [
   {
