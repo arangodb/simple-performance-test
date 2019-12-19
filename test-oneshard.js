@@ -34,7 +34,7 @@ const setup = (options) => {
 
   print("create users");
   let docs = [];
-  db._create("users", { numberOfShards, replicationFactor: 1 });
+  db._create("users", { numberOfShards, replicationFactor });
   for (let i = 0; i < 1 * scale; ++i) {
     docs.push({
       _key: "user" + i,
@@ -51,7 +51,7 @@ const setup = (options) => {
 
   print("create usersGraph");
   docs = [];
-  db._createEdgeCollection("usersGraph", { numberOfShards, replicationFactor: 1 });
+  db._createEdgeCollection("usersGraph", { numberOfShards, replicationFactor });
   let f = { from: 0, to: 0, base: db.users.count() };
 
   for (let i = 0; i < 10 * scale; ++i) {
@@ -71,7 +71,7 @@ const setup = (options) => {
 
   print("create products");
   docs = [];
-  db._create("products", { numberOfShards, replicationFactor: 1 });
+  db._create("products", { numberOfShards, replicationFactor });
   for (let i = 0; i < 10 * scale; ++i) {
     docs.push({
       _key: "product" + i,
@@ -90,7 +90,7 @@ const setup = (options) => {
 
   print("create orders");
   docs = [];
-  db._create("orders", { numberOfShards, replicationFactor: 1 });
+  db._create("orders", { numberOfShards, replicationFactor });
 
   let u = { current: 0, base: db.users.count() };
   let p = { current: 0, base: db.products.count() };
@@ -117,7 +117,7 @@ const setup = (options) => {
 
   print("create ordersGraph");
 
-  db._createEdgeCollection("ordersGraph", { numberOfShards, replicationFactor: 1 });
+  db._createEdgeCollection("ordersGraph", { numberOfShards, replicationFactor });
   u = { current: 0, base: db.users.count() };
   p = { current: 0, base: db.products.count() };
   dt = 1572965645450;

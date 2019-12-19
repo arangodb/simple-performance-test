@@ -2325,7 +2325,7 @@ exports.test = function (global) {
         removeFromResult: 1,
         scale : 100 * 1000,
         "numberOfShards" : numberOfShards,
-        replicationFactor : 1,
+        replicationFactor : 2,
         checkForOneShardRule: checkForOneShardRule,
       };
 
