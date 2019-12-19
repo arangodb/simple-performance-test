@@ -108,8 +108,10 @@ exports.test = function (global) {
 
         if (i === 0) {
           print("- warmup");
+          test.params.inWarmup = true;
           timedExecution(test, collection);
         } else {
+          test.params.inWarmup = false;
           print("- run " + i);
           let duration = timedExecution(test, collection);
           print("- took: " + duration + " s");
@@ -245,7 +247,11 @@ exports.test = function (global) {
     db._createView(params.name, "arangosearch", meta);
   }
 
-  let initialize = function () {
+  let initialize = function (skip) {
+    if (skip === true) {
+      return;
+    }
+
     function createDocuments (n) {
       let name = "values" + n;
       if (db._collection(name) !== null) {
@@ -1992,7 +1998,9 @@ exports.test = function (global) {
 
   ];
 
-    initialize(); // initializes values colletion
+    let skipInit = global.oneshardTests;
+    initialize(skipInit); // initializes values colletion
+
     let output = "",
       csv = "",
       options;

@@ -161,9 +161,17 @@ const setup = (options) => {
   print("setup done");
 }; // setup - end
 
+let checkForOneShardRule = (inWarmup, query) => {
+  if (inWarmup) {
+    let plan = db._explain(query, null, {silent: true});
+    //if(! plan.match(/.*cluster-one-shard.*/)) {
+    //  throw "broken";
+    //}
+  }
+}
 
 let testFunction1 = (params) => {
-    //db._explain(params.query, null, {silent: true});
+    checkForOneShardRule(params.inWarmup, params.query)
     db._query(params.query, null, {silent: true});
 };
 
@@ -359,32 +367,38 @@ let testCases2 = [
     "name" : "insert-aql",
     "params" : {
       func : function(params) {
-        db._query(`FOR i IN 0..${params.scale - 1}
-                     INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO testmann
-                  `);
+        query = `FOR i IN 0..${params.scale - 1}
+                   INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO testmann
+                `;
+        checkForOneShardRule(params.inWarmup, query)
+        db._query(query);
       }
     } // params
   },
   {
     "name" : "update-aql-indexed",
     "params" : {
-      func : function(c) {
-        db._query(`FOR o IN orders FILTER o.product == 'product235'
-                                   FILTER o.canceled == true
-                     UPDATE o WITH { fulfilled: false } IN orders
-                  `);
+      func : function(params) {
+        query = `FOR o IN orders FILTER o.product == 'product235'
+                                 FILTER o.canceled == true
+                   UPDATE o WITH { fulfilled: false } IN orders
+                `;
+        checkForOneShardRule(params.inWarmup, query)
+        db._query(query);
       }
     } // params
   },
   {
     "name" : "update-aql-noindex",
     "params" : {
-      func : function(c) {
-        db._query(`FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00'
-                                   FILTER o.dt < '2019-11-02'
-                                   FILTER o.canceled == true
-                     UPDATE o WITH { fulfilled: false } IN orders
-                  `);
+      func : function(params) {
+        query = `FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00'
+                                 FILTER o.dt < '2019-11-02'
+                                 FILTER o.canceled == true
+                   UPDATE o WITH { fulfilled: false } IN orders
+                `;
+        checkForOneShardRule(params.inWarmup, query)
+        db._query(query);
       }
     } // params
   },
