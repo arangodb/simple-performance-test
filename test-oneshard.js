@@ -1,7 +1,7 @@
 /*jshint globalstrict:false, strict:false */
 /*global print */
 
-const batchSize = 5000;
+const batchSize = 1000;
 const db = require("@arangodb").db;
 const internal = require("internal");
 const time = internal.time;
@@ -10,6 +10,9 @@ const tearDown = (show_topic = true) => {
   if (show_topic) {
     print("global teardown oneshard");
   }
+
+  //db._useDatabase("single");
+  //return
 
   print("dropping search");
   db._dropView("search");
@@ -32,8 +35,8 @@ const setup = (options) => {
   tearDown(false);
 
 
-  print("create users");
   let docs = [];
+  print("create users");
   db._create("users", { numberOfShards, replicationFactor });
   for (let i = 0; i < 1 * scale; ++i) {
     docs.push({
@@ -116,7 +119,6 @@ const setup = (options) => {
   }
 
   print("create ordersGraph");
-
   db._createEdgeCollection("ordersGraph", { numberOfShards, replicationFactor });
   u = { current: 0, base: db.users.count() };
   p = { current: 0, base: db.products.count() };
