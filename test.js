@@ -9,6 +9,7 @@ exports.test = function (global) {
   global.edges = global.edges || false;
   global.search = global.search || false;
   global.phrase = global.phrase || false;
+  global.noMaterializationSearch = global.noMaterializationSearch || false;
   global.crud = global.crud || false;
   global.crudSearch = global.crudSearch || false;
   global.subqueryTests = global.subqueryTests || false;
@@ -237,7 +238,7 @@ exports.test = function (global) {
       return;
     }
 
-    let meta = { links: {} };
+    let meta = { links: {}, storedValues: params.storedValues };
     params.collections.forEach(function (c) {
       meta.links[c] = { includeAllFields: true, analyzers: params.analyzers };
     });
@@ -247,11 +248,7 @@ exports.test = function (global) {
     db._createView(params.name, "arangosearch", meta);
   }
 
-  let initialize = function (skip) {
-    if (skip === true) {
-      return;
-    }
-
+  let initializeValuesCollection = function () {
     function createDocuments (n) {
       let name = "values" + n;
       if (db._collection(name) !== null) {
@@ -294,11 +291,16 @@ exports.test = function (global) {
       createDocuments(1000000);
     }
 
+    internal.wal.flush(true, true);
+  },
+
+  initializeView = function () {
     function createView (n) {
       let params = {
         name: "v_values" + n,
         collections: ["values" + n],
-        analyzers: ["identity"]
+        analyzers: ["identity"],
+        storedValues: []
       };
 
       createArangoSearch(params);
@@ -316,6 +318,10 @@ exports.test = function (global) {
       createView(1000000);
     }
 
+    internal.wal.flush(true, true);
+  },
+  
+  initializeEdgeCollection = function () {
     function createEdges (n) {
       let name = "edges" + n;
       if (db._collection(name) !== null) {
@@ -356,6 +362,10 @@ exports.test = function (global) {
       createEdges(1000000);
     }
 
+    internal.wal.flush(true, true);
+  },
+
+  initializePhrasesView = function () {
     function createPhrasesView (n) {
       if (!supportsAnalyzers) {
         return;
@@ -364,7 +374,8 @@ exports.test = function (global) {
       let params = {
         name: "v_valuesPhrases" + n,
         collections: ["valuesPhrases" + n],
-        analyzers: ["text_en"]
+        analyzers: ["text_en"],
+        storedValues: []
       };
 
       createArangoSearch(params);
@@ -444,6 +455,34 @@ exports.test = function (global) {
 
     internal.wal.flush(true, true);
   },
+
+  initializeStoredValuesView = function () {
+    function createStoredValuesView (n) {
+      let params = {
+        name: "v_stored_values" + n,
+        collections: ["values" + n],
+        analyzers: ["identity"],
+        storedValues: ["value2", ["value1", "value3"]]
+      };
+
+      createArangoSearch(params);
+    }
+    
+    if (global.small) {
+      createStoredValuesView(10000);
+    }
+
+    if (global.medium) {
+      createStoredValuesView(100000);
+    }
+
+    if (global.big) {
+      createStoredValuesView(1000000);
+    }
+    
+    internal.wal.flush(true, true);
+  },
+
   // /////////////////////////////////////////////////////////////////////////////
   // CRUD Helper
   // /////////////////////////////////////////////////////////////////////////////
@@ -1246,6 +1285,108 @@ exports.test = function (global) {
       { silent }
     );
   },
+  arangosearchNoMaterializationWithoutAccessOff = function (params) {
+    db._query(
+      "FOR d IN @@v OPTIONS {noMaterialization: false} RETURN 1",
+      {
+        "@v": params.view
+      },
+      {},
+      { silent }
+    );
+  },
+  arangosearchNoMaterializationWithoutAccessOn = function (params) {
+    db._query(
+      "FOR d IN @@v OPTIONS {noMaterialization: true} RETURN 1",
+      {
+        "@v": params.view
+      },
+      {},
+      { silent }
+    );
+  },
+  arangosearchNoMaterializationWithReturnOff = function (params) {
+    db._query(
+      "FOR d IN @@v OPTIONS {noMaterialization: false} RETURN d.@attr",
+      {
+        "@v": params.view,
+        attr: params.attr
+      },
+      {},
+      { silent }
+    );
+  },
+  arangosearchNoMaterializationWithReturnOn = function (params) {
+    db._query(
+      "FOR d IN @@v OPTIONS {noMaterialization: true} RETURN d.@attr",
+      {
+        "@v": params.view,
+        attr: params.attr
+      },
+      {},
+      { silent }
+    );
+  },
+  arangosearchNoMaterializationWithSortOff = function (params) {
+    db._query(
+      `FOR d IN @@v OPTIONS {noMaterialization: false}
+        LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b)
+        RETURN [a, b, d.@attr2]`,
+      {
+        "@v": params.view,
+        attr0: params.attr0,
+        attr1: params.attr1,
+        attr2: params.attr2
+      },
+      {},
+      { silent }
+    );
+  },
+  arangosearchNoMaterializationWithSortOn = function (params) {
+    db._query(
+      `FOR d IN @@v OPTIONS {noMaterialization: true}
+        LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b)
+        RETURN [a, b, d.@attr2]`,
+      {
+        "@v": params.view,
+        attr0: params.attr0,
+        attr1: params.attr1,
+        attr2: params.attr2
+      },
+      {},
+      { silent }
+    );
+  },
+  arangosearchNoMaterializationWithSortAndLimitOff = function (params) {
+    db._query(
+      `FOR d IN @@v OPTIONS {noMaterialization: false}
+        LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b) LIMIT 10
+        RETURN [a, b, d.@attr2]`,
+      {
+        "@v": params.view,
+        attr0: params.attr0,
+        attr1: params.attr1,
+        attr2: params.attr2
+      },
+      {},
+      { silent }
+    );
+  },
+  arangosearchNoMaterializationWithSortAndLimitOn = function (params) {
+    db._query(
+      `FOR d IN @@v OPTIONS {noMaterialization: true}
+        LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b) LIMIT 10
+        RETURN [a, b, d.@attr2]`,
+      {
+        "@v": params.view,
+        attr0: params.attr0,
+        attr1: params.attr1,
+        attr2: params.attr2
+      },
+      {},
+      { silent }
+    );
+  },
 
   // /////////////////////////////////////////////////////////////////////////////
   // subqueryTests
@@ -1766,6 +1907,70 @@ exports.test = function (global) {
           }
         }
       ],
+      arangosearchNoMaterializationTests = [
+        {
+          name: "ars-no-materialization-without-access-off",
+          params: {
+            func: arangosearchNoMaterializationWithoutAccessOff
+          }
+        },
+        {
+          name: "ars-no-materialization-without-access-on",
+          params: {
+            func: arangosearchNoMaterializationWithoutAccessOn
+          }
+        },
+        {
+          name: "ars-no-materialization-with-return-off",
+          params: {
+            func: arangosearchNoMaterializationWithReturnOff,
+            attr: "value1"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-return-on",
+          params: {
+            func: arangosearchNoMaterializationWithReturnOn,
+            attr: "value1"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-off",
+          params: {
+            func: arangosearchNoMaterializationWithSortOff,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-on",
+          params: {
+            func: arangosearchNoMaterializationWithSortOn,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-and-limit-off",
+          params: {
+            func: arangosearchNoMaterializationWithSortAndLimitOff,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-and-limit-on",
+          params: {
+            func: arangosearchNoMaterializationWithSortAndLimitOn,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        }
+      ],
       crudTests = [
         {
           name: "crud-insert",
@@ -1994,12 +2199,25 @@ exports.test = function (global) {
                           bindParam.attr2 = "value2";
                       }
            }
-      },
+        }
+      ];
 
-  ];
-
-    let skipInit = global.oneshardTests;
-    initialize(skipInit); // initializes values colletion
+    if (global.documents || global.edges || global.search ||
+      global.noMaterializationSearch || global.subqueryTests) {
+      initializeValuesCollection();
+    }
+    if (global.edges || global.subqueryTests) {
+      initializeEdgeCollection();
+    }
+    if (global.search) {
+      initializeView();
+    }
+    if (global.phrase) {
+      initializePhrasesView();
+    }
+    if (global.noMaterializationSearch) {
+      initializeStoredValuesView();
+    }
 
     let output = "",
       csv = "",
@@ -2172,6 +2390,43 @@ exports.test = function (global) {
       }
     }
 
+    // arangosearch no materialization tests
+    if (global.noMaterializationSearch) {
+      options = {
+        runs: 5,
+        digits: 4,
+        setup: function (params) {
+          params["view"] = "v_stored_" + params.collection;
+        },
+        teardown: function () {},
+        collections: [],
+        removeFromResult: 1
+      };
+
+      if (global.small) {
+        options.collections.push({ name: "values10000", label: "10k", size: 10000});
+      }
+
+      if (global.medium) {
+        options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+      }
+
+      if (global.big) {
+        options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+      }
+
+      let arangosearchNoMaterializationTestsResult = testRunner(arangosearchNoMaterializationTests, options);
+      output += toString("Arango Search No Materialization", arangosearchNoMaterializationTestsResult) + "\n\n";
+
+      if (global.outputXml) {
+        toJUnit(arangosearchNoMaterializationTestsResult);
+      }
+
+      if (global.outputCsv) {
+        csv += toCsv(arangosearchNoMaterializationTestsResult);
+      }
+    }
+
     // crud tests
     if (global.crud) {
       options = {
@@ -2306,7 +2561,7 @@ exports.test = function (global) {
     if (global.oneshardTests) {
       let numberOfShards = 1;
       let checkForOneShardRule = true;
-      if(global.numberOfShards) {
+      if (global.numberOfShards) {
         numberOfShards = global.numberOfShards;
         checkForOneShardRule = false;
       }
@@ -2326,17 +2581,15 @@ exports.test = function (global) {
         scale : 100 * 1000,
         "numberOfShards" : numberOfShards,
         replicationFactor : 1,
-        checkForOneShardRule: checkForOneShardRule,
+        checkForOneShardRule: checkForOneShardRule
       };
 
       let testPrefix = "OneShard - ";
-      if (options.numberOfShards == 1) {
-        testPrefix += "Single Shard - "
+      if (options.numberOfShards === 1) {
+        testPrefix += "Single Shard - ";
       } else {
-        testPrefix += "Multi Shard (for comparison) - "
+        testPrefix += "Multi Shard (for comparison) - ";
       }
-
-
 
       if (global.small) {
         options.scale = 10;
@@ -2353,11 +2606,11 @@ exports.test = function (global) {
         options.runs = 8;
       }
 
-      if(runTestCases1 || runTestCases2) {
+      if (runTestCases1 || runTestCases2) {
         oneshard.setup(options);
       }
 
-      if(runTestCases1) {
+      if (runTestCases1) {
         let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
         output += toString(testPrefix + "Mixed Queries", oneshardTestsResult1) + "\n\n";
 
@@ -2370,7 +2623,7 @@ exports.test = function (global) {
         }
       }
 
-      if(runTestCases2) {
+      if (runTestCases2) {
         options.setup = (params) => {
           db._drop("testmann");
           db._create("testmann", { numberOfShards : options.numberOfShards,
