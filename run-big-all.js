@@ -8,6 +8,7 @@ function main () {
     edges: true,
     search: true,
     phrase: true,
+    noMaterializationSearch: true,
     crud: true,
     crudSearch: true,
     subqueryTests: true
