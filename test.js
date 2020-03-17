@@ -32,6 +32,8 @@ exports.test = function (global) {
   const time = internal.time;
   const print = internal.print;
   const serverVersion = internal.version;
+  const isEnterprise = internal.isEnterprise();
+  const isCluster = internal.isCluster();
 
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
@@ -248,6 +250,43 @@ exports.test = function (global) {
     db._createView(params.name, "arangosearch", meta);
   }
 
+  function fillEdgeCollection (c, n) {
+    let j = 0,
+      k = 50,
+      l = 0;
+    for (let i = 0; i < n; ++i) {
+      c.insert({
+        _key: "test" + i,
+        _from: "values" + n + "/test" + j,
+        _to: "values" + n + "/test" + i
+      });
+      if (++l === k) {
+        ++j;
+        l = 0;
+        k--;
+        if (k === 0) {
+          k = 50;
+        }
+      }
+    }
+  }
+
+  function fillDocumentCollection (c, n, g) {
+    for (let i = 0; i < n; ++i) {
+      c.insert({
+        _key: "test" + i,
+        value1: i,
+        value2: "test" + i,
+        value3: i,
+        value4: "test" + i,
+        value5: i,
+        value6: "test" + i,
+        value7: i % g,
+        value8: "test" + (i % g)
+      });
+    }
+  }
+
   let initializeValuesCollection = function () {
     function createDocuments (n) {
       let name = "values" + n;
@@ -259,19 +298,7 @@ exports.test = function (global) {
       let c = db._create(name, {numberOfShards}),
         g = n / 100;
 
-      for (let i = 0; i < n; ++i) {
-        c.insert({
-          _key: "test" + i,
-          value1: i,
-          value2: "test" + i,
-          value3: i,
-          value4: "test" + i,
-          value5: i,
-          value6: "test" + i,
-          value7: i % g,
-          value8: "test" + (i % g)
-        });
-      }
+      fillDocumentCollection (c, n, g);
 
       c.ensureIndex({ type: "hash", fields: ["value1"] });
       c.ensureIndex({ type: "hash", fields: ["value2"] });
@@ -320,7 +347,7 @@ exports.test = function (global) {
 
     internal.wal.flush(true, true);
   },
-  
+
   initializeEdgeCollection = function () {
     function createEdges (n) {
       let name = "edges" + n;
@@ -329,25 +356,8 @@ exports.test = function (global) {
       }
       db._drop(name);
       internal.print("creating collection " + name);
-      let c = db._createEdgeCollection(name, {numberOfShards}),
-        j = 0,
-        k = 50,
-        l = 0;
-      for (let i = 0; i < n; ++i) {
-        c.insert({
-          _key: "test" + i,
-          _from: "values" + n + "/test" + j,
-          _to: "values" + n + "/test" + i
-        });
-        if (++l === k) {
-          ++j;
-          l = 0;
-          k--;
-          if (k === 0) {
-            k = 50;
-          }
-        }
-      }
+      let c = db._createEdgeCollection(name, {numberOfShards});
+      fillEdgeCollection (c, n);
     }
 
     if (global.small) {
@@ -363,6 +373,92 @@ exports.test = function (global) {
     }
 
     internal.wal.flush(true, true);
+  },
+
+  initializeGraphs = function() {
+
+    function createSatelliteGraph(name) {
+      var graph_module = require("@arangodb/satellite-graph");
+      if (graph_module._exists(name)) {
+        return ;
+      }
+      let vertexCollectionName = name + "_vertex";
+      let edgesCollectionName = name + "_edge";
+
+      return { graph:
+        graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {}),
+        vertex: db._collection(vertexCollectionName),
+        edges: db._collection(edgesCollectionName) };
+    }
+
+    function createSmartGraph(name) {
+      var graph_module = require("@arangodb/smart-graph");
+      if (graph_module._exists(name)) {
+        return ;
+      }
+      let vertexCollectionName = name + "_vertex";
+      let edgesCollectionName = name + "_edge";
+
+      let opts = {smartGraphAttribute: "region", numberOfShards: 9};
+
+      return { graph:
+        graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts),
+        vertex: db._collection(vertexCollectionName),
+        edges: db._collection(edgesCollectionName) };
+    }
+
+    function createCommunityGraph(name) {
+      var graph_module = require("@arangodb/general-graph");
+      if (graph_module._exists(name)) {
+        return ;
+      }
+      let vertexCollectionName = name + "_vertex";
+      let edgesCollectionName = name + "_edge";
+
+      return { graph:
+        graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {}),
+        vertex: db._collection(vertexCollectionName),
+        edges: db._collection(edgesCollectionName) };
+    }
+
+
+    print("Creating community graph");
+    let gc = createCommunityGraph("comm");
+
+    print("Creating smart graph");
+    let sg = createSmartGraph("smart");
+
+    print("Creating satellite graph");
+    let satg = createSatelliteGraph("sat");
+
+    function createEdges(n) {
+      fillEdgeCollection(gc.edges, n);
+      fillEdgeCollection(sg.edges, n);
+      fillEdgeCollection(satg.edges, n);
+    }
+
+    function createVertexes(n) {
+      let g = n / 100;
+      fillDocumentCollection(gc.vertex, n, g);
+      fillDocumentCollection(sg.vertex, n, g);
+      fillDocumentCollection(satg.vertex, n, g);
+    }
+
+
+    if (global.small) {
+      createEdges(10000);
+      createVertexes(10000);
+    }
+
+    if (global.medium) {
+      createEdges(100000);
+      createVertexes(100000);
+    }
+
+    if (global.big) {
+      createEdges(1000000);
+      createVertexes(1000000);
+    }
   },
 
   initializePhrasesView = function () {
@@ -467,7 +563,7 @@ exports.test = function (global) {
 
       createArangoSearch(params);
     }
-    
+
     if (global.small) {
       createStoredValuesView(10000);
     }
@@ -479,7 +575,7 @@ exports.test = function (global) {
     if (global.big) {
       createStoredValuesView(1000000);
     }
-    
+
     internal.wal.flush(true, true);
   },
 
@@ -1446,6 +1542,27 @@ exports.test = function (global) {
     );
   },
 
+  // /////////////////////////////////////////////////////////////////////////////
+  // subqueryTests
+  // /////////////////////////////////////////////////////////////////////////////
+
+  genericSatelliteGraph = function (params) {
+
+    let bindParam = {
+      //"c": params.collection,
+      "g": params.graph,
+      "@v": params.graph + "_vertex",
+      //"e": params.graph + "_edge"
+    };
+
+    print("running query ", params.queryString, " on graph ", params.graph);
+
+    let result = db._query(
+      params.queryString,
+        bindParam, {}
+    );
+  },
+
 
   // /////////////////////////////////////////////////////////////////////////////
   // main
@@ -2200,14 +2317,27 @@ exports.test = function (global) {
                       }
            }
         }
+      ],
+      satelliteGraphTests = [
+        {
+           name: "aql-multi-subqueries",
+           params: { func: genericSatelliteGraph,
+                      queryString: `FOR v, e, p IN 1..3 OUTBOUND DOCUMENT(@@v, "test0") GRAPH @g RETURN v
+                      ` }
+        }
       ];
 
+    const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
+
     if (global.documents || global.edges || global.search ||
-      global.noMaterializationSearch || global.subqueryTests) {
+      global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
       initializeValuesCollection();
     }
     if (global.edges || global.subqueryTests) {
       initializeEdgeCollection();
+    }
+    if (runSatelliteGraphTests) {
+      initializeGraphs();
     }
     if (global.search) {
       initializeView();
@@ -2554,6 +2684,59 @@ exports.test = function (global) {
 
       if (global.outputCsv) {
         csv += toCsv(subqueryTestsResult);
+      }
+    }
+
+    if (global.satelliteGraphTests) {
+      options = {
+        runs: 5,
+        digits: 4,
+        setup: function (params) {},
+        teardown: function () {},
+        collections: [],
+        removeFromResult: 1
+      };
+
+      if (global.small) {
+        options.collections.push({ name: "values10000", label: "10k", size: 10000 });
+      }
+
+      if (global.medium) {
+        options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+      }
+
+      if (global.big) {
+        options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+      }
+
+      /* We run each test case with splicing enabled and with splicing disabled */
+      var satelliteTestsCases = [];
+      satelliteGraphTests.forEach( function(item, index) {
+          let communityCase = _.cloneDeep(item);
+          communityCase.name = communityCase.name + "-community";
+          communityCase.params.graph = "comm";
+          satelliteTestsCases.push(communityCase);
+          let smartCase = _.cloneDeep(item);
+          smartCase.name = smartCase.name + "-smart";
+          smartCase.params.graph = "smart";
+          satelliteTestsCases.push(smartCase);
+          let satelliteCase = _.cloneDeep(item);
+          satelliteCase.name = satelliteCase.name + "-satellite";
+          satelliteCase.params.graph = "sat";
+          satelliteTestsCases.push(satelliteCase);
+      });
+
+
+      let satelliteTestsResult = testRunner(satelliteTestsCases, options);
+      output +=
+        toString("Satellite Graph Performance", satelliteTestsResult) + "\n\n";
+
+      if (global.outputXml) {
+        toJUnit(satelliteTestsResult);
+      }
+
+      if (global.outputCsv) {
+        csv += toCsv(satelliteTestsResult);
       }
     }
 
