@@ -250,15 +250,16 @@ exports.test = function (global) {
     db._createView(params.name, "arangosearch", meta);
   }
 
-  function fillEdgeCollection (c, n) {
+  function fillEdgeCollection (c, n, vc) {
     let j = 0,
       k = 50,
       l = 0;
     for (let i = 0; i < n; ++i) {
       c.insert({
         _key: "test" + i,
-        _from: "values" + n + "/test" + j,
-        _to: "values" + n + "/test" + i
+        _from: vc.name + "/test" + j,
+        _to: vc.name + n + "/test" + i,
+        value: i + "-" + j,
       });
       if (++l === k) {
         ++j;
@@ -357,7 +358,7 @@ exports.test = function (global) {
       db._drop(name);
       internal.print("creating collection " + name);
       let c = db._createEdgeCollection(name, {numberOfShards});
-      fillEdgeCollection (c, n);
+      fillEdgeCollection (c, n, db._collection("values" + n));
     }
 
     if (global.small) {
@@ -399,7 +400,7 @@ exports.test = function (global) {
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
 
-      let opts = {smartGraphAttribute: "region", numberOfShards: 9};
+      let opts = {smartGraphAttribute: "value1", numberOfShards: 9};
 
       return { graph:
         graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts),
@@ -431,12 +432,6 @@ exports.test = function (global) {
     print("Creating satellite graph");
     let satg = createSatelliteGraph("sat");
 
-    function createEdges(n) {
-      fillEdgeCollection(gc.edges, n);
-      fillEdgeCollection(sg.edges, n);
-      fillEdgeCollection(satg.edges, n);
-    }
-
     function createVertexes(n) {
       let g = n / 100;
       fillDocumentCollection(gc.vertex, n, g);
@@ -444,6 +439,11 @@ exports.test = function (global) {
       fillDocumentCollection(satg.vertex, n, g);
     }
 
+    function createEdges(n) {
+      fillEdgeCollection(gc.edges, n, gc.vertex);
+      fillEdgeCollection(sg.edges, n, gc.vertex);
+      fillEdgeCollection(satg.edges, n, gc.vertex);
+    }
 
     if (global.small) {
       createEdges(10000);
