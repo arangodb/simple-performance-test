@@ -38,6 +38,8 @@ exports.test = function (global) {
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
 
+  const supportsSatelliteGraphs = false; //!semver.satisfies(serverVersion, "3.7");
+
   let silent = true;
   let testRunner = function (tests, options) {
     let calc = function (values, options) {
@@ -429,10 +431,13 @@ exports.test = function (global) {
     print("Creating smart graph");
     let sg = createSmartGraph("smart");
 
-    print("Creating satellite graph");
-    let satg = createSatelliteGraph("sat");
+    let satg;
+    if (supportsSatelliteGraphs) {
+      print("Creating satellite graph");
+      satg = createSatelliteGraph("sat");
+    }
 
-    if (!gc || !sg || !satg) {
+    if (!gc || !sg || (supportsSatelliteGraphs && !satg)) {
       return ;
     }
 
@@ -478,13 +483,17 @@ exports.test = function (global) {
       let g = n / 100;
       fillGraphVertexes(gc.vertex, n, g);
       fillGraphVertexes(sg.vertex, n, g);
-      fillGraphVertexes(satg.vertex, n, g);
+      if (supportsSatelliteGraphs) {
+        fillGraphVertexes(satg.vertex, n, g);
+      }
     }
 
     function createEdges(n) {
       fillGraphEdges(gc.edges, n, gc.vertex);
       fillGraphEdges(sg.edges, n, sg.vertex);
-      fillGraphEdges(satg.edges, n, satg.vertex);
+      if (supportsSatelliteGraphs) {
+        fillGraphEdges(satg.edges, n, satg.vertex);
+      }
     }
 
     if (global.small) {
@@ -2764,11 +2773,17 @@ exports.test = function (global) {
           smartCase.name = smartCase.name + "-smart";
           smartCase.params.graph = "smart";
           satelliteTestsCases.push(smartCase);
-          let satelliteCase = _.cloneDeep(item);
-          satelliteCase.name = satelliteCase.name + "-satellite";
-          satelliteCase.params.graph = "sat";
-          satelliteTestsCases.push(satelliteCase);
+          if (supportsSatelliteGraphs) {
+            let satelliteCase = _.cloneDeep(item);
+            satelliteCase.name = satelliteCase.name + "-satellite";
+            satelliteCase.params.graph = "sat";
+            satelliteTestsCases.push(satelliteCase);
+          }
       });
+
+      if (!supportsSatelliteGraphs) {
+        print("Satellite graphs are not supported");
+      }
 
 
       let satelliteTestsResult = testRunner(satelliteTestsCases, options);
