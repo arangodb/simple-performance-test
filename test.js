@@ -1599,6 +1599,9 @@ exports.test = function (global) {
 
     print("running query ", params.queryString, " on graph ", params.graph);
 
+    print(db._explain(params.queryString,
+        bindParam, {}));
+
     let result = db._query(
       params.queryString,
         bindParam, {}
