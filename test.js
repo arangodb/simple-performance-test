@@ -433,14 +433,14 @@ exports.test = function (global) {
     let satg = createSatelliteGraph("sat");
 
     function fillGraphEdges (c, n, vc) {
-      print("Filling edges for ", c.name)
+      print("Filling edges for ", c.name())
       let j = 0,
         k = 50,
         l = 0;
       for (let i = 0; i < n; ++i) {
         c.safe({
-          _from: vc.name + "/test" + j,
-          _to: vc.name + "/test" + i,
+          _from: vc.name() + "/test" + j,
+          _to: vc.name() + "/test" + i,
           value: i + "-" + j,
         });
         if (++l === k) {
@@ -455,7 +455,7 @@ exports.test = function (global) {
     }
 
     function fillGraphVertexes (c, n, g) {
-      print("Filling vertices for ", c.name)
+      print("Filling vertices for ", c.name())
       for (let i = 0; i < n; ++i) {
         c.save({
           _key: "test" + i,
@@ -486,18 +486,18 @@ exports.test = function (global) {
     }
 
     if (global.small) {
-      createEdges(10000);
       createVertexes(10000);
+      createEdges(10000);
     }
 
     if (global.medium) {
-      createEdges(100000);
       createVertexes(100000);
+      createEdges(100000);
     }
 
     if (global.big) {
-      createEdges(1000000);
       createVertexes(1000000);
+      createEdges(1000000);
     }
   },
 
