@@ -432,6 +432,10 @@ exports.test = function (global) {
     print("Creating satellite graph");
     let satg = createSatelliteGraph("sat");
 
+    if (!gc || !sg || !satg) {
+      return ;
+    }
+
     function fillGraphEdges (c, n, vc) {
       print("Filling edges for ", c.name())
       let j = 0,
@@ -1587,7 +1591,7 @@ exports.test = function (global) {
   genericSatelliteGraph = function (params) {
 
     let bindParam = {
-      //"c": params.collection,
+      "@c": params.collection,
       "g": params.graph,
       "@v": params.graph + "_vertex",
       //"e": params.graph + "_edge"
@@ -1599,6 +1603,8 @@ exports.test = function (global) {
       params.queryString,
         bindParam, {}
     );
+
+    //print(result);
   },
 
 
@@ -2342,7 +2348,7 @@ exports.test = function (global) {
            }
         }, */
         {
-           name: "aql-multi-subqueries",
+           name: "aql-smart-graph",
            params: { func: genericSubquerySplicing,
                       queryString: `FOR c IN @@c
                                        LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
@@ -2358,9 +2364,13 @@ exports.test = function (global) {
       ],
       satelliteGraphTests = [
         {
-           name: "aql-multi-subqueries",
+           name: "aql-smart-graph-join",
            params: { func: genericSatelliteGraph,
-                      queryString: `FOR v, e, p IN 1..3 OUTBOUND DOCUMENT(@@v, "test0") GRAPH @g RETURN v
+                      queryString: `
+                        FOR v, e, p IN 1..3 OUTBOUND DOCUMENT(@@v, "smart0:test0") GRAPH @g
+                          FOR doc in @@c
+                            FILTER doc.value1 == v.value1
+                            RETURN doc
                       ` }
         }
       ];
