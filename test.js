@@ -258,7 +258,7 @@ exports.test = function (global) {
       c.insert({
         _key: "test" + i,
         _from: vc.name + "/test" + j,
-        _to: vc.name + n + "/test" + i,
+        _to: vc.name + "/test" + i,
         value: i + "-" + j,
       });
       if (++l === k) {
@@ -432,17 +432,57 @@ exports.test = function (global) {
     print("Creating satellite graph");
     let satg = createSatelliteGraph("sat");
 
+    function fillGraphEdges (c, n, vc) {
+      print("Filling edges for ", c.name)
+      let j = 0,
+        k = 50,
+        l = 0;
+      for (let i = 0; i < n; ++i) {
+        c.safe({
+          _from: vc.name + "/test" + j,
+          _to: vc.name + "/test" + i,
+          value: i + "-" + j,
+        });
+        if (++l === k) {
+          ++j;
+          l = 0;
+          k--;
+          if (k === 0) {
+            k = 50;
+          }
+        }
+      }
+    }
+
+    function fillGraphVertexes (c, n, g) {
+      print("Filling vertices for ", c.name)
+      for (let i = 0; i < n; ++i) {
+        c.save({
+          _key: "test" + i,
+          value1: i,
+          value2: "test" + i,
+          value3: i,
+          value4: "test" + i,
+          value5: i,
+          value6: "test" + i,
+          value7: i % g,
+          value8: "test" + (i % g)
+        });
+      }
+    }
+
+
     function createVertexes(n) {
       let g = n / 100;
-      fillDocumentCollection(gc.vertex, n, g);
-      fillDocumentCollection(sg.vertex, n, g);
-      fillDocumentCollection(satg.vertex, n, g);
+      fillGraphVertexes(gc.vertex, n, g);
+      fillGraphVertexes(sg.vertex, n, g);
+      fillGraphVertexes(satg.vertex, n, g);
     }
 
     function createEdges(n) {
-      fillEdgeCollection(gc.edges, n, gc.vertex);
-      fillEdgeCollection(sg.edges, n, gc.vertex);
-      fillEdgeCollection(satg.edges, n, gc.vertex);
+      fillGraphEdges(gc.edges, n, gc.vertex);
+      fillGraphEdges(sg.edges, n, gc.vertex);
+      fillGraphEdges(satg.edges, n, gc.vertex);
     }
 
     if (global.small) {
