@@ -439,8 +439,8 @@ exports.test = function (global) {
         l = 0;
       for (let i = 0; i < n; ++i) {
         c.save(
-          vc.name() + "/smart" + j ":test" + j,
-          vc.name() + "/smart" + i ":test" + i,
+          vc.name() + "/smart" + j + ":test" + j,
+          vc.name() + "/smart" + i + ":test" + i,
           {value: i + "-" + j});
         if (++l === k) {
           ++j;
