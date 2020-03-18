@@ -480,8 +480,8 @@ exports.test = function (global) {
 
     function createEdges(n) {
       fillGraphEdges(gc.edges, n, gc.vertex);
-      fillGraphEdges(sg.edges, n, gc.vertex);
-      fillGraphEdges(satg.edges, n, gc.vertex);
+      fillGraphEdges(sg.edges, n, sg.vertex);
+      fillGraphEdges(satg.edges, n, satg.vertex);
     }
 
     if (global.small) {
