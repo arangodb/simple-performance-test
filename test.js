@@ -386,10 +386,10 @@ exports.test = function (global) {
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
 
-      return { graph:
-        graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {}),
-        vertex: db._collection(vertexCollectionName),
-        edges: db._collection(edgesCollectionName) };
+      let g = graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+      return { graph: g,
+        vertex: g[vertexCollectionName],
+        edges: g[edgesCollectionName] };
     }
 
     function createSmartGraph(name) {
@@ -402,10 +402,10 @@ exports.test = function (global) {
 
       let opts = {smartGraphAttribute: "value2", numberOfShards: 9};
 
-      return { graph:
-        graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts),
-        vertex: db._collection(vertexCollectionName),
-        edges: db._collection(edgesCollectionName) };
+      let g = graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts);
+      return { graph: g,
+        vertex: g[vertexCollectionName],
+        edges: g[edgesCollectionName] };
     }
 
     function createCommunityGraph(name) {
@@ -416,10 +416,10 @@ exports.test = function (global) {
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
 
-      return { graph:
-        graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {}),
-        vertex: db._collection(vertexCollectionName),
-        edges: db._collection(edgesCollectionName) };
+      let g = graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+      return { graph: g,
+        vertex: g[vertexCollectionName],
+        edges: g[edgesCollectionName] };
     }
 
 
