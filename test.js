@@ -400,7 +400,7 @@ exports.test = function (global) {
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
 
-      let opts = {smartGraphAttribute: "value1", numberOfShards: 9};
+      let opts = {smartGraphAttribute: "value2", numberOfShards: 9};
 
       return { graph:
         graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts),
@@ -458,9 +458,9 @@ exports.test = function (global) {
       print("Filling vertices for ", c.name())
       for (let i = 0; i < n; ++i) {
         c.save({
-          _key: "test" + i,
+          _key: "smart" + i + ":test" + i,
           value1: i,
-          value2: "test" + i,
+          value2: "smart" + i,
           value3: i,
           value4: "test" + i,
           value5: i,
