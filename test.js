@@ -1593,21 +1593,14 @@ exports.test = function (global) {
     let bindParam = {
       "@c": params.collection,
       "g": params.graph,
-      "@v": params.graph + "_vertex",
+      "v": params.graph + "_vertex",
       //"e": params.graph + "_edge"
     };
-
-    print("running query ", params.queryString, " on graph ", params.graph);
-
-    print(db._explain(params.queryString,
-        bindParam, {}));
 
     let result = db._query(
       params.queryString,
         bindParam, {}
     );
-
-    //print(result);
   },
 
 
@@ -2370,7 +2363,7 @@ exports.test = function (global) {
            name: "aql-smart-graph-join",
            params: { func: genericSatelliteGraph,
                       queryString: `
-                        FOR v, e, p IN 1..3 OUTBOUND DOCUMENT(@@v, "smart0:test0") GRAPH @g
+                        FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
                           FOR doc in @@c
                             FILTER doc.value1 == v.value1
                             RETURN doc
