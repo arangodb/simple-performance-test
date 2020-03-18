@@ -438,11 +438,10 @@ exports.test = function (global) {
         k = 50,
         l = 0;
       for (let i = 0; i < n; ++i) {
-        c.save({
+        c.save(
           _from: vc.name() + "/test" + j,
           _to: vc.name() + "/test" + i,
-          value: i + "-" + j,
-        });
+          {value: i + "-" + j});
         if (++l === k) {
           ++j;
           l = 0;
