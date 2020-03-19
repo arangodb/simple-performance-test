@@ -38,7 +38,7 @@ exports.test = function (global) {
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
 
-  const supportsSatelliteGraphs = false; //!semver.satisfies(serverVersion, "3.7");
+  const supportsSatelliteGraphs = true; //!semver.satisfies(serverVersion, "3.7");
 
   let silent = true;
   let testRunner = function (tests, options) {
@@ -402,7 +402,7 @@ exports.test = function (global) {
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
 
-      let opts = {smartGraphAttribute: "value2", numberOfShards: 9};
+      let opts = {smartGraphAttribute: "value2", numberOfShards: 3 };
 
       let g = graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts);
       return { graph: g,
@@ -1606,6 +1606,10 @@ exports.test = function (global) {
       //"e": params.graph + "_edge"
     };
 
+    if ('bindParamModifier' in params) {
+      params.bindParamModifier(params, bindParam);
+    }
+
     let result = db._query(
       params.queryString,
         bindParam, {}
@@ -2369,7 +2373,7 @@ exports.test = function (global) {
       ],
       satelliteGraphTests = [
         {
-           name: "aql-smart-graph-join",
+           name: "aql-traversal-graph-join",
            params: { func: genericSatelliteGraph,
                       queryString: `
                         FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
@@ -2377,6 +2381,15 @@ exports.test = function (global) {
                             FILTER doc.value1 == v.value1
                             RETURN doc
                       ` }
+        },
+        {
+           name: "aql-traversal-graph",
+           params: {  func: genericSatelliteGraph,
+                      queryString: `
+                        FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
+                          return v`,
+                      bindParamModifier: function(param, bindParam) { delete bindParam["@c"]; }
+                    }
         }
       ];
 
