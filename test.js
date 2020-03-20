@@ -2373,7 +2373,7 @@ exports.test = function (global) {
       ],
       satelliteGraphTests = [
         {
-           name: "aql-traversal-graph-join",
+           name: "aql-traversal-index-join",
            params: { func: genericSatelliteGraph,
                       queryString: `
                         FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
@@ -2390,7 +2390,33 @@ exports.test = function (global) {
                           return v`,
                       bindParamModifier: function(param, bindParam) { delete bindParam["@c"]; }
                     }
+        },
+        {
+           name: "aql-index-traversal-graph",
+           params: {  func: genericSatelliteGraph,
+                      queryString: `
+                        for doc in @@c
+                          filter doc.value1 >= 0 and doc.value1 <= 10
+                          let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
+                          for v, e, p in 1..4 outbound vkey graph @g
+                            return {doc, p}
+                        `,
+                    }
+        },
+        {
+           name: "aql-enum-collection-traversal-graph",
+           params: {  func: genericSatelliteGraph,
+                      queryString: `
+                        for doc in @@c
+                          let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
+                          for v, e, p in 1..4 outbound vkey graph @g
+                            filter v.value1 <= doc.value1
+                            return {doc, p}
+                        `,
+                    }
         }
+
+
       ];
 
     const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
