@@ -37,8 +37,7 @@ exports.test = function (global) {
 
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
-
-  const supportsSatelliteGraphs = true; //!semver.satisfies(serverVersion, "3.7");
+  const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
 
   let silent = true;
   let testRunner = function (tests, options) {
@@ -252,17 +251,38 @@ exports.test = function (global) {
     db._createView(params.name, "arangosearch", meta);
   }
 
+  function fillCollection (c, n, generator, batchSize) {
+    batchSize = batchSize || 10000;
+
+    let batch = [];
+
+    for (let i = 0; i < n; i++) {
+      batch.push(generator(i));
+
+      if (batch.length === batchSize) {
+        c.insert(batch);
+        print("inserted", batchSize, "documents");
+        batch = [];
+      }
+    }
+
+    if (batch.length === batchSize) {
+      print("inserted", batch.length, "documents");
+      c.insert(batch);
+    }
+  }
+
   function fillEdgeCollection (c, n, vc) {
     let j = 0,
       k = 50,
       l = 0;
-    for (let i = 0; i < n; ++i) {
-      c.insert({
+    fillCollection(c, n, function (i) {
+      let obj = {
         _key: "test" + i,
         _from: vc.name + "/test" + j,
         _to: vc.name + "/test" + i,
         value: i + "-" + j,
-      });
+      };
       if (++l === k) {
         ++j;
         l = 0;
@@ -271,12 +291,13 @@ exports.test = function (global) {
           k = 50;
         }
       }
-    }
+      return obj;
+    });
   }
 
   function fillDocumentCollection (c, n, g) {
-    for (let i = 0; i < n; ++i) {
-      c.insert({
+    fillCollection (c, n, function (i) {
+      return {
         _key: "test" + i,
         value1: i,
         value2: "test" + i,
@@ -286,8 +307,8 @@ exports.test = function (global) {
         value6: "test" + i,
         value7: i % g,
         value8: "test" + (i % g)
-      });
-    }
+      };
+    });
   }
 
   let initializeValuesCollection = function () {
@@ -380,48 +401,64 @@ exports.test = function (global) {
 
   initializeGraphs = function() {
 
+    if (!supportsSatelliteGraphs) {
+      print("Satellite graphs are not supported");
+    }
+
     function createSatelliteGraph(name) {
-      var graph_module = require("@arangodb/satellite-graph");
-      if (graph_module._exists(name)) {
-        return ;
-      }
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
+
+      var graph_module = require("@arangodb/satellite-graph");
+      if (graph_module._exists(name)) {
+        let g = graph_module._graph(name);
+        return { graph: g,
+          vertex: g[vertexCollectionName],
+          edges: db[edgesCollectionName] };
+      }
 
       let g = graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
       return { graph: g,
         vertex: g[vertexCollectionName],
-        edges: g[edgesCollectionName] };
+        edges: db[edgesCollectionName] };
     }
 
     function createSmartGraph(name) {
-      var graph_module = require("@arangodb/smart-graph");
-      if (graph_module._exists(name)) {
-        return ;
-      }
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
 
-      let opts = {smartGraphAttribute: "value2", numberOfShards: 3 };
+      var graph_module = require("@arangodb/smart-graph");
+      if (graph_module._exists(name)) {
+        let g = graph_module._graph(name);
+        return { graph: g,
+          vertex: g[vertexCollectionName],
+          edges: db[edgesCollectionName] };
+      }
+
+      let opts = {smartGraphAttribute: "value2", numberOfShards };
 
       let g = graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts);
       return { graph: g,
         vertex: g[vertexCollectionName],
-        edges: g[edgesCollectionName] };
+        edges: db[edgesCollectionName] };
     }
 
     function createCommunityGraph(name) {
-      var graph_module = require("@arangodb/general-graph");
-      if (graph_module._exists(name)) {
-        return ;
-      }
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
+
+      var graph_module = require("@arangodb/general-graph");
+      if (graph_module._exists(name)) {
+        let g = graph_module._graph(name);
+        return { graph: g,
+          vertex: g[vertexCollectionName],
+          edges: db[edgesCollectionName] };
+      }
 
       let g = graph_module._create(name, [ graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
       return { graph: g,
         vertex: g[vertexCollectionName],
-        edges: g[edgesCollectionName] };
+        edges: db[edgesCollectionName] };
     }
 
 
@@ -438,7 +475,7 @@ exports.test = function (global) {
     }
 
     if (!gc || !sg || (supportsSatelliteGraphs && !satg)) {
-      return ;
+      throw "failed to create graphs";
     }
 
     function fillGraphEdges (c, n, vc) {
@@ -446,11 +483,12 @@ exports.test = function (global) {
       let j = 0,
         k = 50,
         l = 0;
-      for (let i = 0; i < n; ++i) {
-        c.save(
-          vc.name() + "/smart" + j + ":test" + j,
-          vc.name() + "/smart" + i + ":test" + i,
-          {value: i + "-" + j});
+      fillCollection(c, n, function(i) {
+        let obj = {
+          _key: "smart" + j + ":" + j + "_" + i + ":" + "smart" + i,
+          _from: vc.name() + "/smart" + j + ":test" + j,
+          _to: vc.name() + "/smart" + i + ":test" + i,
+          value: j + "-" + i};
         if (++l === k) {
           ++j;
           l = 0;
@@ -459,13 +497,14 @@ exports.test = function (global) {
             k = 50;
           }
         }
-      }
+        return obj;
+      });
     }
 
     function fillGraphVertexes (c, n, g) {
-      print("Filling vertices for ", c.name())
-      for (let i = 0; i < n; ++i) {
-        c.save({
+      print("Filling Vertexes for ", c.name())
+      fillCollection(c, n, function(i) {
+        return {
           _key: "smart" + i + ":test" + i,
           value1: i,
           value2: "smart" + i,
@@ -475,8 +514,8 @@ exports.test = function (global) {
           value6: "test" + i,
           value7: i % g,
           value8: "test" + (i % g)
-        });
-      }
+        };
+      });
     }
 
     function createVertexes(n) {
@@ -2801,7 +2840,6 @@ exports.test = function (global) {
         options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
       }
 
-      /* We run each test case with splicing enabled and with splicing disabled */
       var satelliteTestsCases = [];
       satelliteGraphTests.forEach( function(item, index) {
           let communityCase = _.cloneDeep(item);
@@ -2819,11 +2857,6 @@ exports.test = function (global) {
             satelliteTestsCases.push(satelliteCase);
           }
       });
-
-      if (!supportsSatelliteGraphs) {
-        print("Satellite graphs are not supported");
-      }
-
 
       let satelliteTestsResult = testRunner(satelliteTestsCases, options);
       output +=
