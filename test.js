@@ -33,7 +33,7 @@ exports.test = function (global) {
   const print = internal.print;
   const serverVersion = internal.version;
   const isEnterprise = internal.isEnterprise();
-  const isCluster = internal.isCluster();
+  const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
 
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
@@ -648,10 +648,9 @@ exports.test = function (global) {
         name: "v_stored_values" + n,
         collections: ["values" + n],
         analyzers: ["identity"],
-        storedValues: ["value2", ["value1", "value3"]]
+        storedValues: semver.satisfies(serverVersion, "<3.7.0") ? ["value2", ["value1", "value3"]] : [["value2"], ["value1", "value3"]]
       };
-
-      createArangoSearch(params);
+    createArangoSearch(params);
     }
 
     if (global.small) {
