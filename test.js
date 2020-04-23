@@ -38,6 +38,7 @@ exports.test = function (global) {
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
   const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
+  const supportsDisjointSmartGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
 
   let silent = true;
   let testRunner = function (tests, options) {
@@ -404,6 +405,9 @@ exports.test = function (global) {
     if (!supportsSatelliteGraphs) {
       print("Satellite graphs are not supported");
     }
+    if (!supportsDisjointSmartGraphs) {
+      print("Disjoint Smart graphs are not supported");
+    }
 
     function createSatelliteGraph(name) {
       let vertexCollectionName = name + "_vertex";
@@ -443,6 +447,36 @@ exports.test = function (global) {
         edges: db[edgesCollectionName] };
     }
 
+    function createDisjointSmartGraph(name) {
+      const definition = (g, vertexCollectionName, edgesCollectionName)  => {
+        return {
+          graph: g,
+          vertex: g[vertexCollectionName],
+          edges: db[edgesCollectionName]
+        };
+      }
+
+      let vertexCollectionName = name + "_vertex";
+      let edgesCollectionName = name + "_edge";
+
+      var graph_module = require("@arangodb/smart-graph");
+      if (graph_module._exists(name)) {
+        let g = graph_module._graph(name);
+        return definition(g, vertexCollectionName, edgesCollectionName);
+      }
+
+      let opts = {
+        smartGraphAttribute: "myAwesomeSmartGraphValue",
+        isDisjoint: true,
+        numberOfShards
+      };
+
+      let g = graph_module._create(
+        name, [graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts
+      );
+      return definition(g, vertexCollectionName, edgesCollectionName);
+    }
+
     function createCommunityGraph(name) {
       let vertexCollectionName = name + "_vertex";
       let edgesCollectionName = name + "_edge";
@@ -473,8 +507,13 @@ exports.test = function (global) {
       print("Creating satellite graph");
       satg = createSatelliteGraph("sat");
     }
+    let dsg;
+    if (supportsDisjointSmartGraphs) {
+      print("Creating Disjoint Smart graph");
+      dsg = createDisjointSmartGraph("disjointSmartGraph");
+    }
 
-    if (!gc || !sg || (supportsSatelliteGraphs && !satg)) {
+    if (!gc || !sg || (supportsSatelliteGraphs && !satg) || (supportsDisjointSmartGraphs && !dsg)) {
       throw "failed to create graphs";
     }
 
@@ -1636,7 +1675,6 @@ exports.test = function (global) {
   // /////////////////////////////////////////////////////////////////////////////
 
   genericSatelliteGraph = function (params) {
-
     let bindParam = {
       "@c": params.collection,
       "g": params.graph,
@@ -1654,6 +1692,22 @@ exports.test = function (global) {
     );
   },
 
+  genericDisjointSmartGraph = function (params) {
+    let bindParam = {
+      "@c": params.collection,
+      "g": params.graph,
+      "v": params.graph + "_vertex"
+    };
+
+    if ('bindParamModifier' in params) {
+      params.bindParamModifier(params, bindParam);
+    }
+
+    db._query(
+      params.queryString,
+      bindParam, {}
+    );
+  },
 
   // /////////////////////////////////////////////////////////////////////////////
   // main
@@ -2453,20 +2507,64 @@ exports.test = function (global) {
                         `,
                     }
         }
-
-
+      ],
+      disjointSmartGraphTests = [
+        {
+          name: "aql-traversal-index-join",
+          params: { func: genericDisjointSmartGraph,
+            queryString: `
+                          FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
+                            FOR doc in @@c
+                              FILTER doc.value1 == v.value1
+                              RETURN doc
+                        ` }
+        },
+        {
+          name: "aql-traversal-graph",
+          params: {  func: genericDisjointSmartGraph,
+            queryString: `
+                          FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
+                            return v`,
+            bindParamModifier: function(param, bindParam) { delete bindParam["@c"]; }
+          }
+        },
+        {
+          name: "aql-index-traversal-graph",
+          params: {  func: genericDisjointSmartGraph,
+            queryString: `
+                          for doc in @@c
+                            filter doc.value1 >= 0 and doc.value1 <= 10
+                            let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
+                            for v, e, p in 1..4 outbound vkey graph @g
+                              return {doc, p}
+                          `,
+          }
+        },
+        {
+          name: "aql-enum-collection-traversal-graph",
+          params: {  func: genericDisjointSmartGraph,
+            queryString: `
+                          for doc in @@c
+                            let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
+                            for v, e, p in 1..4 outbound vkey graph @g
+                              filter v.value1 <= doc.value1
+                              return {doc, p}
+                          `,
+          }
+        }
       ];
 
     const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
+    const runDisjointSmartGraphTests = (global.disjointSmartGraphTests && isEnterprise && isCluster);
 
     if (global.documents || global.edges || global.search ||
-      global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
+      global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests || runDisjointSmartGraphTests) {
       initializeValuesCollection();
     }
     if (global.edges || global.subqueryTests) {
       initializeEdgeCollection();
     }
-    if (runSatelliteGraphTests) {
+    if (runSatelliteGraphTests || runDisjointSmartGraphTests) {
       initializeGraphs();
     }
     if (global.search) {
@@ -2854,6 +2952,13 @@ exports.test = function (global) {
             satelliteCase.name = satelliteCase.name + "-satellite";
             satelliteCase.params.graph = "sat";
             satelliteTestsCases.push(satelliteCase);
+          }
+
+          if (supportsDisjointSmartGraphs) {
+            let disjointSmartCase = _.cloneDeep(item);
+            disjointSmartCase.name = disjointSmartCase.name + "-disjointSmart";
+            disjointSmartCase.params.graph = "disjointSmartGraph";
+            satelliteTestsCases.push(disjointSmartCase);
           }
       });
 
