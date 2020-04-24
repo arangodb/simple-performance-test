@@ -466,7 +466,7 @@ exports.test = function (global) {
       }
 
       let opts = {
-        smartGraphAttribute: "myAwesomeSmartGraphValue",
+        smartGraphAttribute: "value2",
         isDisjoint: true,
         numberOfShards
       };
@@ -495,99 +495,240 @@ exports.test = function (global) {
         edges: db[edgesCollectionName] };
     }
 
-
-    print("Creating community graph");
-    let gc = createCommunityGraph("comm");
-
-    print("Creating smart graph");
-    let sg = createSmartGraph("smart");
-
-    let satg;
-    if (supportsSatelliteGraphs) {
-      print("Creating satellite graph");
-      satg = createSatelliteGraph("sat");
-    }
-    let dsg;
-    if (supportsDisjointSmartGraphs) {
-      print("Creating Disjoint Smart graph");
-      dsg = createDisjointSmartGraph("disjointSmartGraph");
-    }
-
-    if (!gc || !sg || (supportsSatelliteGraphs && !satg) || (supportsDisjointSmartGraphs && !dsg)) {
-      throw "failed to create graphs";
-    }
-
-    function fillGraphEdges (c, n, vc) {
-      print("Filling edges for ", c.name())
-      let j = 0,
-        k = 50,
-        l = 0;
-      fillCollection(c, n, function(i) {
-        let obj = {
-          _key: "smart" + j + ":" + j + "_" + i + ":" + "smart" + i,
-          _from: vc.name() + "/smart" + j + ":test" + j,
-          _to: vc.name() + "/smart" + i + ":test" + i,
-          value: j + "-" + i};
-        if (++l === k) {
-          ++j;
+    let createFullyConnectedGraph = () => {
+      print("Creating community graph");
+      let gc = createCommunityGraph("comm");
+  
+      print("Creating smart graph");
+      let sg = createSmartGraph("smart");
+  
+      let satg;
+      if (supportsSatelliteGraphs) {
+        print("Creating satellite graph");
+        satg = createSatelliteGraph("sat");
+      }
+  
+      if (!gc || !sg || (supportsSatelliteGraphs && !satg)) {
+        throw "failed to create graphs";
+      }
+  
+      function fillGraphEdges(c, n, vc) {
+        print("Filling edges for ", c.name())
+        let j = 0,
+          k = 50,
           l = 0;
-          k--;
-          if (k === 0) {
-            k = 50;
+        fillCollection(c, n, function (i) {
+          let obj = {
+            _key: "smart" + j + ":" + j + "_" + i + ":" + "smart" + i,
+            _from: vc.name() + "/smart" + j + ":test" + j,
+            _to: vc.name() + "/smart" + i + ":test" + i,
+            value: j + "-" + i
+          };
+          if (++l === k) {
+            ++j;
+            l = 0;
+            k--;
+            if (k === 0) {
+              k = 50;
+            }
           }
+          return obj;
+        });
+      }
+  
+      function fillGraphVertexes(c, n, g) {
+        print("Filling Vertexes for ", c.name())
+        fillCollection(c, n, function (i) {
+          return {
+            _key: "smart" + i + ":test" + i,
+            value1: i,
+            value2: "smart" + i,
+            value3: i,
+            value4: "test" + i,
+            value5: i,
+            value6: "test" + i,
+            value7: i % g,
+            value8: "test" + (i % g)
+          };
+        });
+      }
+  
+      function createVertexes(n) {
+        let g = n / 100;
+        fillGraphVertexes(gc.vertex, n, g);
+        fillGraphVertexes(sg.vertex, n, g);
+        if (supportsSatelliteGraphs) {
+          fillGraphVertexes(satg.vertex, n, g);
         }
-        return obj;
-      });
-    }
+      }
+  
+      function createEdges(n) {
+        fillGraphEdges(gc.edges, n, gc.vertex);
+        fillGraphEdges(sg.edges, n, sg.vertex);
+        if (supportsSatelliteGraphs) {
+          fillGraphEdges(satg.edges, n, satg.vertex);
+        }
+      }
+  
+      if (global.small) {
+        createVertexes(10000);
+        createEdges(10000);
+      }
+  
+      if (global.medium) {
+        createVertexes(100000);
+        createEdges(100000);
+      }
+  
+      if (global.big) {
+        createVertexes(1000000);
+        createEdges(1000000);
+      }
+    };
 
-    function fillGraphVertexes (c, n, g) {
-      print("Filling Vertexes for ", c.name())
-      fillCollection(c, n, function(i) {
-        return {
-          _key: "smart" + i + ":test" + i,
-          value1: i,
-          value2: "smart" + i,
-          value3: i,
-          value4: "test" + i,
-          value5: i,
-          value6: "test" + i,
-          value7: i % g,
-          value8: "test" + (i % g)
+    let createDisjointGraph = () => {
+      print("Creating community graph");
+      let gc = createCommunityGraph("disjointcomm");
+  
+      print("Creating smart graph");
+      let sg = createSmartGraph("disjointsmart");
+  
+      let satg;
+      if (supportsSatelliteGraphs) {
+        print("Creating satellite graph");
+        satg = createSatelliteGraph("disjointsat");
+      }
+      let dsg;
+      if (supportsDisjointSmartGraphs) {
+        print("Creating Disjoint Smart graph");
+        dsg = createDisjointSmartGraph("disjointSmartGraph");
+      }
+  
+      if (!gc || !sg || (supportsSatelliteGraphs && !satg) || (supportsDisjointSmartGraphs && !dsg)) {
+        throw "failed to create graphs";
+      }
+
+      // This is a seedable RandomNumberGenerator
+      // it is not operfect for Random numbers,
+      // but good enough for what we are doing here
+      function* RandomNumberGenerator(seed) {
+        while (true) {
+          const nextVal = Math.cos(seed++) * 10000;
+          yield nextVal - Math.floor(nextVal);
+        }
+      };
+
+      const fillGraph = (vCol, eCol, number, degree) => {
+        print('Filling graph');
+        // Every graph uses the same Seed, so all graphs
+        // look identical
+        const rand = RandomNumberGenerator(42);
+        const getRandom = (min, max) => {
+          return Math.floor(rand.next().value * (max - min + 1));
+        }
+
+        let vertexGroups = [];
+        for (let i = 1; i < Math.floor(number / 1000); ++i) {
+          // create random sized groups of graphs.
+          // We randomly pick index borders
+          vertexGroups.push(getRandom(0, number));
+        }
+        vertexGroups = vertexGroups.sort();
+        print('Borders: ' + JSON.stringify(vertexGroups));
+        
+        print("Filling Vertexes for ", vCol.name());
+        const genSmartValue = (smartGroup) => {
+          return `smart${smartGroup}`;
         };
-      });
-    }
+        const genKey = (smartGroup, i) => {
+          return `${genSmartValue(smartGroup)}:test${i}`;
+        };
+        const genId = (smartGroup, i) => {
+          return `${vCol.name()}/${genKey(smartGroup, i)}`;
+        };
+        {
+          let smartGroup = 0;
+          fillCollection(vCol, number, (i) => {
+            if (smartGroup < vertexGroups.length && i >= vertexGroups[smartGroup]) {
+              // Group full, go to next group;
+              ++smartGroup;
+            }
+            return {
+              _key: genKey(smartGroup, i),
+              value1: i,
+              value2: genSmartValue(smartGroup),
+              value3: i,
+              value4: "test" + i,
+              value5: i,
+              value6: "test" + i,
+              value7: i % (number / 100),
+              value8: "test" + (i % (number / 100))
+            };
+          });
+        }
 
-    function createVertexes(n) {
-      let g = n / 100;
-      fillGraphVertexes(gc.vertex, n, g);
-      fillGraphVertexes(sg.vertex, n, g);
-      if (supportsSatelliteGraphs) {
-        fillGraphVertexes(satg.vertex, n, g);
+        print("Filling Edges for ", eCol.name());
+        {
+          let smartGroup = 0;
+          let counter = 0;
+          // We create degree * vertexes many edges into every vertex group.
+          // So in average every vertex has degree many edges.
+          fillCollection(eCol, number * degree, (i) => {
+            if (smartGroup < vertexGroups.length && Math.floor(i / degree) >= vertexGroups[smartGroup]) {
+              // All edges for group created, go to next group;
+              print(`SmartGroup: ${smartGroup} has ${counter} many edges`);
+              ++smartGroup;
+              counter = 0;
+            }
+            const [min, max] = (() => {
+              if (smartGroup === 0) {
+                return [0, vertexGroups[smartGroup]];
+              }
+              if (smartGroup === vertexGroups.length) {
+                return [vertexGroups[smartGroup - 1], number];
+              }
+              return [vertexGroups[smartGroup - 1], vertexGroups[smartGroup]];
+            })();
+            counter++;
+            const from = getRandom(min, max);
+            const to = getRandom(min, max);
+            return {
+              _from: genId(from),
+              _to: genId(to),
+              value: `${from}-${to}`
+            };
+          });
+        }
+      };
+      
+      const createGraphs = (n) => {
+        const degree = 5;
+        fillGraph(gc.vertex, gc.edges, n, degree);
+        fillGraph(sg.vertex, sg.edges, n, degree);
+        if (supportsSatelliteGraphs) {
+          fillGraph(satg.vertex, satg.edges, n, degree);
+        }
+        if (supportsDisjointSmartGraphs) {
+          fillGraph(dsg.vertex, dsg.edges, n, degree);
+        }
       }
-    }
 
-    function createEdges(n) {
-      fillGraphEdges(gc.edges, n, gc.vertex);
-      fillGraphEdges(sg.edges, n, sg.vertex);
-      if (supportsSatelliteGraphs) {
-        fillGraphEdges(satg.edges, n, satg.vertex);
+      if (global.small) {
+        createGraphs(10000);
       }
-    }
 
-    if (global.small) {
-      createVertexes(10000);
-      createEdges(10000);
-    }
+      if (global.medium) {
+        createGraphs(100000);
+      }
 
-    if (global.medium) {
-      createVertexes(100000);
-      createEdges(100000);
-    }
+      if (global.big) {
+        createGraphs(1000000);
+      }
+    };
 
-    if (global.big) {
-      createVertexes(1000000);
-      createEdges(1000000);
-    }
+    createFullyConnectedGraph();
+    createDisjointGraph();
+    
   },
 
   initializePhrasesView = function () {
