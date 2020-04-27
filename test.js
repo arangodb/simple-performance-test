@@ -624,7 +624,7 @@ exports.test = function (global) {
         // look identical
         const rand = RandomNumberGenerator(42);
         const getRandom = (min, max) => {
-          return Math.floor(rand.next().value * (max - min + 1));
+          return Math.floor(rand.next().value * (max - min + 1)) + min;
         }
 
         let vertexGroups = [];
@@ -692,9 +692,11 @@ exports.test = function (global) {
             counter++;
             const from = getRandom(min, max);
             const to = getRandom(min, max);
+
+            print(`Edge: ${from} -> ${to}, using [${min}, ${max}]`);
             return {
-              _from: genId(from),
-              _to: genId(to),
+              _from: genId(smartGroup, from),
+              _to: genId(smartGroup, to),
               value: `${from}-${to}`
             };
           });
