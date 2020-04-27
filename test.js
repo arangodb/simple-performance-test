@@ -692,8 +692,6 @@ exports.test = function (global) {
             counter++;
             const from = getRandom(min, max);
             const to = getRandom(min, max);
-
-            print(`Edge: ${from} -> ${to}, using [${min}, ${max}]`);
             return {
               _from: genId(smartGroup, from),
               _to: genId(smartGroup, to),
