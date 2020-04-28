@@ -676,7 +676,6 @@ exports.test = function (global) {
           fillCollection(eCol, number * degree, (i) => {
             if (smartGroup < vertexGroups.length && Math.floor(i / degree) >= vertexGroups[smartGroup]) {
               // All edges for group created, go to next group;
-              print(`SmartGroup: ${smartGroup} has ${counter} many edges`);
               ++smartGroup;
               counter = 0;
             }
