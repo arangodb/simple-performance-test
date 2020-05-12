@@ -266,9 +266,9 @@ exports.test = function (global) {
       }
     }
 
-    if (batch.length === batchSize) {
-      print("inserted", batch.length, "documents");
+    if (batch.length > 0) {
       c.insert(batch);
+      print("inserted", batch.length, "documents");
     }
   }
 
@@ -312,34 +312,79 @@ exports.test = function (global) {
   }
 
   let initializeValuesCollection = function () {
-    function createDocuments (n) {
-      let name = "values" + n;
+        function createDocuments (n) {
+          let name = "values" + n;
+          if (db._collection(name) !== null) {
+            return;
+          }
+          db._drop(name);
+          internal.print("creating collection " + name);
+          let c = db._create(name, {numberOfShards}),
+              g = n / 100;
+
+          fillDocumentCollection (c, n, g);
+
+          c.ensureIndex({ type: "hash", fields: ["value1"] });
+          c.ensureIndex({ type: "hash", fields: ["value2"] });
+          c.ensureIndex({ type: "skiplist", fields: ["value3"] });
+          c.ensureIndex({ type: "skiplist", fields: ["value4"] });
+        }
+
+        if (global.small) {
+          createDocuments(10000);
+        }
+
+        if (global.medium) {
+          createDocuments(100000);
+        }
+
+        if (global.big) {
+          createDocuments(1000000);
+        }
+
+        internal.wal.flush(true, true);
+      }
+
+  let initializeHugeDocumentsCollection = function () {
+    function createDocuments (n, n1) {
+      let name = "hugeDocs" + n1;
       if (db._collection(name) !== null) {
         return;
       }
       db._drop(name);
       internal.print("creating collection " + name);
       let c = db._create(name, {numberOfShards}),
-        g = n / 100;
+          g = n / 100;
 
-      fillDocumentCollection (c, n, g);
+      fillCollection (c, n, function (i) {
+
+        let number = 30 * (i % 5 ) + 20;
+        let content = Array.from(Array(number).keys()).map(function (v, j) {
+          return Array.from(Array(50 * ((i+j) % 5) + 50).keys()).map(function (w, k) {
+            return k;
+          });
+        });
+
+        return {
+          _key: "test" + i,
+          value1: i,
+          content: content,
+        };
+      });
 
       c.ensureIndex({ type: "hash", fields: ["value1"] });
-      c.ensureIndex({ type: "hash", fields: ["value2"] });
-      c.ensureIndex({ type: "skiplist", fields: ["value3"] });
-      c.ensureIndex({ type: "skiplist", fields: ["value4"] });
     }
 
     if (global.small) {
-      createDocuments(10000);
+      createDocuments(120, 10000);
     }
 
     if (global.medium) {
-      createDocuments(100000);
+      createDocuments(240, 100000);
     }
 
     if (global.big) {
-      createDocuments(1000000);
+      createDocuments(480, 1000000);
     }
 
     internal.wal.flush(true, true);
@@ -1610,6 +1655,7 @@ exports.test = function (global) {
       throw "Results do not match";
     }
   },
+
   genericSubquerySplicing = function (params) {
     let myOptimizer = { rules: [] };
     let bindParam = { "@c": params.collection };
@@ -1632,7 +1678,7 @@ exports.test = function (global) {
   },
 
   // /////////////////////////////////////////////////////////////////////////////
-  // subqueryTests
+  // satelliteGraphTests
   // /////////////////////////////////////////////////////////////////////////////
 
   genericSatelliteGraph = function (params) {
@@ -2312,6 +2358,15 @@ exports.test = function (global) {
           }
         },
         {
+          name: "aql-subquery-huge-documents",
+          params: { func: genericSubquerySplicing,
+            queryString: "FOR d IN @@c LET sub = (FOR s IN 1..1000 RETURN s) RETURN {key: d._key, sub }",
+            bindParamModifier: function(param, bindParam) {
+              bindParam["@c"] = bindParam["@c"].replace("values", "hugeDocs");
+            }
+          }
+        },
+        {
           name: "aql-subquery-min",
           params: { func: genericSubquerySplicing,
                     queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
@@ -2465,6 +2520,9 @@ exports.test = function (global) {
     }
     if (global.edges || global.subqueryTests) {
       initializeEdgeCollection();
+    }
+    if (global.subqueryTests) {
+      initializeHugeDocumentsCollection();
     }
     if (runSatelliteGraphTests) {
       initializeGraphs();
