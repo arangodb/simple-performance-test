@@ -1,5 +1,5 @@
-/*jshint globalstrict:false, strict:false */
-/*global print */
+/* jshint globalstrict:false, strict:false */
+/* global print */
 
 const batchSize = 5000;
 const db = require("@arangodb").db;
@@ -17,7 +17,7 @@ const tearDown = (show_topic = true) => {
   [ "users", "usersGraph", "products", "orders", "ordersGraph" ].forEach(
     (name) => {
       print("dropping" + name);
-     db._drop(name);
+      db._drop(name);
     }
   );
 };
@@ -164,112 +164,112 @@ const setup = (options) => {
 let checkForOneShardRule = (inWarmup, query) => {
   if (inWarmup) {
     let plan = db._explain(query, null, {silent: true});
-    //if(! plan.match(/.*cluster-one-shard.*/)) {
+    // if(! plan.match(/.*cluster-one-shard.*/)) {
     //  throw "broken";
-    //}
+    // }
   }
-}
+};
 
 let testFunction1 = (params) => {
-    checkForOneShardRule(params.inWarmup, params.query)
-    db._query(params.query, null, {silent: true});
+  checkForOneShardRule(params.inWarmup, params.query);
+  db._query(params.query, null, {silent: true});
 };
 
 let testCases1 = [
   {
-    "name" : "filter-active",
-    "params" : {
-      "query" : `FOR u IN users FILTER u.active == true
+    "name": "filter-active",
+    "params": {
+      "query": `FOR u IN users FILTER u.active == true
                    RETURN u.name
-                `,
+                `
     }
   },
   {
-    "name" : "filter-category",
-    "params" : {
-      "query" : `FOR p IN products FILTER p.category IN ['category1', 'category10', 'category12', 'category42'] SORT p.name
+    "name": "filter-category",
+    "params": {
+      "query": `FOR p IN products FILTER p.category IN ['category1', 'category10', 'category12', 'category42'] SORT p.name
                    RETURN p
-                `,
+                `
     }
   },
   {
-    "name" : "product-orders",
-    "params" : {
-      "query" : `FOR p IN products FILTER p._key == 'product9854'
+    "name": "product-orders",
+    "params": {
+      "query": `FOR p IN products FILTER p._key == 'product9854'
                    FOR o IN orders FILTER o.product == p._key
                      RETURN { p, o }
-                `,
+                `
     }
   },
   {
-    "name" : "category-orders-date",
-    "params" : {
-      "query" : `FOR p IN products FILTER p.category == 'category23'
+    "name": "category-orders-date",
+    "params": {
+      "query": `FOR p IN products FILTER p.category == 'category23'
                    FOR o IN orders FILTER o.product == p._key
                                    FILTER o.dt >= '2019-11-01T00:00:00'
                      RETURN { p, o }
-                `,
+                `
     }
   },
   {
-    "name" : "category-orders-user-date",
-    "params" : {
-      "query" : `FOR p IN products FILTER p.category == 'category23'
+    "name": "category-orders-user-date",
+    "params": {
+      "query": `FOR p IN products FILTER p.category == 'category23'
                    FOR o IN orders FILTER o.product == p._key FILTER o.dt >= '2019-11-01T00:00:00'
                      FOR u IN users FILTER o.user == u._key
                        RETURN { p, o, u }
-                `,
+                `
     }
   },
   {
-    "name" : "orders-by-category",
-    "params" : {
-      "query" : `FOR o IN orders FILTER o.canceled == false
+    "name": "orders-by-category",
+    "params": {
+      "query": `FOR o IN orders FILTER o.canceled == false
                                  FILTER o.dt >= '2019-11-01T00:00:00'
                    FOR p IN products FILTER o.product == p._key
                      COLLECT category = p.category WITH COUNT INTO count
                      RETURN { category, count }
-                `,
+                `
     }
   },
   {
-    "name" : "orders-by-user",
-    "params" : {
-      "query" : `FOR o IN orders FOR u IN users FILTER o.user == u._key
+    "name": "orders-by-user",
+    "params": {
+      "query": `FOR o IN orders FOR u IN users FILTER o.user == u._key
                                                 FILTER o.dt >= '2019-11-01T00:00:00'
                                                 FILTER u.active == false
                    COLLECT user = u._key AGGREGATE total = SUM(o.amount) SORT null
                    RETURN { user, total }
-                `,
+                `
     }
   },
   {
-    "name" : "traverse-4",
-    "params" : {
-      "query" : `WITH users FOR v, e IN 0..4 OUTBOUND 'users/user1' usersGraph
+    "name": "traverse-4",
+    "params": {
+      "query": `WITH users FOR v, e IN 0..4 OUTBOUND 'users/user1' usersGraph
                    RETURN { v, e }
-                `,
+                `
     }
   },
   {
-    "name" : "traverse-inactive",
-    "params" : {
-      "query" : `WITH users FOR u IN users FILTER u.active == false
+    "name": "traverse-inactive",
+    "params": {
+      "query": `WITH users FOR u IN users FILTER u.active == false
                  FOR v, e IN 1..2 OUTBOUND u._id usersGraph
                    RETURN v
-                `,
+                `
     }
   },
   {
-    "name" : "traverse-single-user",
-    "params" : {
-      "query" : `WITH users, products FOR u IN users FILTER u._key == 'user5994'
+    "name": "traverse-single-user",
+    "params": {
+      "query": `WITH users, products FOR u IN users FILTER u._key == 'user5994'
                  FOR v, e IN 1..1 OUTBOUND u._id ordersGraph
                    RETURN v.description
-                `,
+                `
     }
   },
-/* // needs 500 seconds to run - disabling for now
+  /* // needs 500 seconds to run - disabling for now
   {
     "name" : "shortest-path",
     "params" : {
@@ -285,9 +285,9 @@ let testCases1 = [
   },
 */
   {
-    "name" : "subqueries",
-    "params" : {
-      "query" : `FOR u IN users FILTER u.active == false
+    "name": "subqueries",
+    "params": {
+      "query": `FOR u IN users FILTER u.active == false
                    LET count = (
                      FOR o IN orders FILTER o.user == u._key
                        COLLECT WITH COUNT INTO count
@@ -295,37 +295,37 @@ let testCases1 = [
                    )[0]
                    COLLECT AGGREGATE sum = SUM(count)
                    RETURN sum
-                `,
+                `
     }
   },
   {
-    "name" : "orders-by-year",
-    "params" : {
-      "query" : `FOR o IN orders FILTER o.canceled == false COLLECT year = SUBSTRING(o.dt, 0, 4)
+    "name": "orders-by-year",
+    "params": {
+      "query": `FOR o IN orders FILTER o.canceled == false COLLECT year = SUBSTRING(o.dt, 0, 4)
                    AGGREGATE amount = SUM(o.amount)
                    RETURN { year, amount }
-                `,
+                `
     }
   },
   {
-    "name" : "orders-user",
-    "params" : {
-      "query" : `FOR o IN ordersGraph FILTER o._from == 'users/user1'
+    "name": "orders-user",
+    "params": {
+      "query": `FOR o IN ordersGraph FILTER o._from == 'users/user1'
                    RETURN o._to
-                `,
+                `
     }
   },
   {
-    "name" : "search",
-    "params" : {
-      "query" : `FOR doc IN search SEARCH ANALYZER(STARTS_WITH(doc.description, 'testmann1234'), 'text_en') ||
+    "name": "search",
+    "params": {
+      "query": `FOR doc IN search SEARCH ANALYZER(STARTS_WITH(doc.description, 'testmann1234'), 'text_en') ||
                                           ANALYZER(STARTS_WITH(doc.description, 'testmann2345'), 'text_en') ||
                                           ANALYZER(STARTS_WITH(doc.description, 'testmann3333'), 'text_en') ||
                                           ANALYZER(STARTS_WITH(doc.description, 'testmann412'), 'text_en') ||
                                           ANALYZER(STARTS_WITH(doc.description, 'testmann509'), 'text_en')
                                           SORT BM25(doc)
                  RETURN doc
-                `,
+                `
     }
   }
 ];
@@ -336,21 +336,21 @@ testCases1.forEach((desc) => {
 
 let testCases2 = [
   {
-    "name" : "insert",
-    "params" : {
-      func :
-      function(params) {
+    "name": "insert",
+    "params": {
+      func:
+      function (params) {
         let c = db._collection("testmann");
         for (let i = 0; i < params.scale / 100; ++i) {
           c.insert({ _key: "testmann" + i, value1: i, value2: "testmann" + i });
         }
       }
-    } //params
+    } // params
   },
   {
-    "name" : "insert-batch",
-    "params" : {
-      func : (params) => {
+    "name": "insert-batch",
+    "params": {
+      func: (params) => {
         let docs = [];
         let c = db._collection("testmann");
         for (let i = 0; i < params.scale; ++i) {
@@ -360,48 +360,48 @@ let testCases2 = [
             docs = [];
           }
         }
-      },
+      }
     } // params
   },
   {
-    "name" : "insert-aql",
-    "params" : {
-      func : function(params) {
+    "name": "insert-aql",
+    "params": {
+      func: function (params) {
         query = `FOR i IN 0..${params.scale - 1}
                    INSERT { _key: CONCAT('testmann', i), value1: i, value2: CONCAT('testmann', i) } INTO testmann
                 `;
-        checkForOneShardRule(params.inWarmup, query)
+        checkForOneShardRule(params.inWarmup, query);
         db._query(query);
       }
     } // params
   },
   {
-    "name" : "update-aql-indexed",
-    "params" : {
-      func : function(params) {
+    "name": "update-aql-indexed",
+    "params": {
+      func: function (params) {
         query = `FOR o IN orders FILTER o.product == 'product235'
                                  FILTER o.canceled == true
                    UPDATE o WITH { fulfilled: false } IN orders
                 `;
-        checkForOneShardRule(params.inWarmup, query)
+        checkForOneShardRule(params.inWarmup, query);
         db._query(query);
       }
     } // params
   },
   {
-    "name" : "update-aql-noindex",
-    "params" : {
-      func : function(params) {
+    "name": "update-aql-noindex",
+    "params": {
+      func: function (params) {
         query = `FOR o IN orders FILTER o.dt >= '2019-11-01T00:00:00'
                                  FILTER o.dt < '2019-11-02'
                                  FILTER o.canceled == true
                    UPDATE o WITH { fulfilled: false } IN orders
                 `;
-        checkForOneShardRule(params.inWarmup, query)
+        checkForOneShardRule(params.inWarmup, query);
         db._query(query);
       }
     } // params
-  },
+  }
 ];
 
 
