@@ -1,6 +1,7 @@
 exports.test = function (global) {
   "use strict";
 
+  global.tiny = global.tiny || false;
   global.small = global.small || false;
   global.medium = global.medium || false;
   global.big = global.big || false;
@@ -330,15 +331,13 @@ exports.test = function (global) {
         c.ensureIndex({ type: "skiplist", fields: ["value4"] });
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createDocuments(1000);
+      } else if (global.small) {
         createDocuments(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createDocuments(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createDocuments(1000000);
       }
 
@@ -357,15 +356,13 @@ exports.test = function (global) {
         createArangoSearch(params);
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createView(1000);
+      } else if (global.small) {
         createView(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createView(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createView(1000000);
       }
 
@@ -384,15 +381,13 @@ exports.test = function (global) {
         fillEdgeCollection(c, n, db._collection("values" + n));
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createEdges(1000);
+      } else if (global.small) {
         createEdges(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createEdges(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createEdges(1000000);
       }
 
@@ -535,17 +530,16 @@ exports.test = function (global) {
         }
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createVertexes(1000);
+        createEdges(1000);
+      } else if (global.small) {
         createVertexes(10000);
         createEdges(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createVertexes(100000);
         createEdges(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createVertexes(1000000);
         createEdges(1000000);
       }
@@ -624,17 +618,16 @@ exports.test = function (global) {
         });
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createDocumentsWithPhrases(1000);
+        createPhrasesView(1000);
+      } else if (global.small) {
         createDocumentsWithPhrases(10000);
         createPhrasesView(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createDocumentsWithPhrases(100000);
         createPhrasesView(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createDocumentsWithPhrases(10000000);
         createPhrasesView(10000000);
       }
@@ -653,15 +646,13 @@ exports.test = function (global) {
         createArangoSearch(params);
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createStoredValuesView(1000);
+      } else if (global.small) {
         createStoredValuesView(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createStoredValuesView(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createStoredValuesView(1000000);
       }
 
@@ -2502,15 +2493,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2539,15 +2528,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "edges1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "edges10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2578,15 +2565,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000});
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000});
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2615,23 +2600,25 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({
+            name: "valuesPhrases1000",
+            label: "1k",
+            size: 1000
+          });
+        } else if (global.small) {
           options.collections.push({
             name: "valuesPhrases10000",
             label: "10k",
             size: 10000
           });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({
             name: "valuesPhrases100000",
             label: "100k",
             size: 100000
           });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({
             name: "valuesPhrases10000000",
             label: "10000k",
@@ -2669,15 +2656,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000});
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000});
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2704,15 +2689,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "crud1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "crud10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "crud100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2741,20 +2724,14 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "crud1000", label: "1k + ARS", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "crud10000", label: "10k + ARS", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "crud100000", label: "100k + ARS", size: 100000 });
-        }
-
-        if (global.big) {
-          options.collections.push({
-            name: "crud1000000",
-            label: "1000k + ARS",
-            size: 1000000
-          });
+        } else if (global.big) {
+          options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
         }
 
         let arangosearchCrudTestsResult = testRunner(crudTests, options);
@@ -2785,15 +2762,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2833,15 +2808,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2910,17 +2883,16 @@ exports.test = function (global) {
           testPrefix += "Multi Shard (for comparison) - ";
         }
 
-        if (global.small) {
+        if (global.tiny) {
           options.scale = 10;
           options.runs = 6;
-        }
-
-        if (global.medium) {
+        } else if (global.small) {
+          options.scale = 10;
+          options.runs = 6;
+        } else if (global.medium) {
           options.scale = 100 * 1000;
           options.runs = 4;
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.scale = 100 * 1000;
           options.runs = 8;
         }
