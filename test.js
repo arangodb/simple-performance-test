@@ -228,11 +228,23 @@ exports.test = function (global) {
     prefix = prefix || "";
     postfix = postfix || "";
 
+    let size = "none";
+
+    if (global.tiny) {
+      size = "tiny";
+    } else if (global.small) {
+      size = "small";
+    } else if (global.medium) {
+      size = "medium";
+    } else if (global.big) {
+      size = "big";
+    }
+
     let csv = "";
 
     for (let i = 0; i < out.length; ++i) {
       let test = out[i];
-      csv += `${prefix}${test.name}${postfix},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel},${test.collectionSize},${test.runs}\n`;
+      csv += `${prefix}${test.name}${postfix},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel},${test.collectionSize},${test.runs},${size}\n`;
     }
 
     return csv;
