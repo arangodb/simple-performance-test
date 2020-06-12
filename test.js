@@ -152,6 +152,7 @@ exports.test = function (global) {
             out.push({
               name: test.name,
               collectionLabel: collection.label,
+              collectionSize: collection.size,
               runs: String(options.runs),
               min: stats.min.toFixed(options.digits),
               max: stats.max.toFixed(options.digits),
@@ -231,7 +232,7 @@ exports.test = function (global) {
 
     for (let i = 0; i < out.length; ++i) {
       let test = out[i];
-      csv += `${prefix}${test.name}${postfix},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel}\n`;
+      csv += `${prefix}${test.name}${postfix},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel},${test.collectionSize},${test.runs}\n`;
     }
 
     return csv;
