@@ -16,6 +16,9 @@ exports.test = function (global) {
   global.subqueryTests = global.subqueryTests || false;
   global.oneshardTests = global.oneshardTests || false;
 
+  global.runs = global.runs || 5;
+  global.digits = global.digits || 4;
+
   global.outputXml = global.outputXml || false;
   global.xmlDirectory = global.xmlDirectory || ".";
 
@@ -2496,8 +2499,8 @@ exports.test = function (global) {
       // document tests
       if (global.documents) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             db._collection(params.collection).load();
           },
@@ -2531,8 +2534,8 @@ exports.test = function (global) {
       // edge tests
       if (global.edges) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             db._collection(params.collection).load();
           },
@@ -2566,8 +2569,8 @@ exports.test = function (global) {
       // arangosearch tests
       if (global.search) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
             params["offset"] = params.collectionSize / 10;
@@ -2603,8 +2606,8 @@ exports.test = function (global) {
       // arangosearch phrase tests
       if (global.phrase) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
@@ -2659,8 +2662,8 @@ exports.test = function (global) {
       // arangosearch no materialization tests
       if (global.noMaterializationSearch) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_stored_" + params.collection;
           },
@@ -2694,8 +2697,8 @@ exports.test = function (global) {
       // crud tests
       if (global.crud) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (/* params */) {},
           teardown: function () {},
           collections: [],
@@ -2727,8 +2730,8 @@ exports.test = function (global) {
       // arangosearch crud tests
       if (global.crudSearch) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
@@ -2762,8 +2765,8 @@ exports.test = function (global) {
 
       if (global.subqueryTests) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             db._collection(params.collection).load();
             if (params.edgesRequired === true) {
@@ -2813,8 +2816,8 @@ exports.test = function (global) {
 
       if (global.satelliteGraphTests) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function () {},
           teardown: function () {},
           collections: [],
@@ -2877,8 +2880,8 @@ exports.test = function (global) {
         const runTestCases2 = true;
 
         let options = {
-          runs: 3,
-          digits: 4,
+          runs: Math.max(Math.floor((global.runs + 1) / 2), 1),
+          digits: global.digits,
           setup: function () {},
           teardown: function () {},
           collections: [ "fakeCollectionOneShard" ],
