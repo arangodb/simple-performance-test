@@ -48,9 +48,13 @@ exports.test = function (global) {
     let calc = function (values, options) {
 
       let sum = function (values) {
-        return values.reduce(function (previous, current) {
-          return previous + current;
-        });
+        if (values.length > 1) {
+          return values.reduce(function (previous, current) {
+            return previous + current;
+          });
+        } else {
+          return values[0];
+        }
       };
 
       values.sort(function (a, b) {
@@ -69,11 +73,14 @@ exports.test = function (global) {
         max: values[n - 1],
         sum: sum(values),
         avg: sum(values) / n,
-        med:
-          n % 2
+        med: n === 1
+          ? values[0]
+          : (n % 2
             ? (values[(n - 1) / 2] + values[(n + 1) / 2]) / 2
-            : values[n / 2],
-        dev: (values[n - 1] - values[0]) / (sum(values) / n)
+            : values[n / 2]),
+        dev: n === 1
+          ? values[0]
+          : (values[n - 1] - values[0]) / (sum(values) / n)
       };
 
       return result;
