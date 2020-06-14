@@ -111,7 +111,10 @@ exports.test = function (global) {
         results = [];
       internal.wait(1, true);
 
-      for (let i = 0; i < options.runs + 1; ++i) {
+      let removeFromResult = parseInt(options.removeFromResult) || 0;
+      let runs = Math.max(options.runs, removeFromResult + 1);
+
+      for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
 
         if (typeof options.setup === "function") {
