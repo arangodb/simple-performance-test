@@ -46,7 +46,6 @@ exports.test = function (global) {
   let silent = true;
   let testRunner = function (tests, options) {
     let calc = function (values, options) {
-
       let sum = function (values) {
         if (values.length > 1) {
           return values.reduce(function (previous, current) {
@@ -112,7 +111,7 @@ exports.test = function (global) {
       internal.wait(1, true);
 
       let removeFromResult = parseInt(options.removeFromResult) || 0;
-      let runs = Math.max(options.runs, removeFromResult + 1);
+      let runs = Math.max(options.runs, 2 * removeFromResult + 1);
 
       for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
