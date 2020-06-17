@@ -62,8 +62,10 @@ exports.test = function (global) {
 
       let removeFromResult = parseInt(options.removeFromResult) || 0;
       if (removeFromResult > 0) {
-        values.splice(values.length - 1, removeFromResult); // remove last
-        values.splice(0, removeFromResult); // remove first
+        if (values.length > 2) {
+          values.splice(values.length - 1, removeFromResult); // remove last
+          values.splice(0, removeFromResult); // remove first
+        }
       }
 
       let n = values.length;
@@ -110,8 +112,7 @@ exports.test = function (global) {
         results = [];
       internal.wait(1, true);
 
-      let removeFromResult = parseInt(options.removeFromResult) || 0;
-      let runs = Math.max(options.runs, 2 * removeFromResult + 1);
+      const runs = options.runs > 0 ? options.runs : 1;
 
       for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
