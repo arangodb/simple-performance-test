@@ -43,7 +43,7 @@ exports.test = function (global) {
   // This is a seedable RandomNumberGenerator
   // it is not operfect for Random numbers,
   // but good enough for what we are doing here
-  function* RandomNumberGenerator(seed) {
+  function* randomNumberGenerator (seed) {
     while (true) {
       const nextVal = Math.cos(seed++) * 10000;
       yield nextVal - Math.floor(nextVal);
@@ -51,9 +51,9 @@ exports.test = function (global) {
   };
 
   class GraphGenerator {
-    constructor (nameprefix, type, runnerName, scale) {
-      this._rand = new RandomNumberGenerator(42);
-      this._name = `${nameprefix}${type}${runnerName}${scale}`;
+    constructor(nameprefix, type, runnerName, scale) {
+      this._resetRand();
+      this._name = `${nameprefix}${runnerName}${scale}`;
       this._runnerName = `${runnerName}-${scale}`;
       switch (scale) {
       case "small":
@@ -93,7 +93,7 @@ exports.test = function (global) {
     }
 
     _resetRand () {
-      this._rand = new RandomNumberGenerator(42);
+      this._rand = randomNumberGenerator(42);
     }
 
     _ensureDatastructure (type) {
@@ -108,7 +108,7 @@ exports.test = function (global) {
         this._graph = this._module._graph(this.name());
         this._needsData = false;
       } else {
-        const rel = [this.graph_module._relation(edgeCollectionName, vertexCollectionName, vertexCollectionName)];
+        const rel = [this._module._relation(edgeCollectionName, vertexCollectionName, vertexCollectionName)];
         const options = {};
         switch (type) {
         case "comm":
@@ -126,9 +126,12 @@ exports.test = function (global) {
         this._needsData = true;
       }
       this._vCol = this._graph[vertexCollectionName];
-      this._eCol = this._graph[edgeCollectionName];
+      this._eCol = db[edgeCollectionName];
     }
 
+    name () {
+      return this._name;
+    }
     vertexCollection () {
       return this._vCol;
     }
@@ -189,7 +192,7 @@ exports.test = function (global) {
       // done before.
       this._resetRand();
       // Hihi Javascript
-      return Array.from({ length }).map(_ => this.genId(this.randomId()));
+      return Array.from({ length }).map(_ => this.randomId()).map(id => { return { _id: this.genId(id), _key: this.genKey(id) }; } );
     }
 
     vertexData (i) {
@@ -241,7 +244,7 @@ exports.test = function (global) {
       let sum = function (values) {
         return values.reduce(function (previous, current) {
           return previous + current;
-        });
+        }, 0);
       };
 
       values.sort(function (a, b) {
@@ -689,7 +692,7 @@ exports.test = function (global) {
         }
   
         function fillGraphEdges(c, n, vc) {
-          print("Filling edges for ", c.name())
+          print("Filling edges for ", c.name());
           let j = 0,
             k = 50,
             l = 0;
@@ -713,7 +716,7 @@ exports.test = function (global) {
         }
   
         function fillGraphVertexes(c, n, g) {
-          print("Filling Vertexes for ", c.name())
+          print("Filling Vertexes for ", c.name());
           fillCollection(c, n, function (i) {
             return {
               _key: "smart" + i + ":test" + i,
@@ -778,6 +781,7 @@ exports.test = function (global) {
             fillCollection(graph.edgeCollection(), graph.numEdges(), graph.edgeData.bind(graph));
 
           }
+          return graph;
         };
 
         const addGraphsForScale = (scale) => {
@@ -1913,20 +1917,10 @@ exports.test = function (global) {
     },
 
     genericDisjointSmartGraph = function (params) {
-      let numVertices = 0;
-      if (global.small) {
-        numVertices = 10000;
-      } else if (global.medium) {
-        numVertices = 100000;
-      } else if (global.big) {
-        numVertices = 1000000;
-      }
-      const gen = new GraphGenerator(params.vCol, params.eCol, numVertices)
-
       let bindParam = {
         "@c": params.collection,
-        "g": params.graph,
-        "startVertices": gen.getRandomStartVertices(100)
+        "g": params.graph.name(),
+        "startVertices": params.graph.getRandomStartVertices(100)
       };
 
       if ('bindParamModifier' in params) {
@@ -2768,8 +2762,37 @@ exports.test = function (global) {
             params: {
               func: genericDisjointSmartGraph,
               queryString: `
-                          FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
+                        FOR s IN @startVertices
+                          FOR v, e, p IN 1..3 OUTBOUND s GRAPH @g
                             return v`,
+              bindParamModifier: function (param, bindParam) { delete bindParam["@c"]; }
+            }
+          },
+          {
+            name: "aql-traversal-graph-graph",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                        FOR s IN @startVertices
+                          FOR v, e, p IN 1 OUTBOUND s GRAPH @g
+                          FOR v1, e1, p1 IN 1 OUTBOUND v GRAPH @g
+                            return v1`,
+              bindParamModifier: function (param, bindParam) { delete bindParam["@c"]; }
+            }
+          },
+          {
+            name: "aql-traversal-subquery-graph-graph",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                        FOR s IN @startVertices
+                          LET sub1 = (
+                            FOR v, e, p IN 1 OUTBOUND s GRAPH @g
+                              RETURN v._key)
+                          LET sub2 = (
+                            FOR v, e, p IN 1 INBOUND s GRAPH @g
+                              RETURN v._key)
+                          RETURN [sub1, sub2]`,
               bindParamModifier: function (param, bindParam) { delete bindParam["@c"]; }
             }
           },
@@ -2780,8 +2803,8 @@ exports.test = function (global) {
               queryString: `
                           for doc in @@c
                             filter doc.value1 >= 0 and doc.value1 <= 10
-                            let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
-                            for v, e, p in 1..4 outbound vkey graph @g
+                            FOR s IN @startVertices
+                            for v, e, p in 1..4 outbound s GRAPH @g
                               return {doc, p}
                           `,
             }
@@ -2792,8 +2815,8 @@ exports.test = function (global) {
               func: genericDisjointSmartGraph,
               queryString: `
                           for doc in @@c
-                            let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
-                            for v, e, p in 1..4 outbound vkey graph @g
+                            FOR s IN @startVertices
+                            for v, e, p in 1..4 outbound s GRAPH @g
                               filter v.value1 <= doc.value1
                               return {doc, p}
                           `,
@@ -2812,6 +2835,7 @@ exports.test = function (global) {
         initializeEdgeCollection();
       }
       if (runSatelliteGraphTests || runDisjointSmartGraphTests) {
+        print("Create graphs");
         disjointGraphs = initializeGraphs();
       }
       if (global.search) {
@@ -3220,10 +3244,31 @@ exports.test = function (global) {
           disjointTestCases.push(caseItem);
         };
 
-        for (const g of disjointGraphs) {
+        for (const graph of disjointGraphs) {
           for (const item of disjointSmartGraphTests) {
-            addDisjointTestCase(item, g);
+            addDisjointTestCase(item, graph);
           }
+        }
+
+        options = {
+          runs: 5,
+          digits: 4,
+          setup: function (params) { },
+          teardown: function () { },
+          collections: [],
+          removeFromResult: 1
+        };
+
+        if (global.small) {
+          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
+        }
+
+        if (global.medium) {
+          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+        }
+
+        if (global.big) {
+          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
         let disjointSmartTestsResult = testRunner(disjointTestCases, options);
