@@ -1,6 +1,6 @@
 function main () {
   require("./test").test({small: true, documents: true});
 }
-if (typeof arango !== undefined) {
+if (typeof arango !== "undefined") {
   main();
 }

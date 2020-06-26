@@ -6,6 +6,6 @@ function main () {
     crud: true
   });
 }
-if (typeof arango !== undefined) {
+if (typeof arango !== "undefined") {
   main();
 }

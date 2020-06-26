@@ -11,6 +11,6 @@ function main () {
     crudSearch: false
   });
 }
-if (typeof arango !== undefined) {
+if (typeof arango !== "undefined") {
   main();
 }
