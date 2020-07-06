@@ -667,7 +667,11 @@ exports.test = function (global) {
           name: "v_stored_values" + n,
           collections: ["values" + n],
           analyzers: ["identity"],
-          storedValues: semver.satisfies(serverVersion, "<3.7.0") ? ["value2", ["value1", "value3"]] : [["value2"], ["value1", "value3"]]
+          storedValues: semver.satisfies(serverVersion, "<3.7.0") ?
+                        ["value2", ["value1", "value3"]] :
+                        (semver.satisfies(serverVersion, "<3.7.1") ?
+                        [["value2"], ["value1", "value3"]] :
+                        [{ fields:["value2"]}, {fields:["value1", "value3"]}])
         };
         createArangoSearch(params);
       }
