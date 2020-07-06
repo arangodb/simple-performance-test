@@ -32,10 +32,11 @@ exports.test = function (global) {
   const semver = require("semver");
   const _ = require("lodash");
 
+  const serverVersion = arango ? arango.getVersion() : internal.version;
+
   const db = require("org/arangodb").db;
   const time = internal.time;
   const print = internal.print;
-  const serverVersion = internal.version;
   const isEnterprise = internal.isEnterprise();
   const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
 
