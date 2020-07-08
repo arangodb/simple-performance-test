@@ -32,7 +32,7 @@ exports.test = function (global) {
   const semver = require("semver");
   const _ = require("lodash");
 
-  const serverVersion = arango ? arango.getVersion() : internal.version;
+  const serverVersion = ((typeof arango) !== "undefined") ? arango.getVersion() : internal.version;
 
   const db = require("org/arangodb").db;
   const time = internal.time;
