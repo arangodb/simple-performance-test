@@ -307,8 +307,8 @@ exports.test = function (global) {
     fillCollection(c, n, function (i) {
       let obj = {
         _key: "test" + i,
-        _from: vc.name + "/test" + j,
-        _to: vc.name + "/test" + i,
+        _from: `${vc.name()}/test${j}`,
+        _to: `${vc.name()}/test${i}`,
         value: i + "-" + j
       };
       if (++l === k) {
