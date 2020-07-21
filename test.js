@@ -294,7 +294,7 @@ exports.test = function (global) {
       }
     }
 
-    if (batch.length === batchSize) {
+    if (batch.length > 0) {
       print("inserted", batch.length, "documents");
       c.insert(batch);
     }
