@@ -1,5 +1,9 @@
 function main () {
-  require("./test").test({small: true, satelliteGraphTests: true});
+  require("./test").test({
+    small: true,
+
+    crud: true
+  });
 }
 if (typeof arango !== "undefined") {
   main();

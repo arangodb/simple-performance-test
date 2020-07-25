@@ -151,34 +151,38 @@ exports.test = function (global) {
       let out = [];
 
       for (let i = 0; i < tests.length; ++i) {
-        let test = tests[i];
-        if (!(test.version === undefined || semver.satisfies(serverVersion, test.version))) {
-          print("skipping test " + test.name + ", requires version " + test.version);
-        } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
-          print("skipping test " + test.name + ", requires analyzers");
-        } else {
-          print("running test " + test.name);
+        try {
+          let test = tests[i];
+          if (!(test.version === undefined || semver.satisfies(serverVersion, test.version))) {
+            print("skipping test " + test.name + ", requires version " + test.version);
+          } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
+            print("skipping test " + test.name + ", requires analyzers");
+          } else {
+            print("running test " + test.name);
 
-          for (let j = 0; j < options.collections.length; ++j) {
-            let collection = options.collections[j];
-            let stats = calc(measure(test, collection, options), options);
+            for (let j = 0; j < options.collections.length; ++j) {
+              let collection = options.collections[j];
+              let stats = calc(measure(test, collection, options), options);
 
-            out.push({
-              name: test.name,
-              collectionLabel: collection.label,
-              collectionSize: collection.size,
-              runs: String(options.runs),
-              min: stats.min.toFixed(options.digits),
-              max: stats.max.toFixed(options.digits),
-              dev: (stats.dev * 100).toFixed(2),
-              avg: stats.avg.toFixed(options.digits),
-              med: stats.med.toFixed(options.digits)
-            });
-          } // for j
-        }
-      } // for i
+              out.push({
+                name: test.name,
+                collectionLabel: collection.label,
+                collectionSize: collection.size,
+                runs: String(options.runs),
+                min: stats.min.toFixed(options.digits),
+                max: stats.max.toFixed(options.digits),
+                dev: (stats.dev * 100).toFixed(2),
+                avg: stats.avg.toFixed(options.digits),
+                med: stats.med.toFixed(options.digits)
+              });
+            } // for j
+          }
+        } // for i
 
-      return out;
+        return out;
+      } catch (ex) {
+        print("expection in test " + test.name + ": " + ex);
+      }
     };
 
     return run(tests, options);
