@@ -177,12 +177,12 @@ exports.test = function (global) {
               });
             } // for j
           }
-        } // for i
+        } catch (ex) {
+          print("expection in test " + test.name + ": " + ex);
+        }
+      } // for i
 
-        return out;
-      } catch (ex) {
-        print("expection in test " + test.name + ": " + ex);
-      }
+      return out;
     };
 
     return run(tests, options);
