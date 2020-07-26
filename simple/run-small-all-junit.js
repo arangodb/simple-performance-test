@@ -1,5 +1,5 @@
 function main () {
-  require("./test").test({
+  require("./simple/test").test({
     outputXml: true,
     xmlDirectory: "xml",
 

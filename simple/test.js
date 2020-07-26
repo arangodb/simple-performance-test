@@ -2893,7 +2893,7 @@ exports.test = function (global) {
           checkForOneShardRule = false;
         }
 
-        const oneshard = require("test-oneshard.js");
+        const oneshard = require("./simple/test-oneshard");
 
         const runTestCases1 = true;
         const runTestCases2 = true;

@@ -1,5 +1,5 @@
 function main () {
-  require("./test").test({
+  require("./simple/test").test({
     outputCsv: true,
     big: true,
     crud: true
