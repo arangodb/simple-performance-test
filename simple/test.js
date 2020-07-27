@@ -151,8 +151,8 @@ exports.test = function (global) {
       let out = [];
 
       for (let i = 0; i < tests.length; ++i) {
+        let test = tests[i];
         try {
-          let test = tests[i];
           if (!(test.version === undefined || semver.satisfies(serverVersion, test.version))) {
             print("skipping test " + test.name + ", requires version " + test.version);
           } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
