@@ -2425,7 +2425,7 @@ exports.test = function (global) {
           },
  */
           {
-            name: "aql-smart-graph",
+            name: "aql-concatenated-subqueries",
             params: { func: genericSubquerySplicing,
               queryString: `FOR c IN @@c
                                        LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
