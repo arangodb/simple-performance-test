@@ -774,13 +774,19 @@ exports.test = function (global) {
 
     count = function (params) {
       let c = db._collection(params.collection);
-      c.count();
+      // count itself is so fast that we need to repeat it for a considerable number of times
+      for (let i = 0; i < 1000; ++i) {
+        c.count();
+      }
     },
 
+    /* any is non-deterministic by design. 
+     * it has a random performance and thus is not useful in performance tests
     anyCrud = function (params) {
       let c = db._collection(params.collection);
       c.any();
     },
+    */
 
     all = function (params) {
       let c = db._collection(params.collection);
@@ -1713,11 +1719,11 @@ exports.test = function (global) {
             }
           },
           {
-            name: "aql-unique-const",
+            name: "aql-unique-const-restricted",
             params: {
               func: passthru,
               name: "UNIQUE",
-              values: numericSequence(2000)
+              values: numericSequence(500)
             }
           },
           {
@@ -2267,7 +2273,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "crud-count",
+            name: "crud-count-repeated",
             params: {
               func: count,
               setup: function (params) {
@@ -2330,9 +2336,9 @@ exports.test = function (global) {
             }
           },
           {
-            name: "aql-subquery-2",
+            name: "aql-sub-subquery",
             params: { func: genericSubquerySplicing,
-              queryString: "FOR c IN @@c LET sub = (FOR s IN 1..5 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
+              queryString: "FOR c IN @@c LET sub = (FOR s IN 1..2 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
               bindParamModifier: function (param, bindParam) {
                 bindParam.attr = "value1";
               }
@@ -2492,7 +2498,7 @@ exports.test = function (global) {
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
 
       if (global.documents || global.edges || global.search ||
-      global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
+          global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
         initializeValuesCollection();
       }
       if (global.edges || global.subqueryTests) {
