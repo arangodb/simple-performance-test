@@ -356,10 +356,10 @@ exports.test = function (global) {
 
         fillDocumentCollection(c, n, g);
 
-        c.ensureIndex({ type: "hash", fields: ["value1"] });
-        c.ensureIndex({ type: "hash", fields: ["value2"] });
-        c.ensureIndex({ type: "skiplist", fields: ["value3"] });
-        c.ensureIndex({ type: "skiplist", fields: ["value4"] });
+        c.ensureIndex({ type: "persistent", fields: ["value1"] });
+        c.ensureIndex({ type: "persistent", fields: ["value2"] });
+        c.ensureIndex({ type: "persistent", fields: ["value3"] });
+        c.ensureIndex({ type: "persistent", fields: ["value4"] });
       }
 
       if (global.tiny) {
@@ -1857,13 +1857,6 @@ exports.test = function (global) {
             params: { func: join, attr: "value2" }
           },
           {
-            name: "aql-join-skiplist-number",
-            params: { func: join, attr: "value3" }
-          },
-          {
-            name: "aql-join-skiplist-string",
-            params: { func: join, attr: "value4" }
-          },
           {
             name: "aql-lookup-key",
             params: { func: lookup, attr: "_key", n: 10000, numeric: false }
@@ -1877,14 +1870,6 @@ exports.test = function (global) {
             params: { func: lookup, attr: "value2", n: 10000, numeric: false }
           },
           {
-            name: "aql-lookup-skiplist-number",
-            params: { func: lookup, attr: "value3", n: 10000, numeric: true }
-          },
-          {
-            name: "aql-lookup-skiplist-string",
-            params: { func: lookup, attr: "value4", n: 10000, numeric: false }
-          },
-          {
             name: "aql-in-key",
             params: { func: lookupIn, attr: "_key", n: 10000, numeric: false }
           },
@@ -1895,14 +1880,6 @@ exports.test = function (global) {
           {
             name: "aql-in-hash-string",
             params: { func: lookupIn, attr: "value2", n: 10000, numeric: false }
-          },
-          {
-            name: "aql-in-skiplist-number",
-            params: { func: lookupIn, attr: "value3", n: 10000, numeric: true }
-          },
-          {
-            name: "aql-in-skiplist-string",
-            params: { func: lookupIn, attr: "value4", n: 10000, numeric: false }
           },
           {
             name: "aql-skip-index",
