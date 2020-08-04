@@ -1863,7 +1863,6 @@ exports.test = function (global) {
             params: { func: join, attr: "value2" }
           },
           {
-          {
             name: "aql-lookup-key",
             params: { func: lookup, attr: "_key", n: 10000, numeric: false }
           },
