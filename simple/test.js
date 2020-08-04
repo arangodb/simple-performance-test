@@ -2283,7 +2283,8 @@ exports.test = function (global) {
               },
               teardown: drop
             }
-          },
+          }
+/*
           {
             name: "crud-any",
             params: {
@@ -2296,6 +2297,7 @@ exports.test = function (global) {
               teardown: drop
             }
           }
+*/
         ],
         subqueryTests = [
           /*        {
