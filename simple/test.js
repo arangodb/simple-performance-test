@@ -1084,6 +1084,34 @@ exports.test = function (global) {
         { silent }
       );
     },
+    
+    rangesSubquery = function (params) {
+      if (global.big) {
+        number = 100000;
+      } else if (global.medium) {
+        number = 10000;
+      } else if (global.small) {
+        number = 1000;
+      }
+      let rules = [];
+      if (params.optimize) {
+        rules.push("+inline-subqueries");
+      } else {
+        rules.push("-inline-subqueries");
+      }
+      let distinct = "";
+      if (params.distinct) {
+        distinct = "DISTINCT ";
+      }
+      db._query(
+        "FOR i IN 1..@number LET sub = (FOR j IN 1..100 RETURN " + distinct + " j) FOR x IN sub RETURN [i, x]",
+        {
+          number
+        },
+        { optimizer: { rules } },
+        { silent }
+      );
+    },
 
     sha1 = function (params) {
       db._query(
@@ -1847,6 +1875,14 @@ exports.test = function (global) {
             params: { func: extract, attr: "value2" }
           },
           {
+            name: "aql-extract-number-nonindexed",
+            params: { func: extract, attr: "value5" }
+          },
+          {
+            name: "aql-extract-string-nonindexed",
+            params: { func: extract, attr: "value6" }
+          },
+          {
             name: "aql-join-key",
             params: { func: join, attr: "_key" }
           },
@@ -1893,7 +1929,20 @@ exports.test = function (global) {
           {
             name: "aql-skip-docs",
             params: { func: skipDocs, attr: "value1", limit: 10 }
-          }
+          },
+          {
+            name: "aql-ranges-inlined",
+            params: { func: rangesSubquery, optimize: true, distinct: false }
+          },
+          {
+            name: "aql-ranges-subquery",
+            params: { func: rangesSubquery, optimize: false, distinct: false }
+          },
+          {
+            name: "aql-ranges-subquery-distinct",
+            params: { func: rangesSubquery, optimize: false, distinct: true }
+          },
+
         ],
         edgeTests = [
           {
