@@ -1086,6 +1086,7 @@ exports.test = function (global) {
     },
     
     rangesSubquery = function (params) {
+      let number;
       if (global.big) {
         number = 100000;
       } else if (global.medium) {
