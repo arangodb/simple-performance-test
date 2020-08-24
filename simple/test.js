@@ -1196,6 +1196,20 @@ exports.test = function (global) {
         { silent }
       );
     },
+    
+    filterLimit = function (params) {
+      db._query(
+        "FOR c IN @@c FILTER c.@attr == @value LIMIT @limit RETURN c.@attr",
+        {
+          "@c": params.collection,
+          attr: params.attr,
+          value: params.value,
+          limit: params.limit
+        },
+        {},
+        { silent }
+      );
+    },
 
     extract = function (params) {
       if (params.attr === undefined) {
@@ -1854,6 +1868,14 @@ exports.test = function (global) {
           {
             name: "aql-filter-string",
             params: { func: filter, attr: "value6", value: "test333" }
+          },
+          {
+            name: "aql-filter-limit",
+            params: { func: filterLimit, attr: "value6", value: "test111", limit: 1 }
+          },
+          {
+            name: "aql-filter-limit-index",
+            params: { func: filterLimit, attr: "value2", value: "test111", limit: 1 }
           },
           {
             name: "aql-extract-doc",
