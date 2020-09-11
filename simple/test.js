@@ -7,6 +7,7 @@ exports.test = function (global) {
   global.big = global.big || false;
 
   global.documents = global.documents || false;
+  global.ioless = global.ioless || false;
   global.edges = global.edges || false;
   global.search = global.search || false;
   global.phrase = global.phrase || false;
@@ -88,11 +89,16 @@ exports.test = function (global) {
       return result;
     }; // calc
 
-    let buildParams = function (test, collection) {
-      let params = test.params;
-      params.collection = collection.name;
-      params.collectionSize = collection.size;
+    const buildParams = function (test, collection) {
+      const params = test.params;
+      if (params.hasOwnProperty('collection')) {
+        params.collection = collection.name;
+        params.collectionSize = collection.size;
+      }
       params.scale = options.scale;
+      if (options.hasOwnProperty('iterations')) {
+        params.iterations = options.iterations;
+      }
       return params;
     };
 
@@ -164,17 +170,21 @@ exports.test = function (global) {
               let collection = options.collections[j];
               let stats = calc(measure(test, collection, options), options);
 
-              out.push({
+              const result = {
                 name: test.name,
-                collectionLabel: collection.label,
-                collectionSize: collection.size,
                 runs: String(options.runs),
                 min: stats.min.toFixed(options.digits),
                 max: stats.max.toFixed(options.digits),
                 dev: (stats.dev * 100).toFixed(2),
                 avg: stats.avg.toFixed(options.digits),
                 med: stats.med.toFixed(options.digits)
-              });
+              };
+              if (collection !== null) {
+                result.collectionLabel = collection.label;
+                result.collectionSize = collection.size;
+              }
+
+              out.push(result);
             } // for j
           }
         } catch (ex) {
@@ -1084,7 +1094,7 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     rangesSubquery = function (params) {
       let number;
       if (global.big) {
@@ -1093,6 +1103,8 @@ exports.test = function (global) {
         number = 10000;
       } else if (global.small) {
         number = 1000;
+      } else if (global.tiny) {
+        number = 100;
       }
       let rules = [];
       if (params.optimize) {
@@ -1336,6 +1348,54 @@ exports.test = function (global) {
         result.push(i);
       }
       return result;
+    },
+
+    // /////////////////////////////////////////////////////////////////////////////
+    // iolessTests
+    // /////////////////////////////////////////////////////////////////////////////
+
+    justCollect = function (params) {
+      const gcd = function (a, b) {
+        while (b != 0) {
+          const t = b;
+          b = a % b;
+          a = t;
+        }
+
+        return a;
+      };
+      // calculate `q` as a relatively large coprime to `n` to "shuffle" the
+      // input of collect a little, so sort has to do some work.
+      // i'd like to avoid any sort of rand() to improve the comparability of
+      // runs slightly.
+      const n = params.iterations;
+      let q = Math.floor(n/2) + 1;
+      while (gcd(n, q) != 1) {
+        ++q;
+      }
+
+      const query = `
+        FOR i IN 1..@iterations
+          LET k = (i * @q) % @n
+          COLLECT x = k % @mod
+            OPTIONS { method: @method }
+          ${params.sortNull ? 'SORT null' : ''}
+          RETURN x
+      `;
+      // Note that n == iterations
+      const bind = {
+        iterations: params.iterations,
+        method: params.method,
+        q,
+        n,
+      };
+      if (params.div) {
+        bind.mod = Math.floor(params.iterations / params.div);
+      } else {
+        bind.mod = params.iterations;
+      }
+
+      db._query(query, bind, {}, { silent });
     },
 
     // /////////////////////////////////////////////////////////////////////////////
@@ -1977,7 +2037,33 @@ exports.test = function (global) {
             name: "aql-ranges-subquery-distinct",
             params: { func: rangesSubquery, optimize: false, distinct: true }
           },
-
+        ],
+        // Tests without collections/IO, to focus on aql block performance.
+        iolessTests = [
+          {
+            name: "collect-unique-sorted",
+            params: { func: justCollect, method: "sorted" }
+          },
+          {
+            name: "collect-unique-hash",
+            params: { func: justCollect, method: "hash" }
+          },
+          {
+            name: "collect-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", sortNull: true }
+          },
+          {
+            name: "collect-non-unique-sorted",
+            params: { func: justCollect, method: "sorted", div: 100 }
+          },
+          {
+            name: "collect-non-unique-hash",
+            params: { func: justCollect, method: "hash", div: 100 }
+          },
+          {
+            name: "collect-non-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", div: 100, sortNull: true }
+          },
         ],
         edgeTests = [
           {
@@ -2615,6 +2701,39 @@ exports.test = function (global) {
 
         if (global.outputCsv) {
           csv += toCsv(documentTestsResult);
+        }
+      }
+
+      if (global.ioless) {
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (params) {},
+          teardown: function () {},
+          iterations: null,
+          collections: [null],
+          removeFromResult: 1
+        };
+
+        if (global.tiny) {
+          options.iterations = 10000;
+        } else if (global.small) {
+          options.iterations = 100000;
+        } else if (global.medium) {
+          options.iterations = 1000000;
+        } else if (global.big) {
+          options.iterations = 10000000;
+        }
+
+        let iolessTestsResult = testRunner(iolessTests, options);
+        output += toString("IOless", iolessTestsResult) + "\n\n";
+
+        if (global.outputXml) {
+          toJUnit(iolessTestsResult);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(iolessTestsResult);
         }
       }
 

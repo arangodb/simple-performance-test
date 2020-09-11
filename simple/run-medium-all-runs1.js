@@ -5,6 +5,7 @@ function main () {
     runs: 1,
 
     documents: true,
+    ioless: true,
     edges: true,
     search: true,
     phrase: true,

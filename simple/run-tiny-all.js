@@ -5,6 +5,7 @@ function main () {
     small: false,
 
     documents: true,
+    ioless: true,
     edges: true,
     search: true,
     phrase: true,
