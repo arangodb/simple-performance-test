@@ -1355,20 +1355,46 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     justCollect = function (params) {
+      const gcd = function (a, b) {
+        while (b != 0) {
+          const t = b;
+          b = a % b;
+          a = t;
+        }
+
+        return a;
+      };
+      // calculate `q` as a relatively large coprime to `n` to "shuffle" the
+      // input of collect a little, so sort has to do some work.
+      // i'd like to avoid any sort of rand() to improve the comparability of
+      // runs slightly.
+      const n = params.iterations;
+      let q = Math.floor(n/2) + 1;
+      while (gcd(n, q) != 1) {
+        ++q;
+      }
+
       const query = `
         FOR i IN 1..@iterations
-          COLLECT j = ${params.div ? 'i % @mod' : 'i'}
+          LET k = (i * @q) % @n
+          COLLECT x = k % @mod
             OPTIONS { method: @method }
           ${params.sortNull ? 'SORT null' : ''}
-          RETURN j
+          RETURN x
       `;
+      // Note that n == iterations
       const bind = {
         iterations: params.iterations,
         method: params.method,
+        q,
+        n,
       };
       if (params.div) {
         bind.mod = Math.floor(params.iterations / params.div);
+      } else {
+        bind.mod = params.iterations;
       }
+
       db._query(query, bind, {}, { silent });
     },
 
