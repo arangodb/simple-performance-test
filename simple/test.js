@@ -91,7 +91,7 @@ exports.test = function (global) {
 
     const buildParams = function (test, collection) {
       const params = test.params;
-      if (params.hasOwnProperty('collection')) {
+      if (collection !== null) {
         params.collection = collection.name;
         params.collectionSize = collection.size;
       }
