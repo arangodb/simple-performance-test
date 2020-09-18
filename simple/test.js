@@ -182,6 +182,9 @@ exports.test = function (global) {
               if (collection !== null) {
                 result.collectionLabel = collection.label;
                 result.collectionSize = collection.size;
+              } else {
+                result.collectionLabel = "";
+                result.collectionSize = 0;
               }
 
               out.push(result);
