@@ -887,12 +887,12 @@ exports.test = function (global) {
 
     kpathOutbound = function (params) {
       db._query(
-        "WITH @@v FOR v IN OUTBOUND K_PATHS @start TO @dest @@c {'refactor': false} RETURN v",
+        "WITH @@v FOR v IN 1..9999 OUTBOUND K_PATHS @start TO @dest @@c OPTIONS {'refactor': false} RETURN v",
         {
           "@c": params.collection,
           "@v": params.collection.replace("edges", "values"),
-          start: params.collection.replace(/edges/, "values") + "/test1",
-          dest: params.collection.replace(/edges/, "values") + "/test9999"
+          start: params.collection.replace(/edges/, "values") + "/test0",
+          dest: params.collection.replace(/edges/, "values") + "/test1274"
         },
         {},
         { silent }
@@ -901,12 +901,12 @@ exports.test = function (global) {
 
     kpathAny = function (params) {
       db._query(
-        "WITH @@v FOR v IN ANY K_PATHS @start TO @dest @@c {'refactor': false} RETURN v",
+        "WITH @@v FOR v IN 1..9999 ANY K_PATHS @start TO @dest @@c OPTIONS {'refactor': false} RETURN v",
         {
           "@c": params.collection,
           "@v": params.collection.replace("edges", "values"),
-          start: params.collection.replace(/edges/, "values") + "/test1",
-          dest: params.collection.replace(/edges/, "values") + "/test9999"
+          start: params.collection.replace(/edges/, "values") + "/test0",
+          dest: params.collection.replace(/edges/, "values") + "/test1274"
         },
         {},
         { silent }
@@ -915,12 +915,12 @@ exports.test = function (global) {
 
     refactoredKpathOutbound = function (params) {
       db._query(
-        "WITH @@v FOR v IN OUTBOUND K_PATHS @start TO @dest @@c {'refactor': true} RETURN v",
+        "WITH @@v FOR v IN 1..9999 OUTBOUND K_PATHS @start TO @dest @@c OPTIONS {'refactor': true} RETURN v",
         {
           "@c": params.collection,
           "@v": params.collection.replace("edges", "values"),
-          start: params.collection.replace(/edges/, "values") + "/test1",
-          dest: params.collection.replace(/edges/, "values") + "/test9999"
+          start: params.collection.replace(/edges/, "values") + "/test0",
+          dest: params.collection.replace(/edges/, "values") + "/test1274"
         },
         {},
         { silent }
@@ -929,12 +929,12 @@ exports.test = function (global) {
 
     refactoredKpathAny = function (params) {
       db._query(
-        "WITH @@v FOR v IN ANY K_PATHS @start TO @dest @@c {'refactor': true} RETURN v",
+        "WITH @@v FOR v IN ANY 1..9999 K_PATHS @start TO @dest @@c OPTIONS {'refactor': true} RETURN v",
         {
           "@c": params.collection,
           "@v": params.collection.replace("edges", "values"),
-          start: params.collection.replace(/edges/, "values") + "/test1",
-          dest: params.collection.replace(/edges/, "values") + "/test9999"
+          start: params.collection.replace(/edges/, "values") + "/test0",
+          dest: params.collection.replace(/edges/, "values") + "/test1274"
         },
         {},
         { silent }
