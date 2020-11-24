@@ -885,6 +885,63 @@ exports.test = function (global) {
       );
     },
 
+    kpathOutbound = function (params) {
+      db._query(
+        "WITH @@v FOR v IN OUTBOUND K_PATHS @start TO @dest @@c {'refactor': false} RETURN v",
+        {
+          "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
+          start: params.collection.replace(/edges/, "values") + "/test1",
+          dest: params.collection.replace(/edges/, "values") + "/test9999"
+        },
+        {},
+        { silent }
+      );
+    },
+
+    kpathAny = function (params) {
+      db._query(
+        "WITH @@v FOR v IN ANY K_PATHS @start TO @dest @@c {'refactor': false} RETURN v",
+        {
+          "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
+          start: params.collection.replace(/edges/, "values") + "/test1",
+          dest: params.collection.replace(/edges/, "values") + "/test9999"
+        },
+        {},
+        { silent }
+      );
+    },
+
+    refactoredKpathOutbound = function (params) {
+      db._query(
+        "WITH @@v FOR v IN OUTBOUND K_PATHS @start TO @dest @@c {'refactor': true} RETURN v",
+        {
+          "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
+          start: params.collection.replace(/edges/, "values") + "/test1",
+          dest: params.collection.replace(/edges/, "values") + "/test9999"
+        },
+        {},
+        { silent }
+      );
+    },
+
+    refactoredKpathAny = function (params) {
+      db._query(
+        "WITH @@v FOR v IN ANY K_PATHS @start TO @dest @@c {'refactor': true} RETURN v",
+        {
+          "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
+          start: params.collection.replace(/edges/, "values") + "/test1",
+          dest: params.collection.replace(/edges/, "values") + "/test9999"
+        },
+        {},
+        { silent }
+      );
+    },
+
+
     // /////////////////////////////////////////////////////////////////////////////
     // documentTests
     // /////////////////////////////////////////////////////////////////////////////
@@ -1914,6 +1971,7 @@ exports.test = function (global) {
           }
         ],
         edgeTests = [
+/*
           {
             name: "traversal-outbound-1",
             params: { func: outbound, minDepth: 1, maxDepth: 1, loops: 1000 }
@@ -1946,6 +2004,24 @@ exports.test = function (global) {
             name: "shortest-any",
             params: { func: shortestAny }
           },
+*/
+          {
+            name: "k-paths-outbound",
+            params: { func: kpathOutbound }
+          },
+          {
+            name: "k-paths-any",
+            params: { func: kpathAny }
+          },
+          {
+            name: "k-paths-outbound-refactored",
+            params: { func: refactoredKpathOutbound }
+          },
+          {
+            name: "k-paths-any-refactored",
+            params: { func: refactoredKpathAny }
+          },
+/*
           {
             name: "subquery-exists-path",
             params: { func: subqueryExistsPath }
@@ -1958,6 +2034,7 @@ exports.test = function (global) {
             name: "two-step-traversal-group-by-subquery",
             params: { func: twoStepTraversalGroupBySubquery }
           }
+*/
         ],
         arangosearchTests = [
           {
