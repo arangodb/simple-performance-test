@@ -1333,6 +1333,24 @@ exports.test = function (global) {
       }
     },
 
+    collectCountOnly = function (params) {
+      if (params.explicitAggregator) {
+        db._query(
+          "FOR c IN @@c COLLECT AGGREGATE cnt = COUNT(1) RETURN cnt",
+          { "@c": params.collection },
+          {},
+          { silent }
+        );
+      } else {
+        db._query(
+          "FOR c IN @@c COLLECT WITH COUNT INTO cnt RETURN cnt",
+          { "@c": params.collection },
+          {},
+          { silent }
+        );
+      }
+    },
+
     passthru = function (params) {
       db._query(
         "FOR c IN @@c RETURN NOOPT(" + params.name + "(@value))",
@@ -1381,9 +1399,10 @@ exports.test = function (global) {
         FOR i IN 1..@iterations
           LET k = (i * @q) % @n
           COLLECT x = k % @mod
+          ${params.count ? 'WITH COUNT INTO cnt' : ''}
             OPTIONS { method: @method }
           ${params.sortNull ? 'SORT null' : ''}
-          RETURN x
+          RETURN ${params.count ? '[x, cnt]' : 'x'}
       `;
       // Note that n == iterations
       const bind = {
@@ -1853,6 +1872,14 @@ exports.test = function (global) {
             params: { func: collect, attr: "value8", count: true }
           },
           {
+            name: "aql-collect-count-only",
+            params: { func: collectCountOnly }
+          },
+          {
+            name: "aql-collect-count-only-aggregator",
+            params: { func: collectCountOnly, explicitAggregator: true }
+          },
+          {
             name: "aql-subquery",
             params: { func: subquery, attr: "value1" }
           },
@@ -2066,6 +2093,31 @@ exports.test = function (global) {
           {
             name: "collect-non-unique-hash-nosort",
             params: { func: justCollect, method: "hash", div: 100, sortNull: true }
+          },
+          
+          {
+            name: "collect-count-unique-sorted",
+            params: { func: justCollect, method: "sorted", count: true }
+          },
+          {
+            name: "collect-count-unique-hash",
+            params: { func: justCollect, method: "hash", count: true }
+          },
+          {
+            name: "collect-count-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", sortNull: true, count: true }
+          },
+          {
+            name: "collect-count-non-unique-sorted",
+            params: { func: justCollect, method: "sorted", div: 100, count: true }
+          },
+          {
+            name: "collect-count-non-unique-hash",
+            params: { func: justCollect, method: "hash", div: 100, count: true }
+          },
+          {
+            name: "collect-count-non-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", div: 100, sortNull: true, count: true }
           },
         ],
         edgeTests = [
