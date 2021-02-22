@@ -1128,6 +1128,17 @@ exports.test = function (global) {
         { silent }
       );
     },
+    
+    returnConst = function (params) {
+      db._query(
+        "FOR c IN @@c RETURN 1",
+        {
+          "@c": params.collection,
+        },
+        {},
+        { silent }
+      );
+    },
 
     sha1 = function (params) {
       db._query(
@@ -1167,6 +1178,29 @@ exports.test = function (global) {
           attr: params.attr,
           offset: offset,
           limit: params.limit
+        },
+        {},
+        { silent }
+      );
+    },
+    
+    sortDoubles = function (params) {
+      db._query(
+        "FOR c IN @@c SORT c.value5 * 1.1 RETURN c.value5",
+        {
+          "@c": params.collection,
+        },
+        {},
+        { silent }
+      );
+    },
+    
+    sortIntegers = function (params) {
+      db._query(
+        "FOR c IN @@c LET value = c.value5 >= @max ? @max : c.value5 SORT value RETURN value",
+        {
+          "@c": params.collection,
+          max: params.max
         },
         {},
         { silent }
@@ -1363,10 +1397,10 @@ exports.test = function (global) {
       );
     },
 
-    numericSequence = function (n) {
+    numericSequence = function (n, offset = 0) {
       let result = [];
       for (let i = 0; i < n; ++i) {
-        result.push(i);
+        result.push(i + offset);
       }
       return result;
     },
@@ -1848,6 +1882,22 @@ exports.test = function (global) {
             }
           },
           {
+            name: "aql-min-const-large",
+            params: {
+              func: passthru,
+              name: "MIN",
+              values: numericSequence(2000, 1000000000)
+            }
+          },
+          {
+            name: "aql-min-const-double",
+            params: {
+              func: passthru,
+              name: "MIN",
+              values: numericSequence(2000, 1234.567)
+            }
+          },
+          {
             name: "aql-unique-const-restricted",
             params: {
               func: passthru,
@@ -1956,6 +2006,22 @@ exports.test = function (global) {
             params: { func: sortAll, attr: "value6" }
           },
           {
+            name: "aql-sort-double",
+            params: { func: sortDoubles },
+          },
+          {
+            name: "aql-sort-int1",
+            params: { func: sortIntegers, max: 100  },
+          },
+          {
+            name: "aql-sort-int2",
+            params: { func: sortIntegers, max: 10000  },
+          },
+          {
+            name: "aql-sort-int4",
+            params: { func: sortIntegers, max: 1000000000  },
+          },
+          {
             name: "aql-filter-number",
             params: { func: filter, attr: "value5", value: 333 }
           },
@@ -2046,6 +2112,10 @@ exports.test = function (global) {
           {
             name: "aql-in-hash-string",
             params: { func: lookupIn, attr: "value2", n: 10000, numeric: false }
+          },
+          {
+            name: "aql-return-const",
+            params: { func: returnConst }
           },
           {
             name: "aql-skip-index",
