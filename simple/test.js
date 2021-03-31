@@ -638,11 +638,20 @@ exports.test = function (global) {
           ],
           lowPhraseCounter = 0;
 
+        let batchSize = 10000;
+        let batch = [];
+
+        // add some really low frequent phrase
+        batch.push({
+          _key: "testPhrase" + (n + 1),
+          value2: "Low Phrase"
+        });
+
         for (let i = 0; i < n; ++i) {
-          c.insert({
+          batch.push({
             _key: "testPhrase" + i,
             value2:
-            phrasesHigh[highPhraseCounter] + phrasesLow[lowPhraseCounter]
+              phrasesHigh[highPhraseCounter] + phrasesLow[lowPhraseCounter]
           });
           ++highPhraseCounter;
           ++lowPhraseCounter;
@@ -653,13 +662,17 @@ exports.test = function (global) {
           if (lowPhraseCounter >= phrasesLow.length) {
             lowPhraseCounter = 0;
           }
+          if (batch.length === batchSize) {
+            c.insert(batch);
+            print("inserted", batchSize, "documents");
+            batch = [];
+          }
         }
 
-        // And some really low frequent phrase
-        c.insert({
-          _key: "testPhrase" + (n + 1),
-          value2: "Low Phrase"
-        });
+        if (batch.length > 0) {
+          print("inserted", batch.length, "documents");
+          c.insert(batch);
+        }
       }
 
       if (global.tiny) {
