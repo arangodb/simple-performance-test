@@ -33,7 +33,8 @@ exports.test = function (global) {
   const semver = require("semver");
   const _ = require("lodash");
 
-  const serverVersion = ((typeof arango) !== "undefined") ? arango.getVersion() : internal.version;
+  // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
+  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).slice(0,5);
 
   const db = require("org/arangodb").db;
   const time = internal.time;
