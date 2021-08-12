@@ -32,9 +32,9 @@ password will halt the execution until responded.
 
 ## Configurations
 
-- run-big-all.js
-- run-small-all-junit.js
-- run-small-all.js
-- run-small-crud.js
-- run-small-documents.js
-- run-small-edges.js
+- simple/run-big-all.js
+- simple/run-small-all-junit.js
+- simple/run-small-all.js
+- simple/run-small-crud.js
+- simple/run-small-documents.js
+- simple/run-small-edges.js

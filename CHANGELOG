@@ -1,0 +1,13 @@
+v1.1.0 (2020-XX-XX)
+-------------------
+
+* added ddl tests, move simple test into sub-directory
+* added try/catch
+
+* ensure that we have at least one run after removeFromResult
+
+
+v1.0.0 (2020-06-14)
+-------------------
+
+* initial version

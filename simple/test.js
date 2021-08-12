@@ -1,11 +1,13 @@
 exports.test = function (global) {
   "use strict";
 
+  global.tiny = global.tiny || false;
   global.small = global.small || false;
   global.medium = global.medium || false;
   global.big = global.big || false;
 
   global.documents = global.documents || false;
+  global.ioless = global.ioless || false;
   global.edges = global.edges || false;
   global.search = global.search || false;
   global.phrase = global.phrase || false;
@@ -14,6 +16,9 @@ exports.test = function (global) {
   global.crudSearch = global.crudSearch || false;
   global.subqueryTests = global.subqueryTests || false;
   global.oneshardTests = global.oneshardTests || false;
+
+  global.runs = global.runs || 5;
+  global.digits = global.digits || 4;
 
   global.outputXml = global.outputXml || false;
   global.xmlDirectory = global.xmlDirectory || ".";
@@ -28,10 +33,12 @@ exports.test = function (global) {
   const semver = require("semver");
   const _ = require("lodash");
 
+  // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
+  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
+
   const db = require("org/arangodb").db;
   const time = internal.time;
   const print = internal.print;
-  const serverVersion = internal.version;
   const isEnterprise = internal.isEnterprise();
   const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
 
@@ -43,15 +50,15 @@ exports.test = function (global) {
   // This is a seedable RandomNumberGenerator
   // it is not operfect for Random numbers,
   // but good enough for what we are doing here
-  function* randomNumberGenerator (seed) {
+  function *randomNumberGenerator (seed) {
     while (true) {
       const nextVal = Math.cos(seed++) * 10000;
       yield nextVal - Math.floor(nextVal);
     }
-  };
+  }
 
   class GraphGenerator {
-    constructor(nameprefix, type, runnerName, scale) {
+    constructor (nameprefix, type, runnerName, scale) {
       this._resetRand();
       this._name = `${nameprefix}${runnerName}${scale}`;
       this._runnerName = `${runnerName}-${scale}`;
@@ -192,7 +199,9 @@ exports.test = function (global) {
       // done before.
       this._resetRand();
       // Hihi Javascript
-      return Array.from({ length }).map(_ => this.randomId()).map(id => { return { _id: this.genId(id), _key: this.genKey(id) }; } );
+      return Array.from({ length }).map(_ => this.randomId()).map(id => {
+        return { _id: this.genId(id), _key: this.genKey(id) };
+      });
     }
 
     vertexData (i) {
@@ -240,11 +249,14 @@ exports.test = function (global) {
   let silent = true;
   let testRunner = function (tests, options) {
     let calc = function (values, options) {
-
       let sum = function (values) {
-        return values.reduce(function (previous, current) {
-          return previous + current;
-        }, 0);
+        if (values.length > 1) {
+          return values.reduce(function (previous, current) {
+            return previous + current;
+          });
+        } else {
+          return values[0];
+        }
       };
 
       values.sort(function (a, b) {
@@ -253,8 +265,10 @@ exports.test = function (global) {
 
       let removeFromResult = parseInt(options.removeFromResult) || 0;
       if (removeFromResult > 0) {
-        values.splice(values.length - 1, removeFromResult); // remove last
-        values.splice(0, removeFromResult); // remove first
+        if (values.length > 2) {
+          values.splice(values.length - 1, removeFromResult); // remove last
+          values.splice(0, removeFromResult); // remove first
+        }
       }
 
       let n = values.length;
@@ -271,34 +285,39 @@ exports.test = function (global) {
       };
 
       return result;
-    }; //calc
+    }; // calc
 
     let buildParams = function (test, collection) {
       let params = test.params;
       params.collection = collection.name;
       params.collectionSize = collection.size;
       params.scale = options.scale;
+      if (options.hasOwnProperty("iterations")) {
+        params.iterations = options.iterations;
+      }
       return params;
     };
 
     let measure = function (test, collection, options) {
       let timedExecution = function (test, collection) {
-        let params = buildParams(test, collection);
-        const start = time();
-        if (typeof params.setupEachCall === "function") {
-          params.setupEachCall(params);
-        }
-        test.params.func(params);
-        let end = time();
-        if (typeof params.teardownEachCall === "function") {
-          params.teardownEachCall(params);
-        }
-        return end - start;
-      },
+          let params = buildParams(test, collection);
+          const start = time();
+          if (typeof params.setupEachCall === "function") {
+            params.setupEachCall(params);
+          }
+          test.params.func(params);
+          let end = time();
+          if (typeof params.teardownEachCall === "function") {
+            params.teardownEachCall(params);
+          }
+          return end - start;
+        },
         results = [];
       internal.wait(1, true);
 
-      for (let i = 0; i < options.runs + 1; ++i) {
+      const runs = options.runs > 0 ? options.runs : 1;
+
+      for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
 
         if (typeof options.setup === "function") {
@@ -328,35 +347,47 @@ exports.test = function (global) {
       }
 
       return results;
-    }; //measure
+    }; // measure
 
     let run = function (tests, options) {
       let out = [];
 
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
-        if (!(test.version === undefined || semver.satisfies(serverVersion, test.version))) {
-          print("skipping test " + test.name + ", requires version " + test.version);
-        } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
-          print("skipping test " + test.name + ", requires analyzers");
-        } else {
-          print("running test " + test.name);
+        try {
+          if (!(test.version === undefined || semver.satisfies(serverVersion, test.version))) {
+            print("skipping test " + test.name + ", requires version " + test.version);
+          } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
+            print("skipping test " + test.name + ", requires analyzers");
+          } else {
+            print("running test " + test.name);
 
-          for (let j = 0; j < options.collections.length; ++j) {
-            let collection = options.collections[j];
-            let stats = calc(measure(test, collection, options), options);
+            for (let j = 0; j < options.collections.length; ++j) {
+              let collection = options.collections[j];
+              let stats = calc(measure(test, collection, options), options);
 
-            out.push({
-              name: test.name,
-              collectionLabel: collection.label,
-              runs: String(options.runs),
-              min: stats.min.toFixed(options.digits),
-              max: stats.max.toFixed(options.digits),
-              dev: (stats.dev * 100).toFixed(2),
-              avg: stats.avg.toFixed(options.digits),
-              med: stats.med.toFixed(options.digits)
-            });
-          } // for j
+              const result = {
+                name: test.name,
+                runs: String(options.runs),
+                min: stats.min.toFixed(options.digits),
+                max: stats.max.toFixed(options.digits),
+                dev: (stats.dev * 100).toFixed(2),
+                avg: stats.avg.toFixed(options.digits),
+                med: stats.med.toFixed(options.digits)
+              };
+              if (collection !== null) {
+                result.collectionLabel = collection.label;
+                result.collectionSize = collection.size;
+              } else {
+                result.collectionLabel = "";
+                result.collectionSize = 0;
+              }
+
+              out.push(result);
+            } // for j
+          }
+        } catch (ex) {
+          print("expection in test " + test.name + ": " + ex);
         }
       } // for i
 
@@ -414,8 +445,8 @@ exports.test = function (global) {
       fs.writeFileSync(
         fs.join(global.xmlDirectory, `pref-${name}.xml`),
         `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
-        1000}" /><testcase classname="${name}" name="med" time="${test.med *
-        1000}" /></testsuite>`
+          1000}" /><testcase classname="${name}" name="med" time="${test.med *
+          1000}" /></testsuite>`
       );
     }
   };
@@ -424,17 +455,29 @@ exports.test = function (global) {
     prefix = prefix || "";
     postfix = postfix || "";
 
+    let size = "none";
+
+    if (global.tiny) {
+      size = "tiny";
+    } else if (global.small) {
+      size = "small";
+    } else if (global.medium) {
+      size = "medium";
+    } else if (global.big) {
+      size = "big";
+    }
+
     let csv = "";
 
     for (let i = 0; i < out.length; ++i) {
       let test = out[i];
-      csv += `${prefix}${test.name}${postfix},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel}\n`;
+      csv += `${prefix}${test.name}${postfix},${test.avg},${test.med},${test.min},${test.max},${test.dev},${test.collectionLabel},${test.collectionSize},${test.runs},${size}\n`;
     }
 
     return csv;
   };
 
-  function createArangoSearch(params) {
+  function createArangoSearch (params) {
     if (db._view(params.name) !== null) {
       return;
     }
@@ -449,7 +492,7 @@ exports.test = function (global) {
     db._createView(params.name, "arangosearch", meta);
   }
 
-  function fillCollection(c, n, generator, batchSize) {
+  function fillCollection (c, n, generator, batchSize) {
     batchSize = batchSize || 10000;
 
     let batch = [];
@@ -464,22 +507,22 @@ exports.test = function (global) {
       }
     }
 
-    if (batch.length === batchSize) {
+    if (batch.length > 0) {
       print("inserted", batch.length, "documents");
       c.insert(batch);
     }
   }
 
-  function fillEdgeCollection(c, n, vc) {
+  function fillEdgeCollection (c, n, vc) {
     let j = 0,
       k = 50,
       l = 0;
     fillCollection(c, n, function (i) {
       let obj = {
         _key: "test" + i,
-        _from: vc.name + "/test" + j,
-        _to: vc.name + "/test" + i,
-        value: i + "-" + j,
+        _from: `${vc.name()}/test${j}`,
+        _to: `${vc.name()}/test${i}`,
+        value: i + "-" + j
       };
       if (++l === k) {
         ++j;
@@ -493,7 +536,7 @@ exports.test = function (global) {
     });
   }
 
-  function fillDocumentCollection(c, n, g) {
+  function fillDocumentCollection (c, n, g) {
     fillCollection(c, n, function (i) {
       return {
         _key: "test" + i,
@@ -510,41 +553,39 @@ exports.test = function (global) {
   }
 
   let initializeValuesCollection = function () {
-    function createDocuments(n) {
-      let name = "values" + n;
-      if (db._collection(name) !== null) {
-        return;
+      function createDocuments (n) {
+        let name = "values" + n;
+        if (db._collection(name) !== null) {
+          return;
+        }
+        db._drop(name);
+        internal.print("creating collection " + name);
+        let c = db._create(name, {numberOfShards}),
+          g = n / 100;
+
+        fillDocumentCollection(c, n, g);
+
+        c.ensureIndex({ type: "persistent", fields: ["value1"] });
+        c.ensureIndex({ type: "persistent", fields: ["value2"] });
+        c.ensureIndex({ type: "persistent", fields: ["value3"] });
+        c.ensureIndex({ type: "persistent", fields: ["value4"] });
       }
-      db._drop(name);
-      internal.print("creating collection " + name);
-      let c = db._create(name, { numberOfShards }),
-        g = n / 100;
 
-      fillDocumentCollection(c, n, g);
+      if (global.tiny) {
+        createDocuments(1000);
+      } else if (global.small) {
+        createDocuments(10000);
+      } else if (global.medium) {
+        createDocuments(100000);
+      } else if (global.big) {
+        createDocuments(1000000);
+      }
 
-      c.ensureIndex({ type: "hash", fields: ["value1"] });
-      c.ensureIndex({ type: "hash", fields: ["value2"] });
-      c.ensureIndex({ type: "skiplist", fields: ["value3"] });
-      c.ensureIndex({ type: "skiplist", fields: ["value4"] });
-    }
-
-    if (global.small) {
-      createDocuments(10000);
-    }
-
-    if (global.medium) {
-      createDocuments(100000);
-    }
-
-    if (global.big) {
-      createDocuments(1000000);
-    }
-
-    internal.wal.flush(true, true);
-  },
+      internal.wal.flush(true, true);
+    },
 
     initializeView = function () {
-      function createView(n) {
+      function createView (n) {
         let params = {
           name: "v_values" + n,
           collections: ["values" + n],
@@ -555,15 +596,13 @@ exports.test = function (global) {
         createArangoSearch(params);
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createView(1000);
+      } else if (global.small) {
         createView(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createView(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createView(1000000);
       }
 
@@ -571,26 +610,24 @@ exports.test = function (global) {
     },
 
     initializeEdgeCollection = function () {
-      function createEdges(n) {
+      function createEdges (n) {
         let name = "edges" + n;
         if (db._collection(name) !== null) {
           return;
         }
         db._drop(name);
         internal.print("creating collection " + name);
-        let c = db._createEdgeCollection(name, { numberOfShards });
+        let c = db._createEdgeCollection(name, {numberOfShards});
         fillEdgeCollection(c, n, db._collection("values" + n));
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createEdges(1000);
+      } else if (global.small) {
         createEdges(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createEdges(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createEdges(1000000);
       }
 
@@ -606,7 +643,7 @@ exports.test = function (global) {
         print("Disjoint Smart graphs are not supported");
       }
 
-      function createSatelliteGraph(name) {
+      function createSatelliteGraph (name) {
         let vertexCollectionName = name + "_vertex";
         let edgesCollectionName = name + "_edge";
 
@@ -628,7 +665,7 @@ exports.test = function (global) {
         };
       }
 
-      function createSmartGraph(name) {
+      function createSmartGraph (name) {
         let vertexCollectionName = name + "_vertex";
         let edgesCollectionName = name + "_edge";
 
@@ -652,7 +689,7 @@ exports.test = function (global) {
         };
       }
 
-      function createCommunityGraph(name) {
+      function createCommunityGraph (name) {
         let vertexCollectionName = name + "_vertex";
         let edgesCollectionName = name + "_edge";
 
@@ -677,21 +714,21 @@ exports.test = function (global) {
       let createFullyConnectedGraph = () => {
         print("Creating community graph");
         let gc = createCommunityGraph("comm");
-  
+
         print("Creating smart graph");
         let sg = createSmartGraph("smart");
-  
+
         let satg;
         if (supportsSatelliteGraphs) {
           print("Creating satellite graph");
           satg = createSatelliteGraph("sat");
         }
-  
+
         if (!gc || !sg || (supportsSatelliteGraphs && !satg)) {
           throw "failed to create graphs";
         }
-  
-        function fillGraphEdges(c, n, vc) {
+
+        function fillGraphEdges (c, n, vc) {
           print("Filling edges for ", c.name());
           let j = 0,
             k = 50,
@@ -714,8 +751,8 @@ exports.test = function (global) {
             return obj;
           });
         }
-  
-        function fillGraphVertexes(c, n, g) {
+
+        function fillGraphVertexes (c, n, g) {
           print("Filling Vertexes for ", c.name());
           fillCollection(c, n, function (i) {
             return {
@@ -731,8 +768,8 @@ exports.test = function (global) {
             };
           });
         }
-  
-        function createVertexes(n) {
+
+        function createVertexes (n) {
           let g = n / 100;
           fillGraphVertexes(gc.vertex, n, g);
           fillGraphVertexes(sg.vertex, n, g);
@@ -740,26 +777,25 @@ exports.test = function (global) {
             fillGraphVertexes(satg.vertex, n, g);
           }
         }
-  
-        function createEdges(n) {
+
+        function createEdges (n) {
           fillGraphEdges(gc.edges, n, gc.vertex);
           fillGraphEdges(sg.edges, n, sg.vertex);
           if (supportsSatelliteGraphs) {
             fillGraphEdges(satg.edges, n, satg.vertex);
           }
         }
-  
-        if (global.small) {
+
+        if (global.tiny) {
+          createVertexes(1000);
+          createEdges(1000);
+        } else if (global.small) {
           createVertexes(10000);
           createEdges(10000);
-        }
-  
-        if (global.medium) {
+        } else if (global.medium) {
           createVertexes(100000);
           createEdges(100000);
-        }
-  
-        if (global.big) {
+        } else if (global.big) {
           createVertexes(1000000);
           createEdges(1000000);
         }
@@ -811,11 +847,11 @@ exports.test = function (global) {
 
       createFullyConnectedGraph();
       return createDisjointGraph();
-    
+
     },
 
     initializePhrasesView = function () {
-      function createPhrasesView(n) {
+      function createPhrasesView (n) {
         if (!supportsAnalyzers) {
           return;
         }
@@ -830,7 +866,7 @@ exports.test = function (global) {
         createArangoSearch(params);
       }
 
-      function createDocumentsWithPhrases(n) {
+      function createDocumentsWithPhrases (n) {
         let name = "valuesPhrases" + n;
         if (db._collection(name) !== null) {
           return;
@@ -863,8 +899,17 @@ exports.test = function (global) {
           ],
           lowPhraseCounter = 0;
 
+        let batchSize = 10000;
+        let batch = [];
+
+        // add some really low frequent phrase
+        batch.push({
+          _key: "testPhrase" + (n + 1),
+          value2: "Low Phrase"
+        });
+
         for (let i = 0; i < n; ++i) {
-          c.insert({
+          batch.push({
             _key: "testPhrase" + i,
             value2:
               phrasesHigh[highPhraseCounter] + phrasesLow[lowPhraseCounter]
@@ -878,26 +923,29 @@ exports.test = function (global) {
           if (lowPhraseCounter >= phrasesLow.length) {
             lowPhraseCounter = 0;
           }
+          if (batch.length === batchSize) {
+            c.insert(batch);
+            print("inserted", batchSize, "documents");
+            batch = [];
+          }
         }
 
-        // And some really low frequent phrase
-        c.insert({
-          _key: "testPhrase" + (n + 1),
-          value2: "Low Phrase"
-        });
+        if (batch.length > 0) {
+          print("inserted", batch.length, "documents");
+          c.insert(batch);
+        }
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createDocumentsWithPhrases(1000);
+        createPhrasesView(1000);
+      } else if (global.small) {
         createDocumentsWithPhrases(10000);
         createPhrasesView(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createDocumentsWithPhrases(100000);
         createPhrasesView(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createDocumentsWithPhrases(10000000);
         createPhrasesView(10000000);
       }
@@ -906,25 +954,27 @@ exports.test = function (global) {
     },
 
     initializeStoredValuesView = function () {
-      function createStoredValuesView(n) {
+      function createStoredValuesView (n) {
         let params = {
           name: "v_stored_values" + n,
           collections: ["values" + n],
           analyzers: ["identity"],
-          storedValues: semver.satisfies(serverVersion, "<3.7.0") ? ["value2", ["value1", "value3"]] : [["value2"], ["value1", "value3"]]
+          storedValues: semver.satisfies(serverVersion, "<3.7.0")
+            ? ["value2", ["value1", "value3"]]
+            : (semver.satisfies(serverVersion, "<3.7.1")
+              ? [["value2"], ["value1", "value3"]]
+              : [{ fields: ["value2"]}, {fields: ["value1", "value3"]}])
         };
         createArangoSearch(params);
       }
 
-      if (global.small) {
+      if (global.tiny) {
+        createStoredValuesView(1000);
+      } else if (global.small) {
         createStoredValuesView(10000);
-      }
-
-      if (global.medium) {
+      } else if (global.medium) {
         createStoredValuesView(100000);
-      }
-
-      if (global.big) {
+      } else if (global.big) {
         createStoredValuesView(1000000);
       }
 
@@ -950,7 +1000,7 @@ exports.test = function (global) {
 
     create = function (params) {
       let name = params.collection;
-      db._create(name, { numberOfShards });
+      db._create(name, {numberOfShards});
       let view = params.view;
       if (view !== undefined) {
         let viewParams = {
@@ -1011,13 +1061,19 @@ exports.test = function (global) {
 
     count = function (params) {
       let c = db._collection(params.collection);
-      c.count();
+      // count itself is so fast that we need to repeat it for a considerable number of times
+      for (let i = 0; i < 1000; ++i) {
+        c.count();
+      }
     },
 
+    /* any is non-deterministic by design.
+     * it has a random performance and thus is not useful in performance tests
     anyCrud = function (params) {
       let c = db._collection(params.collection);
       c.any();
     },
+    */
 
     all = function (params) {
       let c = db._collection(params.collection);
@@ -1148,13 +1204,13 @@ exports.test = function (global) {
         FILTER LENGTH(hasPath) > 0
         RETURN v
     `,
-        {
-          "@c": vertices,
-          "@e": params.collection,
-          source: `${vertices}/test2`
-        },
-        {},
-        { silent }
+      {
+        "@c": vertices,
+        "@e": params.collection,
+        source: `${vertices}/test2`
+      },
+      {},
+      { silent }
       );
     },
 
@@ -1169,12 +1225,12 @@ exports.test = function (global) {
           COLLECT m = main INTO group
           RETURN {main: m, subs: group.sub }
     `,
-        {
-          "@c": vertices,
-          "@e": params.collection
-        },
-        {},
-        { silent }
+      {
+        "@c": vertices,
+        "@e": params.collection
+      },
+      {},
+      { silent }
       );
     },
 
@@ -1191,12 +1247,12 @@ exports.test = function (global) {
         )
         RETURN {main, subs}
     `,
-        {
-          "@c": vertices,
-          "@e": params.collection
-        },
-        {},
-        { silent }
+      {
+        "@c": vertices,
+        "@e": params.collection
+      },
+      {},
+      { silent }
       );
     },
 
@@ -1316,6 +1372,48 @@ exports.test = function (global) {
       );
     },
 
+    rangesSubquery = function (params) {
+      let number;
+      if (global.big) {
+        number = 100000;
+      } else if (global.medium) {
+        number = 10000;
+      } else if (global.small) {
+        number = 1000;
+      } else if (global.tiny) {
+        number = 100;
+      }
+      let rules = [];
+      if (params.optimize) {
+        rules.push("+inline-subqueries");
+      } else {
+        rules.push("-inline-subqueries");
+      }
+      let distinct = "";
+      if (params.distinct) {
+        distinct = "DISTINCT ";
+      }
+      db._query(
+        "FOR i IN 1..@number LET sub = (FOR j IN 1..100 RETURN " + distinct + " j) FOR x IN sub RETURN [i, x]",
+        {
+          number
+        },
+        { optimizer: { rules } },
+        { silent }
+      );
+    },
+
+    returnConst = function (params) {
+      db._query(
+        "FOR c IN @@c RETURN 1",
+        {
+          "@c": params.collection
+        },
+        {},
+        { silent }
+      );
+    },
+
     sha1 = function (params) {
       db._query(
         "FOR c IN @@c RETURN SHA1(c.@attr)",
@@ -1360,8 +1458,31 @@ exports.test = function (global) {
       );
     },
 
+    sortDoubles = function (params) {
+      db._query(
+        "FOR c IN @@c SORT c.value5 * 1.1 RETURN c.value5",
+        {
+          "@c": params.collection
+        },
+        {},
+        { silent }
+      );
+    },
+
+    sortIntegers = function (params) {
+      db._query(
+        "FOR c IN @@c LET value = c.value5 >= @max ? @max : c.value5 SORT value RETURN value",
+        {
+          "@c": params.collection,
+          max: params.max
+        },
+        {},
+        { silent }
+      );
+    },
+
     sortAll = function (params) {
-      // Use a "sort everything" implementation.
+    // Use a "sort everything" implementation.
       db._query(
         "FOR c IN @@c SORT c.@attr LIMIT 1 RETURN c.@attr",
         {
@@ -1374,7 +1495,7 @@ exports.test = function (global) {
     },
 
     sortHeap = function (params) {
-      // Use a heap of size 20 for the sort.
+    // Use a heap of size 20 for the sort.
       db._query(
         "FOR c IN @@c SORT c.@attr LIMIT 20 RETURN c.@attr",
         {
@@ -1393,6 +1514,24 @@ exports.test = function (global) {
           "@c": params.collection,
           attr: params.attr,
           value: params.value
+        },
+        {},
+        { silent }
+      );
+    },
+
+    filterLimit = function (params) {
+      let op = "==";
+      if (params.op) {
+        op = params.op;
+      }
+      db._query(
+        "FOR c IN @@c FILTER c.@attr " + op + " @value LIMIT @limit RETURN c.@attr",
+        {
+          "@c": params.collection,
+          attr: params.attr,
+          value: params.value,
+          limit: params.limit
         },
         {},
         { silent }
@@ -1502,6 +1641,24 @@ exports.test = function (global) {
       }
     },
 
+    collectCountOnly = function (params) {
+      if (params.explicitAggregator) {
+        db._query(
+          "FOR c IN @@c COLLECT AGGREGATE cnt = COUNT(1) RETURN cnt",
+          { "@c": params.collection },
+          {},
+          { silent }
+        );
+      } else {
+        db._query(
+          "FOR c IN @@c COLLECT WITH COUNT INTO cnt RETURN cnt",
+          { "@c": params.collection },
+          {},
+          { silent }
+        );
+      }
+    },
+
     passthru = function (params) {
       db._query(
         "FOR c IN @@c RETURN NOOPT(" + params.name + "(@value))",
@@ -1514,12 +1671,61 @@ exports.test = function (global) {
       );
     },
 
-    numericSequence = function (n) {
+    numericSequence = function (n, offset = 0) {
       let result = [];
       for (let i = 0; i < n; ++i) {
-        result.push(i);
+        result.push(i + offset);
       }
       return result;
+    },
+
+    // /////////////////////////////////////////////////////////////////////////////
+    // iolessTests
+    // /////////////////////////////////////////////////////////////////////////////
+
+    justCollect = function (params) {
+      const gcd = function (a, b) {
+        while (b != 0) {
+          const t = b;
+          b = a % b;
+          a = t;
+        }
+
+        return a;
+      };
+      // calculate `q` as a relatively large coprime to `n` to "shuffle" the
+      // input of collect a little, so sort has to do some work.
+      // i'd like to avoid any sort of rand() to improve the comparability of
+      // runs slightly.
+      const n = params.iterations;
+      let q = Math.floor(n / 2) + 1;
+      while (gcd(n, q) != 1) {
+        ++q;
+      }
+
+      const query = `
+        FOR i IN 1..@iterations
+          LET k = (i * @q) % @n
+          COLLECT x = k % @mod
+          ${params.count ? "WITH COUNT INTO cnt" : ""}
+            OPTIONS { method: @method }
+          ${params.sortNull ? "SORT null" : ""}
+          RETURN ${params.count ? "[x, cnt]" : "x"}
+      `;
+      // Note that n == iterations
+      const bind = {
+        iterations: params.iterations,
+        method: params.method,
+        q,
+        n
+      };
+      if (params.div) {
+        bind.mod = Math.floor(params.iterations / params.div);
+      } else {
+        bind.mod = params.iterations;
+      }
+
+      db._query(query, bind, {}, { silent });
     },
 
     // /////////////////////////////////////////////////////////////////////////////
@@ -1840,6 +2046,7 @@ exports.test = function (global) {
     // subqueryTests
     // /////////////////////////////////////////////////////////////////////////////
 
+    /*
     // currently unused, useful for validation
     subquerySplicingValidation = function (params) {
       let spliceoptimizer = { rules: ["+splice-subqueries"] };
@@ -1873,10 +2080,11 @@ exports.test = function (global) {
         throw "Results do not match";
       }
     },
+    */
     genericSubquerySplicing = function (params) {
       let myOptimizer = { rules: [] };
       let bindParam = { "@c": params.collection };
-      if ('bindParamModifier' in params) {
+      if ("bindParamModifier" in params) {
         params.bindParamModifier(params, bindParam);
       }
       if (params.edgesRequired === true) {
@@ -1887,7 +2095,7 @@ exports.test = function (global) {
       } else {
         myOptimizer.rules.push("-splice-subqueries");
       }
-      let result = db._query(
+      db._query(
         params.queryString,
         bindParam,
         { optimizer: myOptimizer }
@@ -1902,11 +2110,11 @@ exports.test = function (global) {
       let bindParam = {
         "@c": params.collection,
         "g": params.graph,
-        "v": params.graph + "_vertex",
-        //"e": params.graph + "_edge"
+        "v": params.graph + "_vertex"
+        // "e": params.graph + "_edge"
       };
 
-      if ('bindParamModifier' in params) {
+      if ("bindParamModifier" in params) {
         params.bindParamModifier(params, bindParam);
       }
 
@@ -1923,7 +2131,7 @@ exports.test = function (global) {
         "startVertices": params.graph.getRandomStartVertices(100)
       };
 
-      if ('bindParamModifier' in params) {
+      if ("bindParamModifier" in params) {
         params.bindParamModifier(params, bindParam);
       }
 
@@ -1933,237 +2141,346 @@ exports.test = function (global) {
       );
     },
 
+
     // /////////////////////////////////////////////////////////////////////////////
     // main
     // /////////////////////////////////////////////////////////////////////////////
 
     main = function () {
       let documentTests = [
-        {
-          name: "aql-isarray-const",
-          params: {
-            func: passthru,
-            name: "IS_ARRAY",
-            values: numericSequence(2000)
+          {
+            name: "aql-isarray-const",
+            params: {
+              func: passthru,
+              name: "IS_ARRAY",
+              values: numericSequence(2000)
+            }
+          },
+          {
+            name: "aql-length-const",
+            params: {
+              func: passthru,
+              name: "LENGTH",
+              values: numericSequence(2000)
+            }
+          },
+          {
+            name: "aql-min-const",
+            params: {
+              func: passthru,
+              name: "MIN",
+              values: numericSequence(2000)
+            }
+          },
+          {
+            name: "aql-min-const-large",
+            params: {
+              func: passthru,
+              name: "MIN",
+              values: numericSequence(2000, 1000000000)
+            }
+          },
+          {
+            name: "aql-min-const-double",
+            params: {
+              func: passthru,
+              name: "MIN",
+              values: numericSequence(2000, 1234.567)
+            }
+          },
+          {
+            name: "aql-unique-const-restricted",
+            params: {
+              func: passthru,
+              name: "UNIQUE",
+              values: numericSequence(500)
+            }
+          },
+          {
+            name: "aql-collect-number",
+            params: { func: collect, attr: "value7", count: false }
+          },
+          {
+            name: "aql-collect-string",
+            params: { func: collect, attr: "value8", count: false }
+          },
+          {
+            name: "aql-collect-count-number",
+            params: { func: collect, attr: "value7", count: true }
+          },
+          {
+            name: "aql-collect-count-string",
+            params: { func: collect, attr: "value8", count: true }
+          },
+          {
+            name: "aql-collect-count-only",
+            params: { func: collectCountOnly }
+          },
+          {
+            name: "aql-collect-count-only-aggregator",
+            params: { func: collectCountOnly, explicitAggregator: true }
+          },
+          {
+            name: "aql-subquery",
+            params: { func: subquery, attr: "value1" }
+          },
+          {
+            name: "aql-concat",
+            params: { func: concat, attr: "value5" }
+          },
+          {
+            name: "aql-merge-number",
+            params: { func: merge, attr: "value5" }
+          },
+          {
+            name: "aql-merge-string",
+            params: { func: merge, attr: "value6" }
+          },
+          {
+            name: "aql-keep",
+            params: { func: keep, attr: "value5" }
+          },
+          {
+            name: "aql-unset",
+            params: { func: unset, attr: "value5" }
+          },
+          {
+            name: "aql-attributes",
+            params: { func: attributes }
+          },
+          {
+            name: "aql-values",
+            params: { func: values }
+          },
+          {
+            name: "aql-has",
+            params: { func: has, attr: "value5" }
+          },
+          {
+            name: "aql-md5",
+            params: { func: md5, attr: "value2" }
+          },
+          {
+            name: "aql-sha1",
+            params: { func: sha1, attr: "value2" }
+          },
+          {
+            name: "aql-min-number",
+            params: { func: min, attr: "value5" }
+          },
+          {
+            name: "aql-min-string",
+            params: { func: min, attr: "value6" }
+          },
+          {
+            name: "aql-max-number",
+            params: { func: max, attr: "value5" }
+          },
+          {
+            name: "aql-max-string",
+            params: { func: max, attr: "value6" }
+          },
+          {
+            name: "aql-sort-heap-number",
+            params: { func: sortHeap, attr: "value5" }
+          },
+          {
+            name: "aql-sort-heap-string",
+            params: { func: sortHeap, attr: "value6" }
+          },
+          {
+            name: "aql-sort-all-number",
+            params: { func: sortAll, attr: "value5" }
+          },
+          {
+            name: "aql-sort-all-string",
+            params: { func: sortAll, attr: "value6" }
+          },
+          {
+            name: "aql-sort-double",
+            params: { func: sortDoubles }
+          },
+          {
+            name: "aql-sort-int1",
+            params: { func: sortIntegers, max: 100 }
+          },
+          {
+            name: "aql-sort-int2",
+            params: { func: sortIntegers, max: 10000 }
+          },
+          {
+            name: "aql-sort-int4",
+            params: { func: sortIntegers, max: 1000000000 }
+          },
+          {
+            name: "aql-filter-number",
+            params: { func: filter, attr: "value5", value: 333 }
+          },
+          {
+            name: "aql-filter-string",
+            params: { func: filter, attr: "value6", value: "test333" }
+          },
+          {
+            name: "aql-filter-limit",
+            params: { func: filterLimit, attr: "value6", value: "test111", limit: 1 }
+          },
+          {
+            name: "aql-filter-limit-index",
+            params: { func: filterLimit, attr: "value2", value: "test111", limit: 1 }
+          },
+          {
+            name: "aql-filter-limit-false",
+            params: { func: filterLimit, attr: "value5", op: "==", value: 99999999999999, limit: 1 }
+          },
+          {
+            name: "aql-filter-limit-true",
+            params: { func: filterLimit, attr: "value5", op: "!=", value: 99999999999999, limit: 1 }
+          },
+          {
+            name: "aql-extract-doc",
+            params: { func: extract }
+          },
+          {
+            name: "aql-extract-id",
+            params: { func: extract, attr: "_id" }
+          },
+          {
+            name: "aql-extract-key",
+            params: { func: extract, attr: "_key" }
+          },
+          {
+            name: "aql-extract-number",
+            params: { func: extract, attr: "value1" }
+          },
+          {
+            name: "aql-extract-string",
+            params: { func: extract, attr: "value2" }
+          },
+          {
+            name: "aql-extract-number-nonindexed",
+            params: { func: extract, attr: "value5" }
+          },
+          {
+            name: "aql-extract-string-nonindexed",
+            params: { func: extract, attr: "value6" }
+          },
+          {
+            name: "aql-join-key",
+            params: { func: join, attr: "_key" }
+          },
+          {
+            name: "aql-join-id",
+            params: { func: join, attr: "_id" }
+          },
+          {
+            name: "aql-join-hash-number",
+            params: { func: join, attr: "value1" }
+          },
+          {
+            name: "aql-join-hash-string",
+            params: { func: join, attr: "value2" }
+          },
+          {
+            name: "aql-lookup-key",
+            params: { func: lookup, attr: "_key", n: 10000, numeric: false }
+          },
+          {
+            name: "aql-lookup-hash-number",
+            params: { func: lookup, attr: "value1", n: 10000, numeric: true }
+          },
+          {
+            name: "aql-lookup-hash-string",
+            params: { func: lookup, attr: "value2", n: 10000, numeric: false }
+          },
+          {
+            name: "aql-in-key",
+            params: { func: lookupIn, attr: "_key", n: 10000, numeric: false }
+          },
+          {
+            name: "aql-in-hash-number",
+            params: { func: lookupIn, attr: "value1", n: 10000, numeric: true }
+          },
+          {
+            name: "aql-in-hash-string",
+            params: { func: lookupIn, attr: "value2", n: 10000, numeric: false }
+          },
+          {
+            name: "aql-return-const",
+            params: { func: returnConst }
+          },
+          {
+            name: "aql-skip-index",
+            params: { func: skipIndex, attr: "value1", limit: 10 }
+          },
+          {
+            name: "aql-skip-docs",
+            params: { func: skipDocs, attr: "value1", limit: 10 }
+          },
+          {
+            name: "aql-ranges-inlined",
+            params: { func: rangesSubquery, optimize: true, distinct: false }
+          },
+          {
+            name: "aql-ranges-subquery",
+            params: { func: rangesSubquery, optimize: false, distinct: false }
+          },
+          {
+            name: "aql-ranges-subquery-distinct",
+            params: { func: rangesSubquery, optimize: false, distinct: true }
           }
-        },
-        {
-          name: "aql-length-const",
-          params: {
-            func: passthru,
-            name: "LENGTH",
-            values: numericSequence(2000)
+        ],
+        // Tests without collections/IO, to focus on aql block performance.
+        iolessTests = [
+          {
+            name: "collect-unique-sorted",
+            params: { func: justCollect, method: "sorted" }
+          },
+          {
+            name: "collect-unique-hash",
+            params: { func: justCollect, method: "hash" }
+          },
+          {
+            name: "collect-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", sortNull: true }
+          },
+          {
+            name: "collect-non-unique-sorted",
+            params: { func: justCollect, method: "sorted", div: 100 }
+          },
+          {
+            name: "collect-non-unique-hash",
+            params: { func: justCollect, method: "hash", div: 100 }
+          },
+          {
+            name: "collect-non-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", div: 100, sortNull: true }
+          },
+
+          {
+            name: "collect-count-unique-sorted",
+            params: { func: justCollect, method: "sorted", count: true }
+          },
+          {
+            name: "collect-count-unique-hash",
+            params: { func: justCollect, method: "hash", count: true }
+          },
+          {
+            name: "collect-count-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", sortNull: true, count: true }
+          },
+          {
+            name: "collect-count-non-unique-sorted",
+            params: { func: justCollect, method: "sorted", div: 100, count: true }
+          },
+          {
+            name: "collect-count-non-unique-hash",
+            params: { func: justCollect, method: "hash", div: 100, count: true }
+          },
+          {
+            name: "collect-count-non-unique-hash-nosort",
+            params: { func: justCollect, method: "hash", div: 100, sortNull: true, count: true }
           }
-        },
-        {
-          name: "aql-min-const",
-          params: {
-            func: passthru,
-            name: "MIN",
-            values: numericSequence(2000)
-          }
-        },
-        {
-          name: "aql-unique-const",
-          params: {
-            func: passthru,
-            name: "UNIQUE",
-            values: numericSequence(2000)
-          }
-        },
-        {
-          name: "aql-collect-number",
-          params: { func: collect, attr: "value7", count: false }
-        },
-        {
-          name: "aql-collect-string",
-          params: { func: collect, attr: "value8", count: false }
-        },
-        {
-          name: "aql-collect-count-number",
-          params: { func: collect, attr: "value7", count: true }
-        },
-        {
-          name: "aql-collect-count-string",
-          params: { func: collect, attr: "value8", count: true }
-        },
-        {
-          name: "aql-subquery",
-          params: { func: subquery, attr: "value1" }
-        },
-        {
-          name: "aql-concat",
-          params: { func: concat, attr: "value5" }
-        },
-        {
-          name: "aql-merge-number",
-          params: { func: merge, attr: "value5" }
-        },
-        {
-          name: "aql-merge-string",
-          params: { func: merge, attr: "value6" }
-        },
-        {
-          name: "aql-keep",
-          params: { func: keep, attr: "value5" }
-        },
-        {
-          name: "aql-unset",
-          params: { func: unset, attr: "value5" }
-        },
-        {
-          name: "aql-attributes",
-          params: { func: attributes }
-        },
-        {
-          name: "aql-values",
-          params: { func: values }
-        },
-        {
-          name: "aql-has",
-          params: { func: has, attr: "value5" }
-        },
-        {
-          name: "aql-md5",
-          params: { func: md5, attr: "value2" }
-        },
-        {
-          name: "aql-sha1",
-          params: { func: sha1, attr: "value2" }
-        },
-        {
-          name: "aql-min-number",
-          params: { func: min, attr: "value5" }
-        },
-        {
-          name: "aql-min-string",
-          params: { func: min, attr: "value6" }
-        },
-        {
-          name: "aql-max-number",
-          params: { func: max, attr: "value5" }
-        },
-        {
-          name: "aql-max-string",
-          params: { func: max, attr: "value6" }
-        },
-        {
-          name: "aql-sort-heap-number",
-          params: { func: sortHeap, attr: "value5" }
-        },
-        {
-          name: "aql-sort-heap-string",
-          params: { func: sortHeap, attr: "value6" }
-        },
-        {
-          name: "aql-sort-all-number",
-          params: { func: sortAll, attr: "value5" }
-        },
-        {
-          name: "aql-sort-all-string",
-          params: { func: sortAll, attr: "value6" }
-        },
-        {
-          name: "aql-filter-number",
-          params: { func: filter, attr: "value5", value: 333 }
-        },
-        {
-          name: "aql-filter-string",
-          params: { func: filter, attr: "value6", value: "test333" }
-        },
-        {
-          name: "aql-extract-doc",
-          params: { func: extract }
-        },
-        {
-          name: "aql-extract-id",
-          params: { func: extract, attr: "_id" }
-        },
-        {
-          name: "aql-extract-key",
-          params: { func: extract, attr: "_key" }
-        },
-        {
-          name: "aql-extract-number",
-          params: { func: extract, attr: "value1" }
-        },
-        {
-          name: "aql-extract-string",
-          params: { func: extract, attr: "value2" }
-        },
-        {
-          name: "aql-join-key",
-          params: { func: join, attr: "_key" }
-        },
-        {
-          name: "aql-join-id",
-          params: { func: join, attr: "_id" }
-        },
-        {
-          name: "aql-join-hash-number",
-          params: { func: join, attr: "value1" }
-        },
-        {
-          name: "aql-join-hash-string",
-          params: { func: join, attr: "value2" }
-        },
-        {
-          name: "aql-join-skiplist-number",
-          params: { func: join, attr: "value3" }
-        },
-        {
-          name: "aql-join-skiplist-string",
-          params: { func: join, attr: "value4" }
-        },
-        {
-          name: "aql-lookup-key",
-          params: { func: lookup, attr: "_key", n: 10000, numeric: false }
-        },
-        {
-          name: "aql-lookup-hash-number",
-          params: { func: lookup, attr: "value1", n: 10000, numeric: true }
-        },
-        {
-          name: "aql-lookup-hash-string",
-          params: { func: lookup, attr: "value2", n: 10000, numeric: false }
-        },
-        {
-          name: "aql-lookup-skiplist-number",
-          params: { func: lookup, attr: "value3", n: 10000, numeric: true }
-        },
-        {
-          name: "aql-lookup-skiplist-string",
-          params: { func: lookup, attr: "value4", n: 10000, numeric: false }
-        },
-        {
-          name: "aql-in-key",
-          params: { func: lookupIn, attr: "_key", n: 10000, numeric: false }
-        },
-        {
-          name: "aql-in-hash-number",
-          params: { func: lookupIn, attr: "value1", n: 10000, numeric: true }
-        },
-        {
-          name: "aql-in-hash-string",
-          params: { func: lookupIn, attr: "value2", n: 10000, numeric: false }
-        },
-        {
-          name: "aql-in-skiplist-number",
-          params: { func: lookupIn, attr: "value3", n: 10000, numeric: true }
-        },
-        {
-          name: "aql-in-skiplist-string",
-          params: { func: lookupIn, attr: "value4", n: 10000, numeric: false }
-        },
-        {
-          name: "aql-skip-index",
-          params: { func: skipIndex, attr: "value1", limit: 10 }
-        },
-        {
-          name: "aql-skip-docs",
-          params: { func: skipDocs, attr: "value1", limit: 10 }
-        }
-      ],
+        ],
         edgeTests = [
           {
             name: "traversal-outbound-1",
@@ -2518,7 +2835,7 @@ exports.test = function (global) {
             }
           },
           {
-            name: "crud-count",
+            name: "crud-count-repeated",
             params: {
               func: count,
               setup: function (params) {
@@ -2552,7 +2869,8 @@ exports.test = function (global) {
               },
               teardown: drop
             }
-          },
+          }
+          /*
           {
             name: "crud-any",
             params: {
@@ -2565,16 +2883,16 @@ exports.test = function (global) {
               teardown: drop
             }
           }
+*/
         ],
         subqueryTests = [
           /*        {
-                    name: "aql-subquery-splicing-compare",
-                    params: { func: subquerySplicingValidation, attr: "value1" }
-                  }, */
+          name: "aql-subquery-splicing-compare",
+          params: { func: subquerySplicingValidation, attr: "value1" }
+        }, */
           {
             name: "aql-subquery-1",
-            params: {
-              func: genericSubquerySplicing,
+            params: { func: genericSubquerySplicing,
               queryString: "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
               bindParamModifier: function (param, bindParam) {
                 bindParam.attr = "value1";
@@ -2582,10 +2900,9 @@ exports.test = function (global) {
             }
           },
           {
-            name: "aql-subquery-2",
-            params: {
-              func: genericSubquerySplicing,
-              queryString: "FOR c IN @@c LET sub = (FOR s IN 1..5 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
+            name: "aql-sub-subquery",
+            params: { func: genericSubquerySplicing,
+              queryString: "FOR c IN @@c LET sub = (FOR s IN 1..2 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
               bindParamModifier: function (param, bindParam) {
                 bindParam.attr = "value1";
               }
@@ -2593,8 +2910,7 @@ exports.test = function (global) {
           },
           {
             name: "aql-subquery-min",
-            params: {
-              func: genericSubquerySplicing,
+            params: { func: genericSubquerySplicing,
               queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
               bindParamModifier: function (param, bindParam) {
                 bindParam.attr = "value1";
@@ -2603,8 +2919,7 @@ exports.test = function (global) {
           },
           {
             name: "aql-subquery-min-no-index",
-            params: {
-              func: genericSubquerySplicing,
+            params: { func: genericSubquerySplicing,
               queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
               bindParamModifier: function (param, bindParam) {
                 bindParam.attr = "value6";
@@ -2613,8 +2928,7 @@ exports.test = function (global) {
           },
           {
             name: "aql-subquery-max",
-            params: {
-              func: genericSubquerySplicing,
+            params: { func: genericSubquerySplicing,
               queryString: "RETURN MAX(FOR c IN @@c RETURN c.@attr)",
               bindParamModifier: function (param, bindParam) {
                 bindParam.attr = "value1";
@@ -2623,8 +2937,7 @@ exports.test = function (global) {
           },
           {
             name: "aql-subquery-shortest-path",
-            params: {
-              func: genericSubquerySplicing,
+            params: { func: genericSubquerySplicing,
               queryString: `
                        FOR v IN @@c
                          LET hasPath = (FOR s IN INBOUND SHORTEST_PATH v TO @source @@e RETURN 1)
@@ -2639,8 +2952,7 @@ exports.test = function (global) {
           },
           {
             name: "aql-subquery-traversal",
-            params: {
-              func: genericSubquerySplicing,
+            params: { func: genericSubquerySplicing,
               queryString: `
                        FOR v IN @@c
                          FOR main IN 1 OUTBOUND v @@e
@@ -2652,13 +2964,15 @@ exports.test = function (global) {
                     `,
               attr: "value1",
               edgesRequired: true,
-              bindParamModifier: function (param, bindParam) { delete bindParam.attr; }
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam.attr;
+              }
             }
           },
           /*
-           * This test is disabled, because it takes far too long for a simple
-           * performance test. This is because some of the involved attributes
-           * are not indexed.
+          * This test is disabled, because it takes far too long for a simple
+          * performance test. This is because some of the involved attributes
+          * are not indexed.
           {
              name: "aql-multi-subqueries-some-no-index",
              params: { func: genericSubquerySplicing,
@@ -2680,9 +2994,8 @@ exports.test = function (global) {
              }
           }, */
           {
-            name: "aql-smart-graph",
-            params: {
-              func: genericSubquerySplicing,
+            name: "aql-concatenated-subqueries",
+            params: { func: genericSubquerySplicing,
               queryString: `FOR c IN @@c
                                        LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
                                        LET sub2 = (FOR s IN @@c FILTER s.@attr2 == c.@attr RETURN s)
@@ -2693,13 +3006,18 @@ exports.test = function (global) {
                 bindParam.attr2 = "value2";
               }
             }
+          },
+          {
+            name: "aql-smart-graph",
+            params: {
+              func: genericSubquerySplicing
+            }
           }
         ],
         satelliteGraphTests = [
           {
             name: "aql-traversal-index-join",
-            params: {
-              func: genericSatelliteGraph,
+            params: { func: genericSatelliteGraph,
               queryString: `
                         FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
                           FOR doc in @@c
@@ -2709,38 +3027,38 @@ exports.test = function (global) {
           },
           {
             name: "aql-traversal-graph",
-            params: {
-              func: genericSatelliteGraph,
+            params: { func: genericSatelliteGraph,
               queryString: `
                         FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
                           return v`,
-              bindParamModifier: function (param, bindParam) { delete bindParam["@c"]; }
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam["@c"];
+              }
             }
           },
           {
             name: "aql-index-traversal-graph",
-            params: {
-              func: genericSatelliteGraph,
+            params: { func: genericSatelliteGraph,
               queryString: `
                         for doc in @@c
                           filter doc.value1 >= 0 and doc.value1 <= 10
                           let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
-                          for v, e, p in 1..4 outbound vkey graph @g
+                          for v, e, p in 1..2 outbound vkey graph @g
                             return {doc, p}
-                        `,
+                        `
             }
           },
           {
             name: "aql-enum-collection-traversal-graph",
-            params: {
-              func: genericSatelliteGraph,
+            params: { func: genericSatelliteGraph,
               queryString: `
                         for doc in @@c
+                          LIMIT 10
                           let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
-                          for v, e, p in 1..4 outbound vkey graph @g
+                          for v, e, p in 1..2 outbound vkey graph @g
                             filter v.value1 <= doc.value1
                             return {doc, p}
-                        `,
+                        `
             }
           }
         ],
@@ -2765,7 +3083,9 @@ exports.test = function (global) {
                         FOR s IN @startVertices
                           FOR v, e, p IN 1..3 OUTBOUND s GRAPH @g
                             return v`,
-              bindParamModifier: function (param, bindParam) { delete bindParam["@c"]; }
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam["@c"];
+              }
             }
           },
           {
@@ -2777,7 +3097,9 @@ exports.test = function (global) {
                           FOR v, e, p IN 1 OUTBOUND s GRAPH @g
                           FOR v1, e1, p1 IN 1 OUTBOUND v GRAPH @g
                             return v1`,
-              bindParamModifier: function (param, bindParam) { delete bindParam["@c"]; }
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam["@c"];
+              }
             }
           },
           {
@@ -2793,7 +3115,9 @@ exports.test = function (global) {
                             FOR v, e, p IN 1 INBOUND s GRAPH @g
                               RETURN v._key)
                           RETURN [sub1, sub2]`,
-              bindParamModifier: function (param, bindParam) { delete bindParam["@c"]; }
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam["@c"];
+              }
             }
           },
           {
@@ -2804,9 +3128,9 @@ exports.test = function (global) {
                           for doc in @@c
                             filter doc.value1 >= 0 and doc.value1 <= 10
                             FOR s IN @startVertices
-                            for v, e, p in 1..4 outbound s GRAPH @g
+                            for v, e, p in 1..2 outbound s GRAPH @g
                               return {doc, p}
-                          `,
+                          `
             }
           },
           {
@@ -2815,11 +3139,12 @@ exports.test = function (global) {
               func: genericDisjointSmartGraph,
               queryString: `
                           for doc in @@c
+                            LIMIT 10
                             FOR s IN @startVertices
-                            for v, e, p in 1..4 outbound s GRAPH @g
+                            for v, e, p in 1..2 outbound s GRAPH @g
                               filter v.value1 <= doc.value1
                               return {doc, p}
-                          `,
+                          `
             }
           }
         ];
@@ -2835,7 +3160,6 @@ exports.test = function (global) {
         initializeEdgeCollection();
       }
       if (runSatelliteGraphTests || runDisjointSmartGraphTests) {
-        print("Create graphs");
         disjointGraphs = initializeGraphs();
       }
       if (global.search) {
@@ -2855,25 +3179,23 @@ exports.test = function (global) {
       // document tests
       if (global.documents) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             db._collection(params.collection).load();
           },
-          teardown: function () { },
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2889,28 +3211,59 @@ exports.test = function (global) {
         }
       }
 
+      if (global.ioless) {
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (params) {},
+          teardown: function () {},
+          iterations: null,
+          collections: [null],
+          removeFromResult: 1
+        };
+
+        if (global.tiny) {
+          options.iterations = 10000;
+        } else if (global.small) {
+          options.iterations = 100000;
+        } else if (global.medium) {
+          options.iterations = 1000000;
+        } else if (global.big) {
+          options.iterations = 10000000;
+        }
+
+        let iolessTestsResult = testRunner(iolessTests, options);
+        output += toString("IOless", iolessTestsResult) + "\n\n";
+
+        if (global.outputXml) {
+          toJUnit(iolessTestsResult);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(iolessTestsResult);
+        }
+      }
+
       // edge tests
       if (global.edges) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             db._collection(params.collection).load();
           },
-          teardown: function () { },
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "edges1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "edges10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2929,27 +3282,25 @@ exports.test = function (global) {
       // arangosearch tests
       if (global.search) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
             params["offset"] = params.collectionSize / 10;
             params["limit"] = params.collectionSize / 2;
           },
-          teardown: function () { },
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
-          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000});
+        } else if (global.small) {
+          options.collections.push({ name: "values10000", label: "10k", size: 10000});
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -2968,33 +3319,35 @@ exports.test = function (global) {
       // arangosearch phrase tests
       if (global.phrase) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
-          teardown: function () { },
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({
+            name: "valuesPhrases1000",
+            label: "1k",
+            size: 1000
+          });
+        } else if (global.small) {
           options.collections.push({
             name: "valuesPhrases10000",
             label: "10k",
             size: 10000
           });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({
             name: "valuesPhrases100000",
             label: "100k",
             size: 100000
           });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({
             name: "valuesPhrases10000000",
             label: "10000k",
@@ -3007,8 +3360,8 @@ exports.test = function (global) {
           options
         );
         output +=
-          toString("Arango Search Phrases", arangosearchPhrasesTestsResult) +
-          "\n\n";
+        toString("Arango Search Phrases", arangosearchPhrasesTestsResult) +
+        "\n\n";
 
         if (global.outputXml) {
           toJUnit(arangosearchPhrasesTestsResult);
@@ -3022,25 +3375,23 @@ exports.test = function (global) {
       // arangosearch no materialization tests
       if (global.noMaterializationSearch) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_stored_" + params.collection;
           },
-          teardown: function () { },
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
-          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000});
+        } else if (global.small) {
+          options.collections.push({ name: "values10000", label: "10k", size: 10000});
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3059,23 +3410,21 @@ exports.test = function (global) {
       // crud tests
       if (global.crud) {
         options = {
-          runs: 5,
-          digits: 4,
-          setup: function (/* params */) { },
-          teardown: function () { },
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (/* params */) {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "crud1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "crud10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "crud100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3094,35 +3443,29 @@ exports.test = function (global) {
       // arangosearch crud tests
       if (global.crudSearch) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
-          teardown: function () { },
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "crud1000", label: "1k + ARS", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "crud10000", label: "10k + ARS", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "crud100000", label: "100k + ARS", size: 100000 });
-        }
-
-        if (global.big) {
-          options.collections.push({
-            name: "crud1000000",
-            label: "1000k + ARS",
-            size: 1000000
-          });
+        } else if (global.big) {
+          options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
         }
 
         let arangosearchCrudTestsResult = testRunner(crudTests, options);
         output +=
-          toString("Arango Search CRUD", arangosearchCrudTestsResult) + "\n\n";
+        toString("Arango Search CRUD", arangosearchCrudTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(arangosearchCrudTestsResult, "ars-", "");
@@ -3135,34 +3478,32 @@ exports.test = function (global) {
 
       if (global.subqueryTests) {
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) {
             db._collection(params.collection).load();
             if (params.edgesRequired === true) {
               db._collection(params.collection.replace("vertices", "edges")).load();
             }
           },
-          teardown: function () { },
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
         /* We run each test case with splicing enabled and with splicing disabled */
         var subqueryTestsCases = [];
-        subqueryTests.forEach(function (item, index) {
+        subqueryTests.forEach(function (item) {
           var noSplicingCase = _.cloneDeep(item);
           noSplicingCase.name = noSplicingCase.name + "-no-splicing";
           noSplicingCase.params.splice = false;
@@ -3175,7 +3516,7 @@ exports.test = function (global) {
 
         let subqueryTestsResult = testRunner(subqueryTestsCases, options);
         output +=
-          toString("Subquery Performance", subqueryTestsResult) + "\n\n";
+        toString("Subquery Performance", subqueryTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(subqueryTestsResult);
@@ -3188,25 +3529,24 @@ exports.test = function (global) {
 
       if (global.satelliteGraphTests) {
         options = {
-          runs: 5,
-          digits: 4,
-          setup: function (params) { },
-          teardown: function () { },
+          runs: global.runs,
+          digits: global.digits,
+          setup: function () {},
+          teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
+
 
         const satelliteTestsCases = [];
         const addSatelliteTestCase = (item, name, graph) => {
@@ -3225,8 +3565,8 @@ exports.test = function (global) {
 
         let satelliteTestsResult = testRunner(satelliteTestsCases, options);
         output +=
-          toString("Satellite Graph Performance", satelliteTestsResult) + "\n\n";
-        
+        toString("Satellite Graph Performance", satelliteTestsResult) + "\n\n";
+
         if (global.outputXml) {
           toJUnit(satelliteTestsResult);
         }
@@ -3251,30 +3591,28 @@ exports.test = function (global) {
         }
 
         options = {
-          runs: 5,
-          digits: 4,
+          runs: global.runs,
+          digits: global.digits,
           setup: function (params) { },
           teardown: function () { },
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.small) {
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        }
-
-        if (global.medium) {
+        } else if (global.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        }
-
-        if (global.big) {
+        } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
         let disjointSmartTestsResult = testRunner(disjointTestCases, options);
         output +=
           toString("Disjoint Graph Performance", disjointSmartTestsResult) + "\n\n";
-      
+
         if (global.outputXml) {
           toJUnit(disjointSmartTestsResult);
         }
@@ -3284,106 +3622,105 @@ exports.test = function (global) {
         }
       }
 
-    // OneShard Feature /////////////////////////////////////////////////////
-    if (global.oneshardTests) {
-      let numberOfShards = 1;
-      let checkForOneShardRule = true;
-      if (global.numberOfShards) {
-        numberOfShards = global.numberOfShards;
-        checkForOneShardRule = false;
-      }
-
-      const oneshard = require("test-oneshard.js");
-
-      const runTestCases1 = true;
-      const runTestCases2 = true;
-
-      let options = {
-        runs: 3,
-        digits: 4,
-        setup: function (params) {},
-        teardown: function () {},
-        collections: [ "fakeCollectionOneShard" ],
-        removeFromResult: 1,
-        scale : 100 * 1000,
-        "numberOfShards" : numberOfShards,
-        replicationFactor : 1,
-        checkForOneShardRule: checkForOneShardRule
-      };
-
-      let testPrefix = "OneShard - ";
-      if (options.numberOfShards === 1) {
-        testPrefix += "Single Shard - ";
-      } else {
-        testPrefix += "Multi Shard (for comparison) - ";
-      }
-
-      if (global.small) {
-        options.scale = 10;
-        options.runs = 6;
-      }
-
-      if (global.medium) {
-        options.scale = 100 * 1000;
-        options.runs = 4;
-      }
-
-      if (global.big) {
-        options.scale = 100 * 1000;
-        options.runs = 8;
-      }
-
-      if (runTestCases1 || runTestCases2) {
-        oneshard.setup(options);
-      }
-
-      if (runTestCases1) {
-        let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
-        output += toString(testPrefix + "Mixed Queries", oneshardTestsResult1) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(oneshardTestsResult1);
+      // OneShard Feature /////////////////////////////////////////////////////
+      if (global.oneshardTests) {
+        let numberOfShards = 1;
+        let checkForOneShardRule = true;
+        if (global.numberOfShards) {
+          numberOfShards = global.numberOfShards;
+          checkForOneShardRule = false;
         }
 
-        if (global.outputCsv) {
-          csv += toCsv(oneshardTestsResult1);
-        }
-      }
+        const oneshard = require("./simple/test-oneshard");
 
-      if (runTestCases2) {
-        options.setup = (params) => {
-          db._drop("testmann");
-          db._create("testmann", { numberOfShards : options.numberOfShards,
-                                   replicationFactor : options.replicationFactor });
+        const runTestCases1 = true;
+        const runTestCases2 = true;
+
+        let options = {
+          runs: Math.max(Math.floor((global.runs + 1) / 2), 1),
+          digits: global.digits,
+          setup: function () {},
+          teardown: function () {},
+          collections: [ "fakeCollectionOneShard" ],
+          removeFromResult: 1,
+          scale: 100 * 1000,
+          "numberOfShards": numberOfShards,
+          replicationFactor: 1,
+          checkForOneShardRule: checkForOneShardRule
         };
 
-        options.teardown = (params) => {
-          db._drop("testmann");
-        };
-
-        let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
-        output += toString(testPrefix + "CRUD operations", oneshardTestsResult2) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(oneshardTestsResult2);
+        let testPrefix = "OneShard - ";
+        if (options.numberOfShards === 1) {
+          testPrefix += "Single Shard - ";
+        } else {
+          testPrefix += "Multi Shard (for comparison) - ";
         }
 
-        if (global.outputCsv) {
-          csv += toCsv(oneshardTestsResult2);
+        if (global.tiny) {
+          options.scale = 10;
+          options.runs = 6;
+        } else if (global.small) {
+          options.scale = 10;
+          options.runs = 6;
+        } else if (global.medium) {
+          options.scale = 100 * 1000;
+          options.runs = 4;
+        } else if (global.big) {
+          options.scale = 100 * 1000;
+          options.runs = 8;
         }
+
+        if (runTestCases1 || runTestCases2) {
+          oneshard.setup(options);
+        }
+
+        if (runTestCases1) {
+          let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
+          output += toString(testPrefix + "Mixed Queries", oneshardTestsResult1) + "\n\n";
+
+          if (global.outputXml) {
+            toJUnit(oneshardTestsResult1);
+          }
+
+          if (global.outputCsv) {
+            csv += toCsv(oneshardTestsResult1);
+          }
+        }
+
+        if (runTestCases2) {
+          options.setup = () => {
+            db._drop("testmann");
+            db._create("testmann", { numberOfShards: options.numberOfShards,
+              replicationFactor: options.replicationFactor });
+          };
+
+          options.teardown = () => {
+            db._drop("testmann");
+          };
+
+          let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
+          output += toString(testPrefix + "CRUD operations", oneshardTestsResult2) + "\n\n";
+
+          if (global.outputXml) {
+            toJUnit(oneshardTestsResult2);
+          }
+
+          if (global.outputCsv) {
+            csv += toCsv(oneshardTestsResult2);
+          }
+        }
+
+        oneshard.tearDown();
+
       }
+      // OneShard Feature - End ///////////////////////////////////////////////
 
-      oneshard.tearDown();
+      print("\n" + output + "\n");
 
-    }
-    // OneShard Feature - End ///////////////////////////////////////////////
-
-    print("\n" + output + "\n");
-
-    if (global.outputCsv) {
-      fs.writeFileSync("results.csv", csv);
-    }
-  };
+      if (global.outputCsv) {
+        fs.writeFileSync("results.csv", csv);
+      }
+    };
 
   main();
 };
