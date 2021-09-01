@@ -5,6 +5,7 @@ exports.test = function (global) {
   global.small = global.small || false;
   global.medium = global.medium || false;
   global.big = global.big || false;
+  global.huge = global.huge || false;
 
   global.documents = global.documents || false;
   global.ioless = global.ioless || false;
@@ -270,6 +271,8 @@ exports.test = function (global) {
       size = "medium";
     } else if (global.big) {
       size = "big";
+    } else if (global.huge) {
+      size = "huge";
     }
 
     let csv = "";
@@ -384,6 +387,8 @@ exports.test = function (global) {
         createDocuments(100000);
       } else if (global.big) {
         createDocuments(1000000);
+      } else if (global.huge) {
+        createDocuments(20000000);
       }
 
       internal.wal.flush(true, true);
@@ -409,6 +414,8 @@ exports.test = function (global) {
         createView(100000);
       } else if (global.big) {
         createView(1000000);
+      } else if (global.huge) {
+        createView(20000000);
       }
 
       internal.wal.flush(true, true);
@@ -434,6 +441,8 @@ exports.test = function (global) {
         createEdges(100000);
       } else if (global.big) {
         createEdges(1000000);
+      } else if (global.huge) {
+        createEdges(20000000);
       }
 
       internal.wal.flush(true, true);
@@ -587,6 +596,9 @@ exports.test = function (global) {
       } else if (global.big) {
         createVertexes(1000000);
         createEdges(1000000);
+      } else if (global.huge) {
+        createVertexes(20000000);
+        createEdges(20000000);
       }
     },
 
@@ -688,6 +700,9 @@ exports.test = function (global) {
       } else if (global.big) {
         createDocumentsWithPhrases(10000000);
         createPhrasesView(10000000);
+      } else if (global.huge) {
+        createDocumentsWithPhrases(200000000);
+        createPhrasesView(200000000);
       }
 
       internal.wal.flush(true, true);
@@ -716,6 +731,8 @@ exports.test = function (global) {
         createStoredValuesView(100000);
       } else if (global.big) {
         createStoredValuesView(1000000);
+      } else if (global.huge) {
+        createStoredValuesView(20000000);
       }
 
       internal.wal.flush(true, true);
@@ -938,6 +955,7 @@ exports.test = function (global) {
       const vertices = params.collection.replace("edges", "values");
       // Test if we have a path leading back to values/test2
       // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
+      // TODO: huge?
       db._query(`
       FOR v IN @@c
         LET hasPath = (FOR s IN INBOUND SHORTEST_PATH v TO @source @@e RETURN 1)
@@ -958,6 +976,7 @@ exports.test = function (global) {
       const vertices = params.collection.replace("edges", "values");
       // Test if we have a path leading back to values/test2
       // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
+      // TODO: huge?
       db._query(`
       FOR v IN @@c
         FOR main IN 1 OUTBOUND v @@e
@@ -978,6 +997,7 @@ exports.test = function (global) {
       const vertices = params.collection.replace("edges", "values");
       // Test if we have a path leading back to values/test2
       // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
+      // TODO: huge?
       db._query(`
       FOR v IN @@c
         FOR main IN 1 OUTBOUND v @@e
@@ -1122,6 +1142,8 @@ exports.test = function (global) {
         number = 1000;
       } else if (global.tiny) {
         number = 100;
+      } else if (global.huge) {
+        number = 10;
       }
       let rules = [];
       if (params.optimize) {
@@ -2829,6 +2851,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         let documentTestsResult = testRunner(documentTests, options);
@@ -2862,6 +2886,8 @@ exports.test = function (global) {
           options.iterations = 1000000;
         } else if (global.big) {
           options.iterations = 10000000;
+        } else if (global.huge) {
+          options.iterations = 200000000;
         }
 
         let iolessTestsResult = testRunner(iolessTests, options);
@@ -2897,6 +2923,8 @@ exports.test = function (global) {
           options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "edges20000000", label: "20000k", size: 20000000 });
         }
 
         let edgeTestsResult = testRunner(edgeTests, options);
@@ -2934,6 +2962,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         let arangosearchTestsResult = testRunner(arangosearchTests, options);
@@ -2985,6 +3015,12 @@ exports.test = function (global) {
             label: "10000k",
             size: 10000000
           });
+        } else if (global.huge) {
+          options.collections.push({
+            name: "valuesPhrases200000000",
+            label: "200000k",
+            size: 200000000
+          });
         }
 
         let arangosearchPhrasesTestsResult = testRunner(
@@ -3025,6 +3061,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         let arangosearchNoMaterializationTestsResult = testRunner(arangosearchNoMaterializationTests, options);
@@ -3058,6 +3096,8 @@ exports.test = function (global) {
           options.collections.push({ name: "crud100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "crud20000000", label: "20000k", size: 20000000 });
         }
 
         let crudTestsResult = testRunner(crudTests, options);
@@ -3093,6 +3133,8 @@ exports.test = function (global) {
           options.collections.push({ name: "crud100000", label: "100k + ARS", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "crud20000000", label: "20000k + ARS", size: 20000000 });
         }
 
         let arangosearchCrudTestsResult = testRunner(crudTests, options);
@@ -3131,6 +3173,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         /* We run each test case with splicing enabled and with splicing disabled */
@@ -3177,6 +3221,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         var satelliteTestsCases = [];
@@ -3256,6 +3302,9 @@ exports.test = function (global) {
         } else if (global.big) {
           options.scale = 100 * 1000;
           options.runs = 8;
+        } else if (global.huge) {
+          options.scale = 100 * 1000; // TODO: change?
+          options.runs = 8;
         }
 
         if (runTestCases1 || runTestCases2) {
@@ -3302,6 +3351,12 @@ exports.test = function (global) {
 
       }
       // OneShard Feature - End ///////////////////////////////////////////////
+
+      // zkd-index with and without lookahead ////////////////////////////////
+
+
+
+      // zkd-index with and without lookahead - End///////////////////////////
 
       print("\n" + output + "\n");
 
