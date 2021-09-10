@@ -418,7 +418,7 @@ exports.test = function (global) {
       fillDocumentZKDCollection(c, n, g);
 
       c.ensureIndex({type: 'zkd', name: 'zkdIndex', fields: ['x', 'y'], fieldValueTypes: 'double'});
-      c.ensureIndex({type: 'persistent', name: 'lexicogr', fields: ['x', 'y']});
+      c.ensureIndex({type: 'persistent', name: 'persistentIndex', fields: ['x', 'y']});
     }
 
     if (global.tiny) {
@@ -1488,12 +1488,16 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     zkdIndex = function (params) {
-      // params must have xMin, collection and useLookahead
+      // params must have xMin, collection and useZKD
       // and may have useHint, lookahead, xMax, and, either both or none, yMin and yMax
-      // xMin without xMax means (p.x == xMin), wit xMax: (xMin < p.x < xMax)
-      let useHintFilterString = "indexHint: 'lexicogr', ";
+      // xMin without xMax means (p.x == xMin), with xMax: (xMin < p.x < xMax).
+      //
+      // We always have: params.useZKD == true iff params.lookahead !== undefined,
+      // but we leave both parameters to avoid the fine distinction
+      // params.lookahead === 0 and params.lookahead === undefined
+      let useHintFilterString = "indexHint: 'persistentIndex'";
       if (params.useZKD) {
-        useHintFilterString = "indexHint: 'zkdIndex', ";
+        useHintFilterString = "indexHint: 'zkdIndex'";
       }
 
       let lookaheadFilterString = "";
@@ -1501,26 +1505,23 @@ exports.test = function (global) {
         lookaheadFilterString = ", lookahead: @lookahead";
       }
 
-      let xMinFilterString = `(p.x == ${params.xMin})`;
-      let xMaxFilterString = "";
-      if (params.xMax !== undefined) {
-        xMinFilterString = `(p.x > ${params.xMin})`;
-        xMaxFilterString = `AND (p.x < ${params.xMax})`;
+      let xFilterString = `(p.x > ${params.xMin}) AND (p.x < ${params.xMax})`;
+      if (params.xMax === undefined) {
+        xFilterString = `(p.x == ${params.xMin})`;
       }
 
       let yFilterString = "";
-      if (!(params.yMax === undefined)) { // the tests are such that then also params.yMin === undefined
+      if (params.yMax !== undefined) { // the tests are such that then also params.yMin === undefined
         yFilterString = `FILTER (p.y > ${params.yMin}) AND (p.y < ${params.yMax})`;
       }
-
+      
       db._query(
-          `FOR p in @@coll OPTIONS {${useHintFilterString} tryNewIndex: @useLookahead ${lookaheadFilterString}}
-              FILTER ${xMinFilterString}${xMaxFilterString} 
+          `FOR p in @@coll OPTIONS {${useHintFilterString} ${lookaheadFilterString}}
+              FILTER ${xFilterString} 
               ${yFilterString} 
               RETURN p`,
           {
             "@coll": params.collection,
-            useLookahead: params.useLookahead,
             lookahead: params.lookahead
           },
           {silent}
@@ -1529,9 +1530,9 @@ exports.test = function (global) {
 
     zkdIndexExactValue = function (params) {
       // params should (may) contain x and y (lookahead)
-      let useHintFilterString = "indexHint: 'lexicogr', ";
+      let useHintFilterString = "indexHint: 'persistentIndex'";
       if (params.useZKD) {
-        useHintFilterString = "indexHint: 'zkdIndex', ";
+        useHintFilterString = "indexHint: 'zkdIndex'";
       }
 
       let lookaheadFilterString = "";
@@ -1540,13 +1541,12 @@ exports.test = function (global) {
       }
 
       db._query(
-          `FOR p in @@coll OPTIONS {${useHintFilterString} tryNewIndex: @useLookahead ${lookaheadFilterString}}
+          `FOR p in @@coll OPTIONS {${useHintFilterString} ${lookaheadFilterString}}
                   FILTER (p.x ==  @x) AND (p.y == @y) 
                   RETURN p`,
           {
             x: params.x, y: params.y,
             "@coll": params.collection,
-            useLookahead: params.useLookahead,
             lookahead: params.lookahead
           },
           {silent}
@@ -2335,9 +2335,9 @@ exports.test = function (global) {
       // define the stripe (xMin, xMax) (and y unspecified)
       let stripeX = [{xMin: 100, xMax: 110}];
       // define fixed values of x (in the db, x are floats, so w.h.p. nothing will be found)
-      let lines = [{x: 100}, {x: 500}];
+      let lines = [{x: 100}];
 
-      let lookaheads = [2, 4, 8, 16, 32];
+      let lookaheads = [0, 2, 4, 8, 16, 32];
 
       // search in areas
       for (const area of boxesXY) {
@@ -2346,7 +2346,7 @@ exports.test = function (global) {
         const yMin = area.yMin;
         const yMax = area.yMax;
 
-        // with lookaheads
+        // with zkd
         for (const lookahead of lookaheads) {
           documentZKDTests.push({
             name: `aql-zkd-index-area-lookahead-${lookahead}-${xMin}-${xMax}-${yMin}-${yMax}`,
@@ -2354,7 +2354,6 @@ exports.test = function (global) {
               func: zkdIndex,
               optimize: true,
               useZKD: true,
-              useLookahead: true,
               xMin: xMin,
               xMax: xMax,
               yMin: yMin,
@@ -2364,28 +2363,13 @@ exports.test = function (global) {
           });
         }
 
-        // without lookaheads
-        documentZKDTests.push({
-          name: `aql-zkd-index-area-no-lookahead-${xMin}-${xMax}-${yMin}-${yMax}`,
-          params: {
-            func: zkdIndex,
-            optimize: true,
-            useZKD: true,
-            useLookahead: false,
-            xMin: xMin,
-            xMax: xMax,
-            yMin: yMin,
-            yMax: yMax
-          }
-        });
-        // without ZKD
+        // without zkd
         documentZKDTests.push({
           name: `aql-zkd-index-area-no-zkd-${xMin}-${xMax}-${yMin}-${yMax}`,
           params: {
             func: zkdIndex,
             optimize: true,
             useZKD: false,
-            useLookahead: false,
             xMin: xMin,
             xMax: xMax,
             yMin: yMin,
@@ -2398,32 +2382,20 @@ exports.test = function (global) {
       for (const stripe of stripeX) { // don't specify y
         const xMin = stripe.xMin
         const xMax = stripe.xMax
-        // with lookaheads
+        // with zkd
         for (const lookahead of lookaheads) {
           documentZKDTests.push({
             name: `aql-zkd-index-stripe-lookahead-${lookahead}-${xMin}-${xMax}`,
             params: {
               func: zkdIndex,
               optimize: true,
-              useLookahead: true,
               xMin: xMin,
               xMax: xMax,
               lookahead: lookahead
             }
           });
         }
-        // without lookaheads
-        documentZKDTests.push({
-          name: `aql-zkd-index-stripe-no-lookahead-${xMin}-${xMax}`,
-          params: {
-            func: zkdIndex,
-            optimize: true,
-            useZKD: true,
-            useLookahead: false,
-            xMin: xMin,
-            xMax: xMax
-          }
-        });
+
         // without zkd
         documentZKDTests.push({
           name: `aql-zkd-index-stripe-no-zkd-${xMin}-${xMax}`,
@@ -2431,7 +2403,6 @@ exports.test = function (global) {
             func: zkdIndex,
             optimize: true,
             useZKD: false,
-            useLookahead: false,
             xMin: xMin,
             xMax: xMax
           }
@@ -2440,7 +2411,7 @@ exports.test = function (global) {
 
       // search for fixed values of x
       for (const line of lines) {
-        // with lookaheads
+        // with zkd
         for (const lookahead of lookaheads) {
           documentZKDTests.push({
             name: `aql-zkd-index-line-lookahead-${lookahead}-${line.x}`,
@@ -2448,23 +2419,12 @@ exports.test = function (global) {
               func: zkdIndex,
               optimize: true,
               useZKD: true,
-              useLookahead: true,
               xMin: line.x, // reuse xMin, though no xMax
               lookahead: lookahead
             }
           });
         }
-        // without lookaheads
-        documentZKDTests.push({
-          name: `aql-zkd-index-line-no-lookahead-${line.x}`,
-          params: {
-            func: zkdIndex,
-            optimize: true,
-            useZKD: true,
-            useLookahead: false,
-            xMin: line.x // reuse xMin, though no xMax
-          }
-        });
+
         // without zkd
         documentZKDTests.push({
           name: `aql-zkd-index-line-no-zkd-${line.x}`,
@@ -2472,7 +2432,6 @@ exports.test = function (global) {
             func: zkdIndex,
             optimize: true,
             useZKD: false,
-            useLookahead: false,
             xMin: line.x // reuse xMin, though no xMax
           }
         });
@@ -2490,7 +2449,7 @@ exports.test = function (global) {
         }
       }
 
-      if (numSizeParams != 1) {
+      if (numSizeParams !== 1) {
         console.warn(`The ZKD exact value tests work only for exactly one collection, but ${numSizeParams} collections are given. The tests are skipped.`)
       } else {
         // get one document
@@ -2518,7 +2477,7 @@ exports.test = function (global) {
         const x = doc.toArray()[0].x;
         const y = doc.toArray()[0].y;
 
-        // with lookaheads
+        // with zkd
         for (const lookahead of lookaheads) {
           documentZKDTests.push({
             name: `aql-zkd-index-one-doc-lookahead-${lookahead}`,
@@ -2528,23 +2487,11 @@ exports.test = function (global) {
               useZKD: true,
               x: x,
               y: y,
-              useLookahead: false,
               lookahead: lookahead
             }
           });
         }
-        // without lookaheads
-        documentZKDTests.push({
-          name: `aql-zkd-index-one-doc-no-lookahead`,
-          params: {
-            func: zkdIndexExactValue,
-            optimize: true,
-            useZKD: true,
-            x: x,
-            y: y,
-            useLookahead: false
-          }
-        });
+
         // without zkd
         documentZKDTests.push({
           name: `aql-zkd-index-one-doc-no-zkd`,
@@ -2554,7 +2501,6 @@ exports.test = function (global) {
             useZKD: false,
             x: x,
             y: y,
-            useLookahead: false
           }
         });
       }
