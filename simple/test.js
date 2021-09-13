@@ -5,6 +5,7 @@ exports.test = function (global) {
   global.small = global.small || false;
   global.medium = global.medium || false;
   global.big = global.big || false;
+  global.huge = global.huge || false;
 
   global.documents = global.documents || false;
   global.ioless = global.ioless || false;
@@ -16,6 +17,7 @@ exports.test = function (global) {
   global.crudSearch = global.crudSearch || false;
   global.subqueryTests = global.subqueryTests || false;
   global.oneshardTests = global.oneshardTests || false;
+  global.testZKD = global.testZKD || false;
 
   global.runs = global.runs || 5;
   global.digits = global.digits || 4;
@@ -41,6 +43,7 @@ exports.test = function (global) {
   const print = internal.print;
   const isEnterprise = internal.isEnterprise();
   const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
+  const documentsCollectionNamePrefix = "values";
 
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
@@ -165,12 +168,11 @@ exports.test = function (global) {
           } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
             print("skipping test " + test.name + ", requires analyzers");
           } else {
-            print("running test " + test.name);
+            print("running test " + test.name);// print("running test " + test.name);
 
             for (let j = 0; j < options.collections.length; ++j) {
               let collection = options.collections[j];
               let stats = calc(measure(test, collection, options), options);
-
               const result = {
                 name: test.name,
                 runs: String(options.runs),
@@ -192,7 +194,7 @@ exports.test = function (global) {
             } // for j
           }
         } catch (ex) {
-          print("expection in test " + test.name + ": " + ex);
+          print("exception in test " + test.name + ": " + ex);
         }
       } // for i
 
@@ -270,6 +272,8 @@ exports.test = function (global) {
       size = "medium";
     } else if (global.big) {
       size = "big";
+    } else if (global.huge) {
+      size = "huge";
     }
 
     let csv = "";
@@ -357,9 +361,18 @@ exports.test = function (global) {
     });
   }
 
+  function fillDocumentZKDCollection (c, n, g) {
+    fillCollection(c, n, function (i) {
+      return {
+        x: 1000 * Math.random(),
+        y: 1000 * Math.random()
+      };
+    });
+  }
+
   let initializeValuesCollection = function () {
       function createDocuments (n) {
-        let name = "values" + n;
+        let name = documentsCollectionNamePrefix + n;
         if (db._collection(name) !== null) {
           return;
         }
@@ -384,10 +397,44 @@ exports.test = function (global) {
         createDocuments(100000);
       } else if (global.big) {
         createDocuments(1000000);
+      } else if (global.huge) {
+        createDocuments(20000000);
       }
 
       internal.wal.flush(true, true);
     },
+
+    initializeValuesZKDCollection = function () {
+    function createDocuments (n) {
+      let name = `${documentsCollectionNamePrefix}` + n;
+      if (db._collection(name) !== null) {
+        return;
+      }
+      db._drop(name);
+      internal.print("creating collection " + name);
+      let c = db._create(name, {numberOfShards}),
+          g = n / 100;
+
+      fillDocumentZKDCollection(c, n, g);
+
+      c.ensureIndex({type: 'zkd', name: 'zkdIndex', fields: ['x', 'y'], fieldValueTypes: 'double'});
+      c.ensureIndex({type: 'persistent', name: 'persistentIndex', fields: ['x', 'y']});
+    }
+
+    if (global.tiny) {
+      createDocuments(1000);
+    } else if (global.small) {
+      createDocuments(10000);
+    } else if (global.medium) {
+      createDocuments(100000);
+    } else if (global.big) {
+      createDocuments(1000000);
+    } else if (global.huge) {
+      createDocuments(20000000);
+    }
+
+    internal.wal.flush(true, true);
+  },
 
     initializeView = function () {
       function createView (n) {
@@ -409,6 +456,8 @@ exports.test = function (global) {
         createView(100000);
       } else if (global.big) {
         createView(1000000);
+      } else if (global.huge) {
+        createView(20000000);
       }
 
       internal.wal.flush(true, true);
@@ -434,6 +483,8 @@ exports.test = function (global) {
         createEdges(100000);
       } else if (global.big) {
         createEdges(1000000);
+      } else if (global.huge) {
+        createEdges(20000000);
       }
 
       internal.wal.flush(true, true);
@@ -587,6 +638,9 @@ exports.test = function (global) {
       } else if (global.big) {
         createVertexes(1000000);
         createEdges(1000000);
+      } else if (global.huge) {
+        createVertexes(20000000);
+        createEdges(20000000);
       }
     },
 
@@ -688,6 +742,9 @@ exports.test = function (global) {
       } else if (global.big) {
         createDocumentsWithPhrases(10000000);
         createPhrasesView(10000000);
+      } else if (global.huge) {
+        createDocumentsWithPhrases(200000000);
+        createPhrasesView(200000000);
       }
 
       internal.wal.flush(true, true);
@@ -716,6 +773,8 @@ exports.test = function (global) {
         createStoredValuesView(100000);
       } else if (global.big) {
         createStoredValuesView(1000000);
+      } else if (global.huge) {
+        createStoredValuesView(20000000);
       }
 
       internal.wal.flush(true, true);
@@ -807,7 +866,7 @@ exports.test = function (global) {
       }
     },
 
-    /* any is non-deterministic by design. 
+    /* any is non-deterministic by design.
      * it has a random performance and thus is not useful in performance tests
     anyCrud = function (params) {
       let c = db._collection(params.collection);
@@ -1122,6 +1181,8 @@ exports.test = function (global) {
         number = 1000;
       } else if (global.tiny) {
         number = 100;
+      } else if (global.huge) {
+        number = 10;
       }
       let rules = [];
       if (params.optimize) {
@@ -1142,7 +1203,7 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     returnConst = function (params) {
       db._query(
         "FOR c IN @@c RETURN 1",
@@ -1197,7 +1258,7 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     sortDoubles = function (params) {
       db._query(
         "FOR c IN @@c SORT c.value5 * 1.1 RETURN c.value5",
@@ -1208,7 +1269,7 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     sortIntegers = function (params) {
       db._query(
         "FOR c IN @@c LET value = c.value5 >= @max ? @max : c.value5 SORT value RETURN value",
@@ -1259,7 +1320,7 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     filterLimit = function (params) {
       let op = "==";
       if (params.op) {
@@ -1419,7 +1480,81 @@ exports.test = function (global) {
       return result;
     },
 
+
+
+
     // /////////////////////////////////////////////////////////////////////////////
+    // ZDK documentTests
+    // /////////////////////////////////////////////////////////////////////////////
+
+    zkdIndex = function (params) {
+      // params must have xMin, collection and useZKD
+      // and may have useHint, lookahead, xMax, and, either both or none, yMin and yMax
+      // xMin without xMax means (p.x == xMin), with xMax: (xMin < p.x < xMax).
+      //
+      // We always have: params.useZKD == true iff params.lookahead !== undefined,
+      // but we leave both parameters to avoid the fine distinction
+      // params.lookahead === 0 and params.lookahead === undefined
+      let useHintFilterString = "indexHint: 'persistentIndex'";
+      if (params.useZKD) {
+        useHintFilterString = "indexHint: 'zkdIndex'";
+      }
+
+      let lookaheadFilterString = "";
+      if (params.lookahead !== undefined) {
+        lookaheadFilterString = ", lookahead: @lookahead";
+      }
+
+      let xFilterString = `(p.x > ${params.xMin}) AND (p.x < ${params.xMax})`;
+      if (params.xMax === undefined) {
+        xFilterString = `(p.x == ${params.xMin})`;
+      }
+
+      let yFilterString = "";
+      if (params.yMax !== undefined) { // the tests are such that then also params.yMin === undefined
+        yFilterString = `FILTER (p.y > ${params.yMin}) AND (p.y < ${params.yMax})`;
+      }
+      
+      db._query(
+          `FOR p in @@coll OPTIONS {${useHintFilterString} ${lookaheadFilterString}}
+              FILTER ${xFilterString} 
+              ${yFilterString} 
+              RETURN p`,
+          {
+            "@coll": params.collection,
+            lookahead: params.lookahead
+          },
+          {silent}
+      );
+    },
+
+    zkdIndexExactValue = function (params) {
+      // params should (may) contain x and y (lookahead)
+      let useHintFilterString = "indexHint: 'persistentIndex'";
+      if (params.useZKD) {
+        useHintFilterString = "indexHint: 'zkdIndex'";
+      }
+
+      let lookaheadFilterString = "";
+      if (params.lookahead !== undefined) {
+       lookaheadFilterString = ", lookahead: @lookahead";
+      }
+
+      db._query(
+          `FOR p in @@coll OPTIONS {${useHintFilterString} ${lookaheadFilterString}}
+                  FILTER (p.x ==  @x) AND (p.y == @y) 
+                  RETURN p`,
+          {
+            x: params.x, y: params.y,
+            "@coll": params.collection,
+            lookahead: params.lookahead
+          },
+          {silent}
+      );
+    },
+
+
+      // /////////////////////////////////////////////////////////////////////////////
     // iolessTests
     // /////////////////////////////////////////////////////////////////////////////
 
@@ -1870,6 +2005,33 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     main = function () {
+
+      const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
+
+      if (global.documents || global.edges || global.search ||
+          global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
+        initializeValuesCollection();
+      }
+      if (global.edges || global.subqueryTests) {
+        initializeEdgeCollection();
+      }
+      if (runSatelliteGraphTests) {
+        initializeGraphs();
+      }
+      if (global.search) {
+        initializeView();
+      }
+      if (global.phrase) {
+        initializePhrasesView();
+      }
+      if (global.noMaterializationSearch) {
+        initializeStoredValuesView();
+      }
+
+      if (global.testZKD) {
+        initializeValuesZKDCollection();
+      }
+
       let documentTests = [
           {
             name: "aql-isarray-const",
@@ -2150,10 +2312,200 @@ exports.test = function (global) {
           {
             name: "aql-ranges-subquery-distinct",
             params: { func: rangesSubquery, optimize: false, distinct: true }
-          },
-        ],
-        // Tests without collections/IO, to focus on aql block performance.
-        iolessTests = [
+          }
+        ];
+
+      // add more documents to documentTests ///////////////////////////////////////
+
+
+      let documentZKDTests = [];
+        // define the area (xMin, xMax) x (yMin, yMax)
+      let boxesXY = [
+        {xMin: 100, xMax: 200, yMin: 200, yMax: 300},
+        {xMin: 200, xMax: 300, yMin: 100, yMax: 200},
+        {xMin: 100, xMax: 200, yMin: 200, yMax: 201},
+        {xMin: 200, xMax: 201, yMin: 100, yMax: 200},
+        {xMin: 100, xMax: 200, yMin: 200, yMax: 210},
+        {xMin: 200, xMax: 210, yMin: 100, yMax: 200},
+        {xMin: 100, xMax: 200, yMin: 100, yMax: 900},
+        {xMin: 100, xMax: 900, yMin: 100, yMax: 200},
+        {xMin: 100, xMax: 101, yMin: 100, yMax: 900},
+        {xMin: 100, xMax: 900, yMin: 100, yMax: 101}
+      ];
+      // define the stripe (xMin, xMax) (and y unspecified)
+      let stripeX = [{xMin: 100, xMax: 110}];
+      // define fixed values of x (in the db, x are floats, so w.h.p. nothing will be found)
+      let lines = [{x: 100}];
+
+      let lookaheads = [0, 2, 4, 8, 16, 32];
+
+      // search in areas
+      for (const area of boxesXY) {
+        const xMin = area.xMin;
+        const xMax = area.xMax;
+        const yMin = area.yMin;
+        const yMax = area.yMax;
+
+        // with zkd
+        for (const lookahead of lookaheads) {
+          documentZKDTests.push({
+            name: `aql-zkd-index-area-lookahead-${lookahead}-${xMin}-${xMax}-${yMin}-${yMax}`,
+            params: {
+              func: zkdIndex,
+              optimize: true,
+              useZKD: true,
+              xMin: xMin,
+              xMax: xMax,
+              yMin: yMin,
+              yMax: yMax,
+              lookahead: lookahead
+            }
+          });
+        }
+
+        // without zkd
+        documentZKDTests.push({
+          name: `aql-zkd-index-area-no-zkd-${xMin}-${xMax}-${yMin}-${yMax}`,
+          params: {
+            func: zkdIndex,
+            optimize: true,
+            useZKD: false,
+            xMin: xMin,
+            xMax: xMax,
+            yMin: yMin,
+            yMax: yMax
+          }
+        });
+      } // boxesXY
+
+      // search in stripes
+      for (const stripe of stripeX) { // don't specify y
+        const xMin = stripe.xMin
+        const xMax = stripe.xMax
+        // with zkd
+        for (const lookahead of lookaheads) {
+          documentZKDTests.push({
+            name: `aql-zkd-index-stripe-lookahead-${lookahead}-${xMin}-${xMax}`,
+            params: {
+              func: zkdIndex,
+              optimize: true,
+              xMin: xMin,
+              xMax: xMax,
+              lookahead: lookahead
+            }
+          });
+        }
+
+        // without zkd
+        documentZKDTests.push({
+          name: `aql-zkd-index-stripe-no-zkd-${xMin}-${xMax}`,
+          params: {
+            func: zkdIndex,
+            optimize: true,
+            useZKD: false,
+            xMin: xMin,
+            xMax: xMax
+          }
+        });
+      } // stripes
+
+      // search for fixed values of x
+      for (const line of lines) {
+        // with zkd
+        for (const lookahead of lookaheads) {
+          documentZKDTests.push({
+            name: `aql-zkd-index-line-lookahead-${lookahead}-${line.x}`,
+            params: {
+              func: zkdIndex,
+              optimize: true,
+              useZKD: true,
+              xMin: line.x, // reuse xMin, though no xMax
+              lookahead: lookahead
+            }
+          });
+        }
+
+        // without zkd
+        documentZKDTests.push({
+          name: `aql-zkd-index-line-no-zkd-${line.x}`,
+          params: {
+            func: zkdIndex,
+            optimize: true,
+            useZKD: false,
+            xMin: line.x // reuse xMin, though no xMax
+          }
+        });
+      } // lines
+
+      // Exact values of x and y such that exactly one document is found.
+      // This is a fragile part: it works only with one collection that is one of
+      // tiny (1000), small (10000), medium (100000), big (1000000) or huge (20000000).
+
+      // skip if no or multiple collections are given as parameters
+      let numSizeParams = 0;
+      for (const size of [global.tiny, global.small, global.medium, global.big, global.huge]) {
+        if (size) {
+          numSizeParams++;
+        }
+      }
+
+      if (numSizeParams !== 1) {
+        console.warn(`The ZKD exact value tests work only for exactly one collection, but ${numSizeParams} collections are given. The tests are skipped.`)
+      } else {
+        // get one document
+        let collectionsSize = 0;
+        if (global.tiny) {
+          collectionsSize = 1000;
+        } else if (global.small) {
+          collectionsSize = 10000;
+        } else if (global.medium) {
+          collectionsSize = 100000;
+        } else if (global.big) {
+          collectionsSize = 1000000;
+        } else if (global.huge) {
+          collectionsSize = 20000000;
+        }
+
+        const doc = db._query(`FOR p in ${documentsCollectionNamePrefix}${collectionsSize}
+        LIMIT 1
+        RETURN {x: p.x, y: p.y}`);
+
+        if (doc.count === 0) {
+          throw `Collection "${documentsCollectionNamePrefix}${collectionsSize}" is empty.`;
+        }
+
+        const x = doc.toArray()[0].x;
+        const y = doc.toArray()[0].y;
+
+        // with zkd
+        for (const lookahead of lookaheads) {
+          documentZKDTests.push({
+            name: `aql-zkd-index-one-doc-lookahead-${lookahead}`,
+            params: {
+              func: zkdIndexExactValue,
+              optimize: true,
+              useZKD: true,
+              x: x,
+              y: y,
+              lookahead: lookahead
+            }
+          });
+        }
+
+        // without zkd
+        documentZKDTests.push({
+          name: `aql-zkd-index-one-doc-no-zkd`,
+          params: {
+            func: zkdIndexExactValue,
+            optimize: true,
+            useZKD: false,
+            x: x,
+            y: y,
+          }
+        });
+      }
+      // Tests without collections/IO, to focus on aql block performance.
+      let  iolessTests = [
           {
             name: "collect-unique-sorted",
             params: { func: justCollect, method: "sorted" }
@@ -2178,7 +2530,7 @@ exports.test = function (global) {
             name: "collect-non-unique-hash-nosort",
             params: { func: justCollect, method: "hash", div: 100, sortNull: true }
           },
-          
+
           {
             name: "collect-count-unique-sorted",
             params: { func: justCollect, method: "sorted", count: true }
@@ -2782,34 +3134,12 @@ exports.test = function (global) {
 
         ];
 
-      const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
-
-      if (global.documents || global.edges || global.search ||
-          global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
-        initializeValuesCollection();
-      }
-      if (global.edges || global.subqueryTests) {
-        initializeEdgeCollection();
-      }
-      if (runSatelliteGraphTests) {
-        initializeGraphs();
-      }
-      if (global.search) {
-        initializeView();
-      }
-      if (global.phrase) {
-        initializePhrasesView();
-      }
-      if (global.noMaterializationSearch) {
-        initializeStoredValuesView();
-      }
-
       let output = "",
         csv = "",
         options;
 
-      // document tests
-      if (global.documents) {
+      // document tests and zkd tests
+      if (global.documents || global.testZKD) {
         options = {
           runs: global.runs,
           digits: global.digits,
@@ -2829,6 +3159,12 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
+        }
+
+        if (global.testZKD) {
+          documentTests = documentZKDTests;
         }
 
         let documentTestsResult = testRunner(documentTests, options);
@@ -2862,6 +3198,8 @@ exports.test = function (global) {
           options.iterations = 1000000;
         } else if (global.big) {
           options.iterations = 10000000;
+        } else if (global.huge) {
+          options.iterations = 200000000;
         }
 
         let iolessTestsResult = testRunner(iolessTests, options);
@@ -2897,6 +3235,8 @@ exports.test = function (global) {
           options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "edges20000000", label: "20000k", size: 20000000 });
         }
 
         let edgeTestsResult = testRunner(edgeTests, options);
@@ -2934,6 +3274,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         let arangosearchTestsResult = testRunner(arangosearchTests, options);
@@ -2985,6 +3327,12 @@ exports.test = function (global) {
             label: "10000k",
             size: 10000000
           });
+        } else if (global.huge) {
+          options.collections.push({
+            name: "valuesPhrases200000000",
+            label: "200000k",
+            size: 200000000
+          });
         }
 
         let arangosearchPhrasesTestsResult = testRunner(
@@ -3025,6 +3373,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         let arangosearchNoMaterializationTestsResult = testRunner(arangosearchNoMaterializationTests, options);
@@ -3058,6 +3408,8 @@ exports.test = function (global) {
           options.collections.push({ name: "crud100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "crud20000000", label: "20000k", size: 20000000 });
         }
 
         let crudTestsResult = testRunner(crudTests, options);
@@ -3093,6 +3445,8 @@ exports.test = function (global) {
           options.collections.push({ name: "crud100000", label: "100k + ARS", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "crud20000000", label: "20000k + ARS", size: 20000000 });
         }
 
         let arangosearchCrudTestsResult = testRunner(crudTests, options);
@@ -3131,6 +3485,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         /* We run each test case with splicing enabled and with splicing disabled */
@@ -3177,6 +3533,8 @@ exports.test = function (global) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
         } else if (global.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        } else if (global.huge) {
+          options.collections.push({ name: "values20000000", label: "20000k", size: 20000000 });
         }
 
         var satelliteTestsCases = [];
@@ -3256,6 +3614,9 @@ exports.test = function (global) {
         } else if (global.big) {
           options.scale = 100 * 1000;
           options.runs = 8;
+        } else if (global.huge) {
+          options.scale = 100 * 1000; // TODO: change?
+          options.runs = 4;
         }
 
         if (runTestCases1 || runTestCases2) {

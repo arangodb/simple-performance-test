@@ -4,6 +4,7 @@ function main () {
     medium: true,
 
     documents: true,
+    testZKD: true,
     ioless: true,
     edges: true,
     search: true,
