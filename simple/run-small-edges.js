@@ -5,7 +5,7 @@ function main () {
 
     documents: false,
     edges: true,
-    search: false,
+//  search: false,
     phrase: false,
     crud: false,
     crudSearch: false

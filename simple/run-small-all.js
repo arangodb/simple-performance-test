@@ -6,7 +6,7 @@ function main () {
     documents: true,
     ioless: true,
     edges: true,
-    search: true,
+//  search: true,
     phrase: true,
     noMaterializationSearch: true,
     crud: true,
