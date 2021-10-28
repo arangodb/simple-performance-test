@@ -6,9 +6,9 @@ function main () {
     documents: true,
     ioless: true,
     edges: true,
-//  search: true,
+    search: false,
     phrase: true,
-    noMaterializationSearch: true,
+    noMaterializationSearch: false,
     crud: true,
     crudSearch: true
   });

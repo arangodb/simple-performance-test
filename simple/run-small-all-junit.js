@@ -8,7 +8,7 @@ function main () {
     documents: true,
     ioless: true,
     edges: true,
-//  search: true,
+    search: false,
     phrase: true,
     crud: true,
     crudSearch: true
