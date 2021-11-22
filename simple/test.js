@@ -45,6 +45,206 @@ exports.test = function (global) {
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
   const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
+  const supportsDisjointSmartGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
+
+  // This is a seedable RandomNumberGenerator
+  // it is not operfect for Random numbers,
+  // but good enough for what we are doing here
+  function *randomNumberGenerator (seed) {
+    while (true) {
+      const nextVal = Math.cos(seed++) * 10000;
+      yield nextVal - Math.floor(nextVal);
+    }
+  }
+
+  class GraphGenerator {
+    constructor (nameprefix, type, runnerName, scale) {
+      this._resetRand();
+      this._name = `${nameprefix}${runnerName}${scale}`;
+      this._runnerName = `${runnerName}-${scale}`;
+      switch (scale) {
+      case "small":
+        this._numVertices = 10000;
+        break;
+      case "medium":
+        this._numVertices = 100000;
+        break;
+      case "big":
+        this._numVertices = 1000000;
+        break;
+      default:
+        throw "Invalid scale for test";
+      }
+      // This is a arbitrary number and defines the average amount of
+      // edges per vertex.
+      this._degree = 5;
+      if (isEnterprise) {
+        if (type === "satellite") {
+          this._module = require("@arangodb/satellite-graph");
+        } else {
+          this._module = require("@arangodb/smart-graph");
+        }
+      } else {
+        this._module = require("@arangodb/general-graph");
+      }
+
+      this._vertexGroups = [];
+      for (let i = 1; i < Math.floor(this._numVertices / 1000); ++i) {
+        // create random sized groups of graphs.
+        // We randomly pick index borders
+        this._vertexGroups.push(this.getRandom(0, this._numVertices));
+      }
+      this._vertexGroups = this._vertexGroups.sort();
+
+      this._ensureDatastructure(type);
+    }
+
+    _resetRand () {
+      this._rand = randomNumberGenerator(42);
+    }
+
+    _ensureDatastructure (type) {
+      if (this._vCol) {
+        // already ensured
+        return;
+      }
+      const vertexCollectionName = `${this.name()}_vertex`;
+      const edgeCollectionName = `${this.name()}_edge`;
+
+      if (this._module._exists(this.name())) {
+        this._graph = this._module._graph(this.name());
+        this._needsData = false;
+      } else {
+        const rel = [this._module._relation(edgeCollectionName, vertexCollectionName, vertexCollectionName)];
+        const options = {};
+        switch (type) {
+        case "comm":
+        case "satellite":
+          break;
+        case "disjoint":
+          options.isDisjoint = true;
+          // fallthrough intentional
+        case "smart":
+          options.smartGraphAttribute = "value2";
+          options.numberOfShards = numberOfShards;
+          break;
+        }
+        this._graph = this._module._create(this.name(), rel, [], options);
+        this._needsData = true;
+      }
+      this._vCol = this._graph[vertexCollectionName];
+      this._eCol = db[edgeCollectionName];
+    }
+
+    name () {
+      return this._name;
+    }
+    vertexCollection () {
+      return this._vCol;
+    }
+
+    edgeCollection () {
+      return this._eCol;
+    }
+
+    numVertices () {
+      return this._numVertices;
+    }
+
+    numEdges () {
+      return this._numVertices * this._degree;
+    }
+
+    needsData () {
+      return this._needsData;
+    }
+
+    dataProduced () {
+      this._needsData = false;
+    }
+
+    getRandom (min, max) {
+      return Math.floor(this._rand.next().value * (max - min + 1)) + min;
+    }
+
+    getSmartGroup (index) {
+      for (let i = 0; i < this._vertexGroups.length; ++i) {
+        if (index < this._vertexGroups[i]) {
+          // Find the first border that is higher than the given number
+          return i;
+        }
+      }
+      return this._vertexGroups.length;
+    }
+
+    genSmartValue (smartGroup) {
+      return `smart${smartGroup}`;
+    }
+
+    genKey (i) {
+      return `${this.genSmartValue(this.getSmartGroup(i))}:test${i}`;
+    }
+
+    genId (i) {
+      return `${this._vCol.name()}/${this.genKey(i)}`;
+    }
+
+    randomId () {
+      return this.getRandom(0, this._numVertices);
+    }
+
+    getRandomStartVertices (length) {
+      // Make sure we always get the same seed,
+      // No matter how many operations have been
+      // done before.
+      this._resetRand();
+      // Hihi Javascript
+      return Array.from({ length }).map(_ => this.randomId()).map(id => {
+        return { _id: this.genId(id), _key: this.genKey(id) };
+      });
+    }
+
+    vertexData (i) {
+      return {
+        _key: this.genKey(i),
+        value1: i,
+        value2: this.genSmartValue(this.getSmartGroup(i)),
+        value3: i,
+        value4: "test" + i,
+        value5: i,
+        value6: "test" + i,
+        value7: i % (this._numVertices / 100),
+        value8: "test" + (i % (this._numVertices / 100))
+      };
+    }
+
+    edgeData (i) {
+      const smartGroup = this.getSmartGroup(Math.floor(i / this._degree));
+      const [min, max] = (() => {
+        if (smartGroup === 0) {
+          return [0, this._vertexGroups[smartGroup] - 1];
+        }
+        if (smartGroup === this._vertexGroups.length) {
+          return [this._vertexGroups[smartGroup - 1], this._numVertices - 1];
+        }
+        return [this._vertexGroups[smartGroup - 1], this._vertexGroups[smartGroup] - 1];
+      })();
+      const from = this.getRandom(min, max);
+      const to = this.getRandom(min, max);
+      const fromId = this.genId(from);
+      const toId = this.genId(to);
+      print(fromId, toId);
+      return {
+        _from: this.genId(from),
+        _to: this.genId(to),
+        value: `${from}-${to}`
+      };
+    }
+
+    namePostfix () {
+      return this._runnerName;
+    }
+  }
 
   let silent = true;
   let testRunner = function (tests, options) {
@@ -77,27 +277,22 @@ exports.test = function (global) {
         max: values[n - 1],
         sum: sum(values),
         avg: sum(values) / n,
-        med: n === 1
-          ? values[0]
-          : (n % 2
+        med:
+          n % 2
             ? (values[(n - 1) / 2] + values[(n + 1) / 2]) / 2
-            : values[n / 2]),
-        dev: n === 1
-          ? values[0]
-          : (values[n - 1] - values[0]) / (sum(values) / n)
+            : values[n / 2],
+        dev: (values[n - 1] - values[0]) / (sum(values) / n)
       };
 
       return result;
     }; // calc
 
-    const buildParams = function (test, collection) {
-      const params = test.params;
-      if (collection !== null) {
-        params.collection = collection.name;
-        params.collectionSize = collection.size;
-      }
+    let buildParams = function (test, collection) {
+      let params = test.params;
+      params.collection = collection.name;
+      params.collectionSize = collection.size;
       params.scale = options.scale;
-      if (options.hasOwnProperty('iterations')) {
+      if (options.hasOwnProperty("iterations")) {
         params.iterations = options.iterations;
       }
       return params;
@@ -444,150 +639,215 @@ exports.test = function (global) {
       if (!supportsSatelliteGraphs) {
         print("Satellite graphs are not supported");
       }
+      if (!supportsDisjointSmartGraphs) {
+        print("Disjoint Smart graphs are not supported");
+      }
 
       function createSatelliteGraph (name) {
         let vertexCollectionName = name + "_vertex";
         let edgesCollectionName = name + "_edge";
 
-        var graphModule = require("@arangodb/satellite-graph");
-        if (graphModule._exists(name)) {
-          let g = graphModule._graph(name);
-          return { graph: g,
+        var graph_module = require("@arangodb/satellite-graph");
+        if (graph_module._exists(name)) {
+          let g = graph_module._graph(name);
+          return {
+            graph: g,
             vertex: g[vertexCollectionName],
-            edges: db[edgesCollectionName] };
+            edges: db[edgesCollectionName]
+          };
         }
 
-        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
-        return { graph: g,
+        let g = graph_module._create(name, [graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+        return {
+          graph: g,
           vertex: g[vertexCollectionName],
-          edges: db[edgesCollectionName] };
+          edges: db[edgesCollectionName]
+        };
       }
 
       function createSmartGraph (name) {
         let vertexCollectionName = name + "_vertex";
         let edgesCollectionName = name + "_edge";
 
-        var graphModule = require("@arangodb/smart-graph");
-        if (graphModule._exists(name)) {
-          let g = graphModule._graph(name);
-          return { graph: g,
+        var graph_module = require("@arangodb/smart-graph");
+        if (graph_module._exists(name)) {
+          let g = graph_module._graph(name);
+          return {
+            graph: g,
             vertex: g[vertexCollectionName],
-            edges: db[edgesCollectionName] };
+            edges: db[edgesCollectionName]
+          };
         }
 
-        let opts = {smartGraphAttribute: "value2", numberOfShards };
+        let opts = { smartGraphAttribute: "value2", numberOfShards };
 
-        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts);
-        return { graph: g,
+        let g = graph_module._create(name, [graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], opts);
+        return {
+          graph: g,
           vertex: g[vertexCollectionName],
-          edges: db[edgesCollectionName] };
+          edges: db[edgesCollectionName]
+        };
       }
 
       function createCommunityGraph (name) {
         let vertexCollectionName = name + "_vertex";
         let edgesCollectionName = name + "_edge";
 
-        var graphModule = require("@arangodb/general-graph");
-        if (graphModule._exists(name)) {
-          let g = graphModule._graph(name);
-          return { graph: g,
+        var graph_module = require("@arangodb/general-graph");
+        if (graph_module._exists(name)) {
+          let g = graph_module._graph(name);
+          return {
+            graph: g,
             vertex: g[vertexCollectionName],
-            edges: db[edgesCollectionName] };
+            edges: db[edgesCollectionName]
+          };
         }
 
-        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
-        return { graph: g,
+        let g = graph_module._create(name, [graph_module._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+        return {
+          graph: g,
           vertex: g[vertexCollectionName],
-          edges: db[edgesCollectionName] };
+          edges: db[edgesCollectionName]
+        };
       }
 
+      let createFullyConnectedGraph = () => {
+        print("Creating community graph");
+        let gc = createCommunityGraph("comm");
 
-      print("Creating community graph");
-      let gc = createCommunityGraph("comm");
+        print("Creating smart graph");
+        let sg = createSmartGraph("smart");
 
-      print("Creating smart graph");
-      let sg = createSmartGraph("smart");
+        let satg;
+        if (supportsSatelliteGraphs) {
+          print("Creating satellite graph");
+          satg = createSatelliteGraph("sat");
+        }
 
-      let satg;
-      if (supportsSatelliteGraphs) {
-        print("Creating satellite graph");
-        satg = createSatelliteGraph("sat");
-      }
+        if (!gc || !sg || (supportsSatelliteGraphs && !satg)) {
+          throw "failed to create graphs";
+        }
 
-      if (!gc || !sg || (supportsSatelliteGraphs && !satg)) {
-        throw Error("failed to create graphs");
-      }
-
-      function fillGraphEdges (c, n, vc) {
-        print("Filling edges for ", c.name());
-        let j = 0,
-          k = 50,
-          l = 0;
-        fillCollection(c, n, function (i) {
-          let obj = {
-            _key: "smart" + j + ":" + j + "_" + i + ":" + "smart" + i,
-            _from: vc.name() + "/smart" + j + ":test" + j,
-            _to: vc.name() + "/smart" + i + ":test" + i,
-            value: j + "-" + i};
-          if (++l === k) {
-            ++j;
+        function fillGraphEdges (c, n, vc) {
+          print("Filling edges for ", c.name());
+          let j = 0,
+            k = 50,
             l = 0;
-            k--;
-            if (k === 0) {
-              k = 50;
+          fillCollection(c, n, function (i) {
+            let obj = {
+              _key: "smart" + j + ":" + j + "_" + i + ":" + "smart" + i,
+              _from: vc.name() + "/smart" + j + ":test" + j,
+              _to: vc.name() + "/smart" + i + ":test" + i,
+              value: j + "-" + i
+            };
+            if (++l === k) {
+              ++j;
+              l = 0;
+              k--;
+              if (k === 0) {
+                k = 50;
+              }
+            }
+            return obj;
+          });
+        }
+
+        function fillGraphVertexes (c, n, g) {
+          print("Filling Vertexes for ", c.name());
+          fillCollection(c, n, function (i) {
+            return {
+              _key: "smart" + i + ":test" + i,
+              value1: i,
+              value2: "smart" + i,
+              value3: i,
+              value4: "test" + i,
+              value5: i,
+              value6: "test" + i,
+              value7: i % g,
+              value8: "test" + (i % g)
+            };
+          });
+        }
+
+        function createVertexes (n) {
+          let g = n / 100;
+          fillGraphVertexes(gc.vertex, n, g);
+          fillGraphVertexes(sg.vertex, n, g);
+          if (supportsSatelliteGraphs) {
+            fillGraphVertexes(satg.vertex, n, g);
+          }
+        }
+
+        function createEdges (n) {
+          fillGraphEdges(gc.edges, n, gc.vertex);
+          fillGraphEdges(sg.edges, n, sg.vertex);
+          if (supportsSatelliteGraphs) {
+            fillGraphEdges(satg.edges, n, satg.vertex);
+          }
+        }
+
+        if (global.tiny) {
+          createVertexes(1000);
+          createEdges(1000);
+        } else if (global.small) {
+          createVertexes(10000);
+          createEdges(10000);
+        } else if (global.medium) {
+          createVertexes(100000);
+          createEdges(100000);
+        } else if (global.big) {
+          createVertexes(1000000);
+          createEdges(1000000);
+        }
+      };
+
+      let createDisjointGraph = () => {
+        const prefix = "disjoint";
+        let graphs = [];
+        const buildGraph = (prefix, type, runnerName, scale) => {
+          print(`Creating ${runnerName} graph`);
+          let graph = new GraphGenerator(prefix, type, runnerName, scale);
+          if (graph.needsData()) {
+            print(`Filling ${runnerName} graph`);
+
+            print(`Filling Vertexes for ${graph.vertexCollection().name()}`);
+            fillCollection(graph.vertexCollection(), graph.numVertices(), graph.vertexData.bind(graph));
+
+            print(`Filling Edges for ${graph.edgeCollection().name()}`);
+            fillCollection(graph.edgeCollection(), graph.numEdges(), graph.edgeData.bind(graph));
+
+          }
+          return graph;
+        };
+
+        const addGraphsForScale = (scale) => {
+          graphs.push(buildGraph(prefix, "comm", "community", scale));
+          if (isEnterprise) {
+            graphs.push(buildGraph(prefix, "smart", "smart", scale));
+            if (supportsSatelliteGraphs) {
+              graphs.push(buildGraph(prefix, "sat", "satellite", scale));
+            }
+            if (supportsDisjointSmartGraphs) {
+              graphs.push(buildGraph(prefix, "disjoint", "disjoint-smart", scale));
             }
           }
-          return obj;
-        });
-      }
+        };
 
-      function fillGraphVertexes (c, n, g) {
-        print("Filling Vertexes for ", c.name());
-        fillCollection(c, n, function (i) {
-          return {
-            _key: "smart" + i + ":test" + i,
-            value1: i,
-            value2: "smart" + i,
-            value3: i,
-            value4: "test" + i,
-            value5: i,
-            value6: "test" + i,
-            value7: i % g,
-            value8: "test" + (i % g)
-          };
-        });
-      }
-
-      function createVertexes (n) {
-        let g = n / 100;
-        fillGraphVertexes(gc.vertex, n, g);
-        fillGraphVertexes(sg.vertex, n, g);
-        if (supportsSatelliteGraphs) {
-          fillGraphVertexes(satg.vertex, n, g);
+        if (global.small) {
+          addGraphsForScale("small");
         }
-      }
-
-      function createEdges (n) {
-        fillGraphEdges(gc.edges, n, gc.vertex);
-        fillGraphEdges(sg.edges, n, sg.vertex);
-        if (supportsSatelliteGraphs) {
-          fillGraphEdges(satg.edges, n, satg.vertex);
+        if (global.medium) {
+          addGraphsForScale("medium");
         }
-      }
+        if (global.big) {
+          addGraphsForScale("big");
+        }
+        return graphs;
+      };
 
-      if (global.tiny) {
-        createVertexes(1000);
-        createEdges(1000);
-      } else if (global.small) {
-        createVertexes(10000);
-        createEdges(10000);
-      } else if (global.medium) {
-        createVertexes(100000);
-        createEdges(100000);
-      } else if (global.big) {
-        createVertexes(1000000);
-        createEdges(1000000);
-      }
+      createFullyConnectedGraph();
+      return createDisjointGraph();
+
     },
 
     initializePhrasesView = function () {
@@ -614,7 +874,7 @@ exports.test = function (global) {
         db._drop(name);
 
         internal.print("creating collection " + name);
-        let c = db._create(name, {numberOfShards}),
+        let c = db._create(name, { numberOfShards }),
           // Short list. Phrases appear frequently
           phrasesHigh = ["Quick ", "Brown ", "Slow ", "Fast "],
           highPhraseCounter = 0,
@@ -699,11 +959,11 @@ exports.test = function (global) {
           name: "v_stored_values" + n,
           collections: ["values" + n],
           analyzers: ["identity"],
-          storedValues: semver.satisfies(serverVersion, "<3.7.0") ?
-                        ["value2", ["value1", "value3"]] :
-                        (semver.satisfies(serverVersion, "<3.7.1") ?
-                        [["value2"], ["value1", "value3"]] :
-                        [{ fields:["value2"]}, {fields:["value1", "value3"]}])
+          storedValues: semver.satisfies(serverVersion, "<3.7.0")
+            ? ["value2", ["value1", "value3"]]
+            : (semver.satisfies(serverVersion, "<3.7.1")
+              ? [["value2"], ["value1", "value3"]]
+              : [{ fields: ["value2"]}, {fields: ["value1", "value3"]}])
         };
         createArangoSearch(params);
       }
@@ -807,7 +1067,7 @@ exports.test = function (global) {
       }
     },
 
-    /* any is non-deterministic by design. 
+    /* any is non-deterministic by design.
      * it has a random performance and thus is not useful in performance tests
     anyCrud = function (params) {
       let c = db._collection(params.collection);
@@ -1142,12 +1402,12 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     returnConst = function (params) {
       db._query(
         "FOR c IN @@c RETURN 1",
         {
-          "@c": params.collection,
+          "@c": params.collection
         },
         {},
         { silent }
@@ -1197,18 +1457,18 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     sortDoubles = function (params) {
       db._query(
         "FOR c IN @@c SORT c.value5 * 1.1 RETURN c.value5",
         {
-          "@c": params.collection,
+          "@c": params.collection
         },
         {},
         { silent }
       );
     },
-    
+
     sortIntegers = function (params) {
       db._query(
         "FOR c IN @@c LET value = c.value5 >= @max ? @max : c.value5 SORT value RETURN value",
@@ -1259,7 +1519,7 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     filterLimit = function (params) {
       let op = "==";
       if (params.op) {
@@ -1438,7 +1698,7 @@ exports.test = function (global) {
       // i'd like to avoid any sort of rand() to improve the comparability of
       // runs slightly.
       const n = params.iterations;
-      let q = Math.floor(n/2) + 1;
+      let q = Math.floor(n / 2) + 1;
       while (gcd(n, q) != 1) {
         ++q;
       }
@@ -1447,17 +1707,17 @@ exports.test = function (global) {
         FOR i IN 1..@iterations
           LET k = (i * @q) % @n
           COLLECT x = k % @mod
-          ${params.count ? 'WITH COUNT INTO cnt' : ''}
+          ${params.count ? "WITH COUNT INTO cnt" : ""}
             OPTIONS { method: @method }
-          ${params.sortNull ? 'SORT null' : ''}
-          RETURN ${params.count ? '[x, cnt]' : 'x'}
+          ${params.sortNull ? "SORT null" : ""}
+          RETURN ${params.count ? "[x, cnt]" : "x"}
       `;
       // Note that n == iterations
       const bind = {
         iterations: params.iterations,
         method: params.method,
         q,
-        n,
+        n
       };
       if (params.div) {
         bind.mod = Math.floor(params.iterations / params.div);
@@ -1851,7 +2111,24 @@ exports.test = function (global) {
         "@c": params.collection,
         "g": params.graph,
         "v": params.graph + "_vertex"
-      // "e": params.graph + "_edge"
+        // "e": params.graph + "_edge"
+      };
+
+      if ("bindParamModifier" in params) {
+        params.bindParamModifier(params, bindParam);
+      }
+
+      let result = db._query(
+        params.queryString,
+        bindParam, {}
+      );
+    },
+
+    genericDisjointSmartGraph = function (params) {
+      let bindParam = {
+        "@c": params.collection,
+        "g": params.graph.name(),
+        "startVertices": params.graph.getRandomStartVertices(100)
       };
 
       if ("bindParamModifier" in params) {
@@ -2021,19 +2298,19 @@ exports.test = function (global) {
           },
           {
             name: "aql-sort-double",
-            params: { func: sortDoubles },
+            params: { func: sortDoubles }
           },
           {
             name: "aql-sort-int1",
-            params: { func: sortIntegers, max: 100  },
+            params: { func: sortIntegers, max: 100 }
           },
           {
             name: "aql-sort-int2",
-            params: { func: sortIntegers, max: 10000  },
+            params: { func: sortIntegers, max: 10000 }
           },
           {
             name: "aql-sort-int4",
-            params: { func: sortIntegers, max: 1000000000  },
+            params: { func: sortIntegers, max: 1000000000 }
           },
           {
             name: "aql-filter-number",
@@ -2150,7 +2427,7 @@ exports.test = function (global) {
           {
             name: "aql-ranges-subquery-distinct",
             params: { func: rangesSubquery, optimize: false, distinct: true }
-          },
+          }
         ],
         // Tests without collections/IO, to focus on aql block performance.
         iolessTests = [
@@ -2178,7 +2455,7 @@ exports.test = function (global) {
             name: "collect-non-unique-hash-nosort",
             params: { func: justCollect, method: "hash", div: 100, sortNull: true }
           },
-          
+
           {
             name: "collect-count-unique-sorted",
             params: { func: justCollect, method: "sorted", count: true }
@@ -2202,7 +2479,7 @@ exports.test = function (global) {
           {
             name: "collect-count-non-unique-hash-nosort",
             params: { func: justCollect, method: "hash", div: 100, sortNull: true, count: true }
-          },
+          }
         ],
         edgeTests = [
           {
@@ -2593,7 +2870,7 @@ exports.test = function (global) {
               teardown: drop
             }
           }
-/*
+          /*
           {
             name: "crud-any",
             params: {
@@ -2715,8 +2992,7 @@ exports.test = function (global) {
                             bindParam.attr5 = "value5";
                         }
              }
-          },
- */
+          }, */
           {
             name: "aql-concatenated-subqueries",
             params: { func: genericSubquerySplicing,
@@ -2729,6 +3005,12 @@ exports.test = function (global) {
                 bindParam.attr = "value1";
                 bindParam.attr2 = "value2";
               }
+            }
+          },
+          {
+            name: "aql-smart-graph",
+            params: {
+              func: genericSubquerySplicing
             }
           }
         ],
@@ -2761,7 +3043,7 @@ exports.test = function (global) {
                         for doc in @@c
                           filter doc.value1 >= 0 and doc.value1 <= 10
                           let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
-                          for v, e, p in 1..4 outbound vkey graph @g
+                          for v, e, p in 1..2 outbound vkey graph @g
                             return {doc, p}
                         `
             }
@@ -2771,28 +3053,114 @@ exports.test = function (global) {
             params: { func: genericSatelliteGraph,
               queryString: `
                         for doc in @@c
+                          LIMIT 10
                           let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
-                          for v, e, p in 1..4 outbound vkey graph @g
+                          for v, e, p in 1..2 outbound vkey graph @g
                             filter v.value1 <= doc.value1
                             return {doc, p}
                         `
             }
           }
-
-
+        ],
+        disjointSmartGraphTests = [
+          {
+            name: "aql-traversal-index-join",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                          FOR s IN @startVertices
+                          FOR v, e, p IN 1..3 OUTBOUND s GRAPH @g
+                            FOR doc in @@c
+                              FILTER doc.value1 == v.value1
+                              RETURN doc
+                        ` }
+          },
+          {
+            name: "aql-traversal-graph",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                        FOR s IN @startVertices
+                          FOR v, e, p IN 1..3 OUTBOUND s GRAPH @g
+                            return v`,
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam["@c"];
+              }
+            }
+          },
+          {
+            name: "aql-traversal-graph-graph",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                        FOR s IN @startVertices
+                          FOR v, e, p IN 1 OUTBOUND s GRAPH @g
+                          FOR v1, e1, p1 IN 1 OUTBOUND v GRAPH @g
+                            return v1`,
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam["@c"];
+              }
+            }
+          },
+          {
+            name: "aql-traversal-subquery-graph-graph",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                        FOR s IN @startVertices
+                          LET sub1 = (
+                            FOR v, e, p IN 1 OUTBOUND s GRAPH @g
+                              RETURN v._key)
+                          LET sub2 = (
+                            FOR v, e, p IN 1 INBOUND s GRAPH @g
+                              RETURN v._key)
+                          RETURN [sub1, sub2]`,
+              bindParamModifier: function (param, bindParam) {
+                delete bindParam["@c"];
+              }
+            }
+          },
+          {
+            name: "aql-index-traversal-graph",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                          for doc in @@c
+                            filter doc.value1 >= 0 and doc.value1 <= 10
+                            FOR s IN @startVertices
+                            for v, e, p in 1..2 outbound s GRAPH @g
+                              return {doc, p}
+                          `
+            }
+          },
+          {
+            name: "aql-enum-collection-traversal-graph",
+            params: {
+              func: genericDisjointSmartGraph,
+              queryString: `
+                          for doc in @@c
+                            LIMIT 10
+                            FOR s IN @startVertices
+                            for v, e, p in 1..2 outbound s GRAPH @g
+                              filter v.value1 <= doc.value1
+                              return {doc, p}
+                          `
+            }
+          }
         ];
 
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
-
+      const runDisjointSmartGraphTests = (global.disjointSmartGraphTests && isEnterprise && isCluster);
+      let disjointGraphs = [];
       if (global.documents || global.edges || global.search ||
-          global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
+        global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests || runDisjointSmartGraphTests) {
         initializeValuesCollection();
       }
       if (global.edges || global.subqueryTests) {
         initializeEdgeCollection();
       }
-      if (runSatelliteGraphTests) {
-        initializeGraphs();
+      if (runSatelliteGraphTests || runDisjointSmartGraphTests) {
+        disjointGraphs = initializeGraphs();
       }
       if (global.search) {
         initializeView();
@@ -3179,21 +3547,19 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
-        var satelliteTestsCases = [];
-        satelliteGraphTests.forEach(function (item) {
-          let communityCase = _.cloneDeep(item);
-          communityCase.name = communityCase.name + "-community";
-          communityCase.params.graph = "comm";
-          satelliteTestsCases.push(communityCase);
-          let smartCase = _.cloneDeep(item);
-          smartCase.name = smartCase.name + "-smart";
-          smartCase.params.graph = "smart";
-          satelliteTestsCases.push(smartCase);
+
+        const satelliteTestsCases = [];
+        const addSatelliteTestCase = (item, name, graph) => {
+          let caseItem = _.cloneDeep(item);
+          caseItem.name += `-${name}`;
+          caseItem.params.graph = graph;
+          satelliteTestsCases.push(caseItem);
+        };
+        satelliteGraphTests.forEach((item) => {
+          addSatelliteTestCase(item, "community", "comm");
+          addSatelliteTestCase(item, "smart", "smart");
           if (supportsSatelliteGraphs) {
-            let satelliteCase = _.cloneDeep(item);
-            satelliteCase.name = satelliteCase.name + "-satellite";
-            satelliteCase.params.graph = "sat";
-            satelliteTestsCases.push(satelliteCase);
+            addSatelliteTestCase(item, "satellite", "sat");
           }
         });
 
@@ -3207,6 +3573,52 @@ exports.test = function (global) {
 
         if (global.outputCsv) {
           csv += toCsv(satelliteTestsResult);
+        }
+      }
+      if (global.disjointSmartGraphTests) {
+        const disjointTestCases = [];
+        const addDisjointTestCase = (item, graphGen) => {
+          let caseItem = _.cloneDeep(item);
+          caseItem.name += `-${graphGen.namePostfix()}`;
+          caseItem.params.graph = graphGen;
+          disjointTestCases.push(caseItem);
+        };
+
+        for (const graph of disjointGraphs) {
+          for (const item of disjointSmartGraphTests) {
+            addDisjointTestCase(item, graph);
+          }
+        }
+
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (params) { },
+          teardown: function () { },
+          collections: [],
+          removeFromResult: 1
+        };
+
+        if (global.tiny) {
+          options.collections.push({ name: "values1000", label: "1k", size: 1000 });
+        } else if (global.small) {
+          options.collections.push({ name: "values10000", label: "10k", size: 10000 });
+        } else if (global.medium) {
+          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+        } else if (global.big) {
+          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+        }
+
+        let disjointSmartTestsResult = testRunner(disjointTestCases, options);
+        output +=
+          toString("Disjoint Graph Performance", disjointSmartTestsResult) + "\n\n";
+
+        if (global.outputXml) {
+          toJUnit(disjointSmartTestsResult);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(disjointSmartTestsResult);
         }
       }
 
