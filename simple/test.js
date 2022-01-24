@@ -1,6 +1,106 @@
-exports.test = function (global) {
-  "use strict";
+"use strict";
 
+const internal = require("internal");
+const AsciiTable = require("ascii-table");
+const fs = require("fs");
+const semver = require("semver");
+const _ = require("lodash");
+const db = require("org/arangodb").db;
+
+function sum(values) {
+  if (values.length > 1) {
+    return values.reduce((previous, current) => previous + current);
+  } else {
+    return values[0];
+  }
+};
+
+function calc(values, options) {
+  values.sort((a, b) => a - b);
+
+  const removeFromResult = parseInt(options.removeFromResult) || 0;
+  if (removeFromResult > 0) {
+    if (values.length > 2) {
+      values.splice(values.length - 1, removeFromResult); // remove last
+      values.splice(0, removeFromResult); // remove first
+    }
+  }
+
+  const n = values.length;
+  return {
+    min: values[0],
+    max: values[n - 1],
+    sum: sum(values),
+    avg: sum(values) / n,
+    med: n === 1
+      ? values[0]
+      : (n % 2
+        ? (values[(n - 1) / 2] + values[(n + 1) / 2]) / 2
+        : values[n / 2]),
+    dev: n === 1
+      ? values[0]
+      : (values[n - 1] - values[0]) / (sum(values) / n)
+  };
+};
+
+function toAsciiTable(title, out) {
+  var table = new AsciiTable(title);
+  table.
+    setHeading(
+      "testname",
+      "collection",
+      "runs",
+      "min (s)",
+      "max (s)",
+      "% dev",
+      "avg (s)",
+      "med (s)",
+      "total (s)"
+    ).
+    setAlign(2, AsciiTable.RIGHT).
+    setAlign(3, AsciiTable.RIGHT).
+    setAlign(4, AsciiTable.RIGHT).
+    setAlign(5, AsciiTable.RIGHT).
+    setAlign(6, AsciiTable.RIGHT).
+    setAlign(7, AsciiTable.RIGHT).
+    setAlign(8, AsciiTable.RIGHT);
+
+  for (let i = 0; i < out.length; ++i) {
+    let test = out[i];
+    table.addRow(
+      test.name,
+      test.collectionLabel,
+      test.runs,
+      test.min,
+      test.max,
+      test.dev,
+      test.avg,
+      test.med,
+      test.total
+    );
+  }
+
+  return table.toString();
+};
+
+function toJUnit(out, prefix, postfix) {
+  prefix = prefix || "";
+  postfix = postfix || "";
+
+  for (let i = 0; i < out.length; ++i) {
+    let test = out[i];
+    let name = prefix + test.name + postfix;
+
+    fs.writeFileSync(
+      fs.join(global.xmlDirectory, `pref-${name}.xml`),
+      `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
+        1000}" /><testcase classname="${name}" name="med" time="${test.med *
+        1000}" /></testsuite>`
+    );
+  }
+};
+
+exports.test = function (global) {
   global.tiny = global.tiny || false;
   global.small = global.small || false;
   global.medium = global.medium || false;
@@ -27,16 +127,9 @@ exports.test = function (global) {
 
   const numberOfShards = global.numberOfShards || 9;
 
-  const internal = require("internal");
-  const AsciiTable = require("ascii-table");
-  const fs = require("fs");
-  const semver = require("semver");
-  const _ = require("lodash");
-
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
 
-  const db = require("org/arangodb").db;
   const time = internal.time;
   const print = internal.print;
   const isEnterprise = internal.isEnterprise();
@@ -48,48 +141,6 @@ exports.test = function (global) {
 
   let silent = true;
   let testRunner = function (tests, options) {
-    let calc = function (values, options) {
-      let sum = function (values) {
-        if (values.length > 1) {
-          return values.reduce(function (previous, current) {
-            return previous + current;
-          });
-        } else {
-          return values[0];
-        }
-      };
-
-      values.sort(function (a, b) {
-        return a - b;
-      });
-
-      let removeFromResult = parseInt(options.removeFromResult) || 0;
-      if (removeFromResult > 0) {
-        if (values.length > 2) {
-          values.splice(values.length - 1, removeFromResult); // remove last
-          values.splice(0, removeFromResult); // remove first
-        }
-      }
-
-      let n = values.length;
-      let result = {
-        min: values[0],
-        max: values[n - 1],
-        sum: sum(values),
-        avg: sum(values) / n,
-        med: n === 1
-          ? values[0]
-          : (n % 2
-            ? (values[(n - 1) / 2] + values[(n + 1) / 2]) / 2
-            : values[n / 2]),
-        dev: n === 1
-          ? values[0]
-          : (values[n - 1] - values[0]) / (sum(values) / n)
-      };
-
-      return result;
-    }; // calc
-
     const buildParams = function (test, collection) {
       const params = test.params;
       if (collection !== null) {
@@ -103,22 +154,24 @@ exports.test = function (global) {
       return params;
     };
 
-    let measure = function (test, collection, options) {
-      let timedExecution = function (test, collection) {
-          let params = buildParams(test, collection);
-          const start = time();
-          if (typeof params.setupEachCall === "function") {
-            params.setupEachCall(params);
-          }
-          test.params.func(params);
-          let end = time();
-          if (typeof params.teardownEachCall === "function") {
-            params.teardownEachCall(params);
-          }
-          return end - start;
-        },
-        results = [];
-      internal.wait(1, true);
+    const timedExecution = function (test, collection) {
+      const params = buildParams(test, collection);
+      const start = time();
+      if (typeof params.setupEachCall === "function") {
+        params.setupEachCall(params);
+      }
+      
+      test.params.func(params);
+      const end = time();
+      
+      if (typeof params.teardownEachCall === "function") {
+        params.teardownEachCall(params);
+      }
+      return end - start;
+    };
+
+    const measure = function (test, collection, options) {
+      let results = [];
 
       const runs = options.runs > 0 ? options.runs : 1;
 
@@ -169,16 +222,21 @@ exports.test = function (global) {
 
             for (let j = 0; j < options.collections.length; ++j) {
               let collection = options.collections[j];
-              let stats = calc(measure(test, collection, options), options);
+
+              const startTotal = time();
+              const results = measure(test, collection, options);
+              const endTotal = time();
+              const stats = calc(results, options);
 
               const result = {
                 name: test.name,
-                runs: String(options.runs),
+                runs: options.runs,
                 min: stats.min.toFixed(options.digits),
                 max: stats.max.toFixed(options.digits),
                 dev: (stats.dev * 100).toFixed(2),
                 avg: stats.avg.toFixed(options.digits),
-                med: stats.med.toFixed(options.digits)
+                med: stats.med.toFixed(options.digits),
+                total: (endTotal - startTotal).toFixed(options.digits),
               };
               if (collection !== null) {
                 result.collectionLabel = collection.label;
@@ -192,7 +250,7 @@ exports.test = function (global) {
             } // for j
           }
         } catch (ex) {
-          print("expection in test " + test.name + ": " + ex);
+          print("exception in test " + test.name + ": " + ex);
         }
       } // for i
 
@@ -201,60 +259,6 @@ exports.test = function (global) {
 
     return run(tests, options);
   }; // testrunner
-
-  let toString = function (title, out) {
-    var table = new AsciiTable(title);
-    table.
-      setHeading(
-        "testname",
-        "collection",
-        "runs",
-        "min (s)",
-        "max (s)",
-        "% dev",
-        "avg (s)",
-        "med (s)"
-      ).
-      setAlign(2, AsciiTable.RIGHT).
-      setAlign(3, AsciiTable.RIGHT).
-      setAlign(4, AsciiTable.RIGHT).
-      setAlign(5, AsciiTable.RIGHT).
-      setAlign(6, AsciiTable.RIGHT).
-      setAlign(7, AsciiTable.RIGHT);
-
-    for (let i = 0; i < out.length; ++i) {
-      let test = out[i];
-      table.addRow(
-        test.name,
-        test.collectionLabel,
-        test.runs,
-        test.min,
-        test.max,
-        test.dev,
-        test.avg,
-        test.med
-      );
-    }
-
-    return table.toString();
-  };
-
-  const toJUnit = function (out, prefix, postfix) {
-    prefix = prefix || "";
-    postfix = postfix || "";
-
-    for (let i = 0; i < out.length; ++i) {
-      let test = out[i];
-      let name = prefix + test.name + postfix;
-
-      fs.writeFileSync(
-        fs.join(global.xmlDirectory, `pref-${name}.xml`),
-        `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
-          1000}" /><testcase classname="${name}" name="med" time="${test.med *
-          1000}" /></testsuite>`
-      );
-    }
-  };
 
   const toCsv = function (out, prefix, postfix) {
     prefix = prefix || "";
@@ -2997,7 +3001,7 @@ exports.test = function (global) {
         }
 
         let documentTestsResult = testRunner(documentTests, options);
-        output += toString("Documents", documentTestsResult) + "\n\n";
+        output += toAsciiTable("Documents", documentTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(documentTestsResult);
@@ -3030,7 +3034,7 @@ exports.test = function (global) {
         }
 
         let iolessTestsResult = testRunner(iolessTests, options);
-        output += toString("IOless", iolessTestsResult) + "\n\n";
+        output += toAsciiTable("IOless", iolessTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(iolessTestsResult);
@@ -3065,7 +3069,7 @@ exports.test = function (global) {
         }
 
         let edgeTestsResult = testRunner(edgeTests, options);
-        output += toString("Edges", edgeTestsResult) + "\n\n";
+        output += toAsciiTable("Edges", edgeTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(edgeTestsResult);
@@ -3102,7 +3106,7 @@ exports.test = function (global) {
         }
 
         let arangosearchTestsResult = testRunner(arangosearchTests, options);
-        output += toString("Arango Search", arangosearchTestsResult) + "\n\n";
+        output += toAsciiTable("Arango Search", arangosearchTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(arangosearchTestsResult);
@@ -3157,7 +3161,7 @@ exports.test = function (global) {
           options
         );
         output +=
-        toString("Arango Search Phrases", arangosearchPhrasesTestsResult) +
+        toAsciiTable("Arango Search Phrases", arangosearchPhrasesTestsResult) +
         "\n\n";
 
         if (global.outputXml) {
@@ -3193,7 +3197,7 @@ exports.test = function (global) {
         }
 
         let arangosearchNoMaterializationTestsResult = testRunner(arangosearchNoMaterializationTests, options);
-        output += toString("Arango Search No Materialization", arangosearchNoMaterializationTestsResult) + "\n\n";
+        output += toAsciiTable("Arango Search No Materialization", arangosearchNoMaterializationTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(arangosearchNoMaterializationTestsResult);
@@ -3226,7 +3230,7 @@ exports.test = function (global) {
         }
 
         let crudTestsResult = testRunner(crudTests, options);
-        output += toString("CRUD", crudTestsResult) + "\n\n";
+        output += toAsciiTable("CRUD", crudTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(crudTestsResult);
@@ -3262,7 +3266,7 @@ exports.test = function (global) {
 
         let arangosearchCrudTestsResult = testRunner(crudTests, options);
         output +=
-        toString("Arango Search CRUD", arangosearchCrudTestsResult) + "\n\n";
+        toAsciiTable("Arango Search CRUD", arangosearchCrudTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(arangosearchCrudTestsResult, "ars-", "");
@@ -3313,7 +3317,7 @@ exports.test = function (global) {
 
         let subqueryTestsResult = testRunner(subqueryTestsCases, options);
         output +=
-        toString("Subquery Performance", subqueryTestsResult) + "\n\n";
+        toAsciiTable("Subquery Performance", subqueryTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(subqueryTestsResult);
@@ -3364,7 +3368,7 @@ exports.test = function (global) {
 
         let satelliteTestsResult = testRunner(satelliteTestsCases, options);
         output +=
-        toString("Satellite Graph Performance", satelliteTestsResult) + "\n\n";
+        toAsciiTable("Satellite Graph Performance", satelliteTestsResult) + "\n\n";
 
         if (global.outputXml) {
           toJUnit(satelliteTestsResult);
@@ -3452,7 +3456,7 @@ exports.test = function (global) {
           };
 
           let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
-          output += toString(testPrefix + "CRUD operations", oneshardTestsResult2) + "\n\n";
+          output += toAsciiTable(testPrefix + "CRUD operations", oneshardTestsResult2) + "\n\n";
 
           if (global.outputXml) {
             toJUnit(oneshardTestsResult2);
