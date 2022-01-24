@@ -760,10 +760,23 @@ exports.test = function (global) {
       for (let i = 0; i < docSize; ++i) {
         doc["value" + i] = i;
       }
-
-      for (let i = 0; i < n; ++i) {
-        doc._key = "test" + i;
-        c.insert(doc);
+      
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let docs = [];
+          for (let j = 0; j < batchSize; ++j) {
+            docs.push({ _key: "test" + (i * batchSize + j), ...doc });
+          }
+          c.insert(docs);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          doc._key = "test" + i;
+          c.insert(doc);
+        }
       }
     },
 
@@ -776,26 +789,71 @@ exports.test = function (global) {
     },
 
     update = function (params) {
-      let c = db._collection(params.collection),
-        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (let i = 0; i < n; ++i) {
-        c.update("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+      let c = db._collection(params.collection);
+      const n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let keys = [];
+          let docs = [];
+          for (let j = 0; j < batchSize; ++j) {
+            const idx = i * batchSize + j;
+            keys.push("test" + idx);
+            docs.push({ value: idx + 1, value2: "test" + idx, value3: idx });
+          }
+          c.update(keys, docs);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          c.update("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+        }
       }
     },
 
     replace = function (params) {
-      let c = db._collection(params.collection),
-        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (let i = 0; i < n; ++i) {
-        c.replace("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+      let c = db._collection(params.collection);
+      const n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let keys = [];
+          let docs = [];
+          for (let j = 0; j < batchSize; ++j) {
+            const idx = i * batchSize + j;
+            keys.push("test" + idx);
+            docs.push({ value: idx + 1, value2: "test" + idx, value3: idx });
+          }
+          c.replace(keys, docs);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          c.replace("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+        }
       }
     },
 
     remove = function (params) {
-      let c = db._collection(params.collection),
-        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (let i = 0; i < n; ++i) {
-        c.remove("test" + i);
+      let c = db._collection(params.collection);
+      const n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let keys = [];
+          for (let j = 0; j < batchSize; ++j) {
+            keys.push("test" + (i * batchSize + j));
+          }
+          c.remove(keys);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          c.remove("test" + i);
+        }
       }
     },
 
@@ -2510,6 +2568,18 @@ exports.test = function (global) {
             }
           },
           {
+            name: "crud-insert-babies",
+            params: {
+              func: insert,
+              setupEachCall: function (params) {
+                drop(params);
+                create(params);
+              },
+              teardown: drop,
+              batchSize: 100
+            }
+          },
+          {
             name: "crud-insert-size4",
             params: {
               func: insert,
@@ -2519,6 +2589,19 @@ exports.test = function (global) {
               },
               teardown: drop,
               docSize: 4
+            }
+          },
+          {
+            name: "crud-insert-size4-babies",
+            params: {
+              func: insert,
+              setupEachCall: function (params) {
+                drop(params);
+                create(params);
+              },
+              teardown: drop,
+              docSize: 4,
+              batchSize: 100
             }
           },
           {
@@ -2534,6 +2617,38 @@ exports.test = function (global) {
             }
           },
           {
+            // crud-update/replace/remove use setupEachCall for the setup
+            // which currently is INSIDE the measured code and therefore
+            // distorts the time measurements.
+            // Since we do not want to modify existing tests we introduce
+            // new tests that fix this (and also use a more efficient setup)
+            // so we maintain comparability, but we should phase out the old
+            // tests eventually.
+            name: "crud-update-single",
+            params: {
+              func: update,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop
+            }
+          },
+          {
+            name: "crud-update-babies",
+            params: {
+              func: update,
+              setupEachCall: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop,
+              batchSize: 100
+            }
+          },
+          {
             name: "crud-replace",
             params: {
               func: replace,
@@ -2543,6 +2658,31 @@ exports.test = function (global) {
                 fill(params);
               },
               teardown: drop
+            }
+          },
+          {
+            name: "crud-replace-single",
+            params: {
+              func: replace,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop
+            }
+          },
+          {
+            name: "crud-replace-babies",
+            params: {
+              func: replace,
+              setupEachCall: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop,
+              batchSize: 100
             }
           },
           {
@@ -2558,13 +2698,38 @@ exports.test = function (global) {
             }
           },
           {
+            name: "crud-remove-single",
+            params: {
+              func: remove,
+              setupEachCall: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop
+            }
+          },
+          {
+            name: "crud-remove-babies",
+            params: {
+              func: remove,
+              setupEachCall: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop,
+              batchSize: 100
+            }
+          },
+          {
             name: "crud-count-repeated",
             params: {
               func: count,
               setup: function (params) {
                 drop(params);
                 create(params);
-                fill(params);
+                fill({...params, batchSize: 1000});
               },
               teardown: drop
             }
@@ -2576,7 +2741,7 @@ exports.test = function (global) {
               setup: function (params) {
                 drop(params);
                 create(params);
-                fill(params);
+                fill({...params, batchSize: 1000});
               },
               teardown: drop
             }
@@ -2588,7 +2753,7 @@ exports.test = function (global) {
               setup: function (params) {
                 drop(params);
                 create(params);
-                fill(params);
+                fill({...params, batchSize: 1000});
               },
               teardown: drop
             }
