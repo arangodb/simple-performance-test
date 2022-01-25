@@ -83,23 +83,6 @@ function toAsciiTable(title, out) {
   return table.toString();
 };
 
-function toJUnit(out, prefix, postfix) {
-  prefix = prefix || "";
-  postfix = postfix || "";
-
-  for (let i = 0; i < out.length; ++i) {
-    let test = out[i];
-    let name = prefix + test.name + postfix;
-
-    fs.writeFileSync(
-      fs.join(global.xmlDirectory, `pref-${name}.xml`),
-      `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
-        1000}" /><testcase classname="${name}" name="med" time="${test.med *
-        1000}" /></testsuite>`
-    );
-  }
-};
-
 exports.test = function (global) {
   global.tiny = global.tiny || false;
   global.small = global.small || false;
@@ -116,6 +99,8 @@ exports.test = function (global) {
   global.crudSearch = global.crudSearch || false;
   global.subqueryTests = global.subqueryTests || false;
   global.oneshardTests = global.oneshardTests || false;
+
+  global.legacy = global.legacy === undefined ? true : global.legacy;
 
   global.runs = global.runs || 5;
   global.digits = global.digits || 4;
@@ -218,6 +203,8 @@ exports.test = function (global) {
             print("skipping test " + test.name + ", requires version " + test.version);
           } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
             print("skipping test " + test.name + ", requires analyzers");
+          } else if (test.legacy && !global.legacy) {
+            print("skipping legacy test " + test.name);
           } else {
             print("running test " + test.name);
 
@@ -260,6 +247,23 @@ exports.test = function (global) {
 
     return run(tests, options);
   }; // testrunner
+
+  const toJUnit = function (out, prefix, postfix) {
+    prefix = prefix || "";
+    postfix = postfix || "";
+  
+    for (let i = 0; i < out.length; ++i) {
+      let test = out[i];
+      let name = prefix + test.name + postfix;
+  
+      fs.writeFileSync(
+        fs.join(global.xmlDirectory, `pref-${name}.xml`),
+        `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
+          1000}" /><testcase classname="${name}" name="med" time="${test.med *
+          1000}" /></testsuite>`
+      );
+    }
+  };
 
   const toCsv = function (out, prefix, postfix) {
     prefix = prefix || "";
@@ -2565,7 +2569,7 @@ exports.test = function (global) {
             name: "crud-insert",
             params: {
               func: insert,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
               },
@@ -2576,7 +2580,7 @@ exports.test = function (global) {
             name: "crud-insert-babies",
             params: {
               func: insert,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
               },
@@ -2588,7 +2592,7 @@ exports.test = function (global) {
             name: "crud-insert-size4",
             params: {
               func: insert,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
               },
@@ -2600,7 +2604,7 @@ exports.test = function (global) {
             name: "crud-insert-size4-babies",
             params: {
               func: insert,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
               },
@@ -2619,7 +2623,8 @@ exports.test = function (global) {
                 fill(params);
               },
               teardown: drop
-            }
+            },
+            legacy: true
           },
           {
             // crud-update/replace/remove use setupEachCall for the setup
@@ -2644,7 +2649,7 @@ exports.test = function (global) {
             name: "crud-update-babies",
             params: {
               func: update,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill({...params, batchSize: 1000});
@@ -2663,7 +2668,8 @@ exports.test = function (global) {
                 fill(params);
               },
               teardown: drop
-            }
+            },
+            legacy: true
           },
           {
             name: "crud-replace-single",
@@ -2681,7 +2687,7 @@ exports.test = function (global) {
             name: "crud-replace-babies",
             params: {
               func: replace,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill({...params, batchSize: 1000});
@@ -2700,13 +2706,14 @@ exports.test = function (global) {
                 fill(params);
               },
               teardown: drop
-            }
+            },
+            legacy: true
           },
           {
             name: "crud-remove-single",
             params: {
               func: remove,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill({...params, batchSize: 1000});
@@ -2718,7 +2725,7 @@ exports.test = function (global) {
             name: "crud-remove-babies",
             params: {
               func: remove,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
                 fill({...params, batchSize: 1000});
