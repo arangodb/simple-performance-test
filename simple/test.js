@@ -138,6 +138,7 @@ exports.test = function (global) {
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
   const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
+  const supportsOnlySplicedSubqueries = semver.satisfies(serverVersion, ">=3.9");
 
   let silent = true;
   let testRunner = function (tests, options) {
@@ -3305,14 +3306,10 @@ exports.test = function (global) {
         /* We run each test case with splicing enabled and with splicing disabled */
         var subqueryTestsCases = [];
         subqueryTests.forEach(function (item) {
-          var noSplicingCase = _.cloneDeep(item);
-          noSplicingCase.name = noSplicingCase.name + "-no-splicing";
-          noSplicingCase.params.splice = false;
-          subqueryTestsCases.push(noSplicingCase);
-          var yesSplicingCase = _.cloneDeep(item);
-          yesSplicingCase.name = yesSplicingCase.name + "-yes-splicing";
-          yesSplicingCase.params.splice = true;
-          subqueryTestsCases.push(yesSplicingCase);
+          if (!supportsOnlySplicedSubqueries) {
+            subqueryTestsCases.push({...item, name: item.name + "-no-splicing", params: {...item.params, splice: false}});
+          }
+          subqueryTestsCases.push({...item, name: item.name + "-yes-splicing", params: {...item.params, splice: true}});
         });
 
         let subqueryTestsResult = testRunner(subqueryTestsCases, options);
