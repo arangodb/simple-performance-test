@@ -111,6 +111,8 @@ exports.test = function (global) {
   global.outputCsv = global.outputCsv || false;
 
   const numberOfShards = global.numberOfShards || 9;
+  const replicationFactor = global.replicationFactor || 1;
+  const writeConcern = global.writeConcern || replicationFactor;
 
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
@@ -749,7 +751,7 @@ exports.test = function (global) {
 
     create = function (params) {
       let name = params.collection;
-      db._create(name, {numberOfShards});
+      db._create(name, {numberOfShards, replicationFactor, writeConcern});
       let view = params.view;
       if (view !== undefined) {
         let viewParams = {
