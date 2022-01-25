@@ -109,6 +109,7 @@ exports.test = function (global) {
   global.xmlDirectory = global.xmlDirectory || ".";
 
   global.outputCsv = global.outputCsv || false;
+  global.outputJson = global.outputJson || false;
 
   const numberOfShards = global.numberOfShards || 9;
   const replicationFactor = global.replicationFactor || 1;
@@ -128,7 +129,7 @@ exports.test = function (global) {
   const supportsOnlySplicedSubqueries = semver.satisfies(serverVersion, ">=3.9");
 
   let silent = true;
-  let testRunner = function (tests, options) {
+  const testRunner = function (tests, options) {
     const buildParams = function (test, collection) {
       const params = test.params;
       if (collection !== null) {
@@ -2985,7 +2986,22 @@ exports.test = function (global) {
 
       let output = "",
         csv = "",
+        result = { config: { ...global }, results: {}},
         options;
+
+      const runTestSuite = function (name, tests, options) {
+        const testsResults = testRunner(tests, options);
+        result.results[name] = testsResults;
+        output += toAsciiTable(name, testsResults) + "\n\n";
+
+        if (global.outputXml) {
+          toJUnit(testsResults);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(testsResults);
+        }
+      }
 
       // document tests
       if (global.documents) {
@@ -3010,16 +3026,7 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
-        let documentTestsResult = testRunner(documentTests, options);
-        output += toAsciiTable("Documents", documentTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(documentTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(documentTestsResult);
-        }
+        runTestSuite("Documents", documentTests, options);
       }
 
       if (global.ioless) {
@@ -3043,16 +3050,7 @@ exports.test = function (global) {
           options.iterations = 10000000;
         }
 
-        let iolessTestsResult = testRunner(iolessTests, options);
-        output += toAsciiTable("IOless", iolessTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(iolessTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(iolessTestsResult);
-        }
+        runTestSuite("IOless", iolessTests, options);
       }
 
       // edge tests
@@ -3078,16 +3076,7 @@ exports.test = function (global) {
           options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
         }
 
-        let edgeTestsResult = testRunner(edgeTests, options);
-        output += toAsciiTable("Edges", edgeTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(edgeTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(edgeTestsResult);
-        }
+        runTestSuite("Edges", edgeTests, options);
       }
 
       // arangosearch tests
@@ -3115,16 +3104,7 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
-        let arangosearchTestsResult = testRunner(arangosearchTests, options);
-        output += toAsciiTable("Arango Search", arangosearchTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchTestsResult);
-        }
+        runTestSuite("Arango Search", arangosearchTests, options);
       }
 
       // arangosearch phrase tests
@@ -3166,21 +3146,7 @@ exports.test = function (global) {
           });
         }
 
-        let arangosearchPhrasesTestsResult = testRunner(
-          arangosearchPhrasesTests,
-          options
-        );
-        output +=
-        toAsciiTable("Arango Search Phrases", arangosearchPhrasesTestsResult) +
-        "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchPhrasesTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchPhrasesTestsResult);
-        }
+        runTestSuite("Arango Search Phrases", arangosearchPhrasesTests, options);
       }
 
       // arangosearch no materialization tests
@@ -3206,16 +3172,7 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
-        let arangosearchNoMaterializationTestsResult = testRunner(arangosearchNoMaterializationTests, options);
-        output += toAsciiTable("Arango Search No Materialization", arangosearchNoMaterializationTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchNoMaterializationTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchNoMaterializationTestsResult);
-        }
+        runTestSuite("Arango Search No Materialization", arangosearchNoMaterializationTests, options);
       }
 
       // crud tests
@@ -3239,16 +3196,7 @@ exports.test = function (global) {
           options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
         }
 
-        let crudTestsResult = testRunner(crudTests, options);
-        output += toAsciiTable("CRUD", crudTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(crudTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(crudTestsResult);
-        }
+        runTestSuite("CRUD", crudTests, options);
       }
 
       // arangosearch crud tests
@@ -3274,17 +3222,7 @@ exports.test = function (global) {
           options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
         }
 
-        let arangosearchCrudTestsResult = testRunner(crudTests, options);
-        output +=
-        toAsciiTable("Arango Search CRUD", arangosearchCrudTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchCrudTestsResult, "ars-", "");
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchCrudTestsResult, "ars-", "");
-        }
+        runTestSuite("Arango Search CRUD", crudTests, options);
       }
 
       if (global.subqueryTests) {
@@ -3321,17 +3259,7 @@ exports.test = function (global) {
           subqueryTestsCases.push({...item, name: item.name + "-yes-splicing", params: {...item.params, splice: true}});
         });
 
-        let subqueryTestsResult = testRunner(subqueryTestsCases, options);
-        output +=
-        toAsciiTable("Subquery Performance", subqueryTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(subqueryTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(subqueryTestsResult);
-        }
+        runTestSuite("Subquery Performance", subqueryTestsCases, options);
       }
 
       if (global.satelliteGraphTests) {
@@ -3372,17 +3300,7 @@ exports.test = function (global) {
           }
         });
 
-        let satelliteTestsResult = testRunner(satelliteTestsCases, options);
-        output +=
-        toAsciiTable("Satellite Graph Performance", satelliteTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(satelliteTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(satelliteTestsResult);
-        }
+        runTestSuite("Satellite Graph Performance", satelliteTestsCases, options);
       }
 
       // OneShard Feature /////////////////////////////////////////////////////
@@ -3438,16 +3356,7 @@ exports.test = function (global) {
         }
 
         if (runTestCases1) {
-          let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
-          output += toString(testPrefix + "Mixed Queries", oneshardTestsResult1) + "\n\n";
-
-          if (global.outputXml) {
-            toJUnit(oneshardTestsResult1);
-          }
-
-          if (global.outputCsv) {
-            csv += toCsv(oneshardTestsResult1);
-          }
+          runTestSuite(testPrefix + "Mixed Queries", oneshard.testCases1, options);
         }
 
         if (runTestCases2) {
@@ -3461,16 +3370,7 @@ exports.test = function (global) {
             db._drop("testmann");
           };
 
-          let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
-          output += toAsciiTable(testPrefix + "CRUD operations", oneshardTestsResult2) + "\n\n";
-
-          if (global.outputXml) {
-            toJUnit(oneshardTestsResult2);
-          }
-
-          if (global.outputCsv) {
-            csv += toCsv(oneshardTestsResult2);
-          }
+          runTestSuite(testPrefix + "CRUD operations", oneshard.testCases2, options);
         }
 
         oneshard.tearDown();
@@ -3482,6 +3382,10 @@ exports.test = function (global) {
 
       if (global.outputCsv) {
         fs.writeFileSync("results.csv", csv);
+      }
+      
+      if (global.outputJson) {
+        fs.writeFileSync("results.json", JSON.stringify(result));
       }
     };
 
