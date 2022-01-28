@@ -115,14 +115,16 @@ exports.test = function (global) {
   const replicationFactor = global.replicationFactor || 1;
   const writeConcern = global.writeConcern || replicationFactor;
 
-  // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
-  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
-
   const time = internal.time;
   const print = internal.print;
+  
+  // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
+  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0]
   const isEnterprise = internal.isEnterprise();
   const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
 
+  print(`Running against version ${serverVersion} ${isEnterprise ? "Enterprise" : ""} ${isCluster ? "Cluster" : ""}`);
+  
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
   const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
