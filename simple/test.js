@@ -26,6 +26,12 @@ function calc(values, options) {
     }
   }
 
+  const stddev = array => {
+    const n = array.length;
+    const mean = _.mean(array);
+    return Math.sqrt(array.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n);
+  };
+
   const n = values.length;
   return {
     min: values[0],
@@ -39,7 +45,8 @@ function calc(values, options) {
         : values[n / 2]),
     dev: n === 1
       ? values[0]
-      : (values[n - 1] - values[0]) / (sum(values) / n)
+      : (values[n - 1] - values[0]) / (sum(values) / n),
+    stddev: stddev(values)
   };
 };
 
@@ -54,6 +61,7 @@ function toAsciiTable(title, out) {
       "max (s)",
       "% dev",
       "avg (s)",
+      "stddev (s)",
       "med (s)",
       "total (s)"
     ).
@@ -63,7 +71,8 @@ function toAsciiTable(title, out) {
     setAlign(5, AsciiTable.RIGHT).
     setAlign(6, AsciiTable.RIGHT).
     setAlign(7, AsciiTable.RIGHT).
-    setAlign(8, AsciiTable.RIGHT);
+    setAlign(8, AsciiTable.RIGHT).
+    setAlign(9, AsciiTable.RIGHT);
 
   for (let i = 0; i < out.length; ++i) {
     let test = out[i];
@@ -75,6 +84,7 @@ function toAsciiTable(title, out) {
       test.max,
       test.dev,
       test.avg,
+      test.stddev,
       test.med,
       test.total
     );
@@ -228,6 +238,7 @@ exports.test = function (global) {
                 max: stats.max.toFixed(options.digits),
                 dev: (stats.dev * 100).toFixed(2),
                 avg: stats.avg.toFixed(options.digits),
+                stddev: stats.stddev.toFixed(options.digits),
                 med: stats.med.toFixed(options.digits),
                 total: (endTotal - startTotal).toFixed(options.digits),
               };
