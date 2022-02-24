@@ -210,6 +210,7 @@ exports.test = function (global) {
 
     let run = function (tests, options) {
       let out = [];
+      let errors = [];
 
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
@@ -255,10 +256,11 @@ exports.test = function (global) {
           }
         } catch (ex) {
           print("exception in test " + test.name + ": " + ex);
+          errors.push({ test: test.name, error: ex });
         }
       } // for i
 
-      return out;
+      return { results: out, errors };
     };
 
     return run(tests, options);
@@ -3003,9 +3005,12 @@ exports.test = function (global) {
         options;
 
       const runTestSuite = function (name, tests, options) {
-        const testsResults = testRunner(tests, options);
+        const { results: testsResults, errors } = testRunner(tests, options);
         result.results[name] = testsResults;
         output += toAsciiTable(name, testsResults) + "\n\n";
+        for (const err of errors) {
+          output += `Test ${err.name} failed with exception: ${err.error}\n`;
+        }
 
         if (global.outputXml) {
           toJUnit(testsResults);
