@@ -1,6 +1,99 @@
-exports.test = function (global) {
-  "use strict";
+"use strict";
 
+const internal = require("internal");
+const AsciiTable = require("ascii-table");
+const fs = require("fs");
+const semver = require("semver");
+const _ = require("lodash");
+const db = require("org/arangodb").db;
+
+function sum(values) {
+  if (values.length > 1) {
+    return values.reduce((previous, current) => previous + current);
+  } else {
+    return values[0];
+  }
+};
+
+function calc(values, options) {
+  values.sort((a, b) => a - b);
+
+  const removeFromResult = parseInt(options.removeFromResult) || 0;
+  if (removeFromResult > 0) {
+    if (values.length > 2) {
+      values.splice(values.length - 1, removeFromResult); // remove last
+      values.splice(0, removeFromResult); // remove first
+    }
+  }
+
+  const stddev = array => {
+    const n = array.length;
+    const mean = _.mean(array);
+    return Math.sqrt(array.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n);
+  };
+
+  const n = values.length;
+  return {
+    min: values[0],
+    max: values[n - 1],
+    sum: sum(values),
+    avg: sum(values) / n,
+    med: n === 1
+      ? values[0]
+      : (n % 2
+        ? (values[(n - 1) / 2] + values[(n + 1) / 2]) / 2
+        : values[n / 2]),
+    dev: n === 1
+      ? values[0]
+      : (values[n - 1] - values[0]) / (sum(values) / n),
+    stddev: stddev(values)
+  };
+};
+
+function toAsciiTable(title, out) {
+  var table = new AsciiTable(title);
+  table.
+    setHeading(
+      "testname",
+      "collection",
+      "runs",
+      "min (s)",
+      "max (s)",
+      "% dev",
+      "avg (s)",
+      "stddev (s)",
+      "med (s)",
+      "total (s)"
+    ).
+    setAlign(2, AsciiTable.RIGHT).
+    setAlign(3, AsciiTable.RIGHT).
+    setAlign(4, AsciiTable.RIGHT).
+    setAlign(5, AsciiTable.RIGHT).
+    setAlign(6, AsciiTable.RIGHT).
+    setAlign(7, AsciiTable.RIGHT).
+    setAlign(8, AsciiTable.RIGHT).
+    setAlign(9, AsciiTable.RIGHT);
+
+  for (let i = 0; i < out.length; ++i) {
+    let test = out[i];
+    table.addRow(
+      test.name,
+      test.collectionLabel,
+      test.runs,
+      test.min,
+      test.max,
+      test.dev,
+      test.avg,
+      test.stddev,
+      test.med,
+      test.total
+    );
+  }
+
+  return table.toString();
+};
+
+exports.test = function (global) {
   global.tiny = global.tiny || false;
   global.small = global.small || false;
   global.medium = global.medium || false;
@@ -17,6 +110,8 @@ exports.test = function (global) {
   global.subqueryTests = global.subqueryTests || false;
   global.oneshardTests = global.oneshardTests || false;
 
+  global.legacy = global.legacy === undefined ? true : global.legacy;
+
   global.runs = global.runs || 5;
   global.digits = global.digits || 4;
 
@@ -24,72 +119,29 @@ exports.test = function (global) {
   global.xmlDirectory = global.xmlDirectory || ".";
 
   global.outputCsv = global.outputCsv || false;
+  global.outputJson = global.outputJson || false;
 
   const numberOfShards = global.numberOfShards || 9;
+  const replicationFactor = global.replicationFactor || 1;
+  const writeConcern = global.writeConcern || replicationFactor;
 
-  const internal = require("internal");
-  const AsciiTable = require("ascii-table");
-  const fs = require("fs");
-  const semver = require("semver");
-  const _ = require("lodash");
-
-  // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
-  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
-
-  const db = require("org/arangodb").db;
   const time = internal.time;
   const print = internal.print;
+  
+  // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
+  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0]
   const isEnterprise = internal.isEnterprise();
   const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
 
+  print(`Running against version ${serverVersion} ${isEnterprise ? "Enterprise" : ""} ${isCluster ? "Cluster" : ""}`);
+  
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
   const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
+  const supportsOnlySplicedSubqueries = semver.satisfies(serverVersion, ">=3.9");
 
   let silent = true;
-  let testRunner = function (tests, options) {
-    let calc = function (values, options) {
-      let sum = function (values) {
-        if (values.length > 1) {
-          return values.reduce(function (previous, current) {
-            return previous + current;
-          });
-        } else {
-          return values[0];
-        }
-      };
-
-      values.sort(function (a, b) {
-        return a - b;
-      });
-
-      let removeFromResult = parseInt(options.removeFromResult) || 0;
-      if (removeFromResult > 0) {
-        if (values.length > 2) {
-          values.splice(values.length - 1, removeFromResult); // remove last
-          values.splice(0, removeFromResult); // remove first
-        }
-      }
-
-      let n = values.length;
-      let result = {
-        min: values[0],
-        max: values[n - 1],
-        sum: sum(values),
-        avg: sum(values) / n,
-        med: n === 1
-          ? values[0]
-          : (n % 2
-            ? (values[(n - 1) / 2] + values[(n + 1) / 2]) / 2
-            : values[n / 2]),
-        dev: n === 1
-          ? values[0]
-          : (values[n - 1] - values[0]) / (sum(values) / n)
-      };
-
-      return result;
-    }; // calc
-
+  const testRunner = function (tests, options) {
     const buildParams = function (test, collection) {
       const params = test.params;
       if (collection !== null) {
@@ -103,22 +155,24 @@ exports.test = function (global) {
       return params;
     };
 
-    let measure = function (test, collection, options) {
-      let timedExecution = function (test, collection) {
-          let params = buildParams(test, collection);
-          const start = time();
-          if (typeof params.setupEachCall === "function") {
-            params.setupEachCall(params);
-          }
-          test.params.func(params);
-          let end = time();
-          if (typeof params.teardownEachCall === "function") {
-            params.teardownEachCall(params);
-          }
-          return end - start;
-        },
-        results = [];
-      internal.wait(1, true);
+    const timedExecution = function (test, collection) {
+      const params = buildParams(test, collection);
+      const start = time();
+      if (typeof params.setupEachCall === "function") {
+        params.setupEachCall(params);
+      }
+      
+      test.params.func(params);
+      const end = time();
+      
+      if (typeof params.teardownEachCall === "function") {
+        params.teardownEachCall(params);
+      }
+      return end - start;
+    };
+
+    const measure = function (test, collection, options) {
+      let results = [];
 
       const runs = options.runs > 0 ? options.runs : 1;
 
@@ -156,6 +210,7 @@ exports.test = function (global) {
 
     let run = function (tests, options) {
       let out = [];
+      let errors = [];
 
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
@@ -164,21 +219,29 @@ exports.test = function (global) {
             print("skipping test " + test.name + ", requires version " + test.version);
           } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
             print("skipping test " + test.name + ", requires analyzers");
+          } else if (test.legacy && !global.legacy) {
+            print("skipping legacy test " + test.name);
           } else {
             print("running test " + test.name);
 
             for (let j = 0; j < options.collections.length; ++j) {
               let collection = options.collections[j];
-              let stats = calc(measure(test, collection, options), options);
+
+              const startTotal = time();
+              const results = measure(test, collection, options);
+              const endTotal = time();
+              const stats = calc(results, options);
 
               const result = {
                 name: test.name,
-                runs: String(options.runs),
+                runs: options.runs,
                 min: stats.min.toFixed(options.digits),
                 max: stats.max.toFixed(options.digits),
                 dev: (stats.dev * 100).toFixed(2),
                 avg: stats.avg.toFixed(options.digits),
-                med: stats.med.toFixed(options.digits)
+                stddev: stats.stddev.toFixed(options.digits),
+                med: stats.med.toFixed(options.digits),
+                total: (endTotal - startTotal).toFixed(options.digits),
               };
               if (collection !== null) {
                 result.collectionLabel = collection.label;
@@ -192,61 +255,25 @@ exports.test = function (global) {
             } // for j
           }
         } catch (ex) {
-          print("expection in test " + test.name + ": " + ex);
+          print("exception in test " + test.name + ": " + ex);
+          errors.push({ test: test.name, error: ex });
         }
       } // for i
 
-      return out;
+      return { results: out, errors };
     };
 
     return run(tests, options);
   }; // testrunner
 
-  let toString = function (title, out) {
-    var table = new AsciiTable(title);
-    table.
-      setHeading(
-        "testname",
-        "collection",
-        "runs",
-        "min (s)",
-        "max (s)",
-        "% dev",
-        "avg (s)",
-        "med (s)"
-      ).
-      setAlign(2, AsciiTable.RIGHT).
-      setAlign(3, AsciiTable.RIGHT).
-      setAlign(4, AsciiTable.RIGHT).
-      setAlign(5, AsciiTable.RIGHT).
-      setAlign(6, AsciiTable.RIGHT).
-      setAlign(7, AsciiTable.RIGHT);
-
-    for (let i = 0; i < out.length; ++i) {
-      let test = out[i];
-      table.addRow(
-        test.name,
-        test.collectionLabel,
-        test.runs,
-        test.min,
-        test.max,
-        test.dev,
-        test.avg,
-        test.med
-      );
-    }
-
-    return table.toString();
-  };
-
   const toJUnit = function (out, prefix, postfix) {
     prefix = prefix || "";
     postfix = postfix || "";
-
+  
     for (let i = 0; i < out.length; ++i) {
       let test = out[i];
       let name = prefix + test.name + postfix;
-
+  
       fs.writeFileSync(
         fs.join(global.xmlDirectory, `pref-${name}.xml`),
         `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
@@ -740,7 +767,7 @@ exports.test = function (global) {
 
     create = function (params) {
       let name = params.collection;
-      db._create(name, {numberOfShards});
+      db._create(name, {numberOfShards, replicationFactor, writeConcern});
       let view = params.view;
       if (view !== undefined) {
         let viewParams = {
@@ -760,10 +787,23 @@ exports.test = function (global) {
       for (let i = 0; i < docSize; ++i) {
         doc["value" + i] = i;
       }
-
-      for (let i = 0; i < n; ++i) {
-        doc._key = "test" + i;
-        c.insert(doc);
+      
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let docs = [];
+          for (let j = 0; j < batchSize; ++j) {
+            docs.push({ _key: "test" + (i * batchSize + j), ...doc });
+          }
+          c.insert(docs);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          doc._key = "test" + i;
+          c.insert(doc);
+        }
       }
     },
 
@@ -776,26 +816,71 @@ exports.test = function (global) {
     },
 
     update = function (params) {
-      let c = db._collection(params.collection),
-        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (let i = 0; i < n; ++i) {
-        c.update("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+      let c = db._collection(params.collection);
+      const n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let keys = [];
+          let docs = [];
+          for (let j = 0; j < batchSize; ++j) {
+            const idx = i * batchSize + j;
+            keys.push("test" + idx);
+            docs.push({ value: idx + 1, value2: "test" + idx, value3: idx });
+          }
+          c.update(keys, docs);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          c.update("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+        }
       }
     },
 
     replace = function (params) {
-      let c = db._collection(params.collection),
-        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (let i = 0; i < n; ++i) {
-        c.replace("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+      let c = db._collection(params.collection);
+      const n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let keys = [];
+          let docs = [];
+          for (let j = 0; j < batchSize; ++j) {
+            const idx = i * batchSize + j;
+            keys.push("test" + idx);
+            docs.push({ value: idx + 1, value2: "test" + idx, value3: idx });
+          }
+          c.replace(keys, docs);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          c.replace("test" + i, { value: i + 1, value2: "test" + i, value3: i });
+        }
       }
     },
 
     remove = function (params) {
-      let c = db._collection(params.collection),
-        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-      for (let i = 0; i < n; ++i) {
-        c.remove("test" + i);
+      let c = db._collection(params.collection);
+      const n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+      const batchSize = params.batchSize;
+      if (batchSize) {
+        // perform babies operations
+        for (let i = 0; i < n / batchSize; ++i) {
+          let keys = [];
+          for (let j = 0; j < batchSize; ++j) {
+            keys.push("test" + (i * batchSize + j));
+          }
+          c.remove(keys);
+        }
+      } else {
+        // perform single document operations
+        for (let i = 0; i < n; ++i) {
+          c.remove("test" + i);
+        }
       }
     },
 
@@ -2502,7 +2587,7 @@ exports.test = function (global) {
             name: "crud-insert",
             params: {
               func: insert,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
               },
@@ -2510,15 +2595,40 @@ exports.test = function (global) {
             }
           },
           {
+            name: "crud-insert-babies",
+            params: {
+              func: insert,
+              setup: function (params) {
+                drop(params);
+                create(params);
+              },
+              teardown: drop,
+              batchSize: 100
+            }
+          },
+          {
             name: "crud-insert-size4",
             params: {
               func: insert,
-              setupEachCall: function (params) {
+              setup: function (params) {
                 drop(params);
                 create(params);
               },
               teardown: drop,
               docSize: 4
+            }
+          },
+          {
+            name: "crud-insert-size4-babies",
+            params: {
+              func: insert,
+              setup: function (params) {
+                drop(params);
+                create(params);
+              },
+              teardown: drop,
+              docSize: 4,
+              batchSize: 100
             }
           },
           {
@@ -2531,6 +2641,39 @@ exports.test = function (global) {
                 fill(params);
               },
               teardown: drop
+            },
+            legacy: true
+          },
+          {
+            // crud-update/replace/remove use setupEachCall for the setup
+            // which currently is INSIDE the measured code and therefore
+            // distorts the time measurements.
+            // Since we do not want to modify existing tests we introduce
+            // new tests that fix this (and also use a more efficient setup)
+            // so we maintain comparability, but we should phase out the old
+            // tests eventually.
+            name: "crud-update-single",
+            params: {
+              func: update,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop
+            }
+          },
+          {
+            name: "crud-update-babies",
+            params: {
+              func: update,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop,
+              batchSize: 100
             }
           },
           {
@@ -2543,6 +2686,32 @@ exports.test = function (global) {
                 fill(params);
               },
               teardown: drop
+            },
+            legacy: true
+          },
+          {
+            name: "crud-replace-single",
+            params: {
+              func: replace,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop
+            }
+          },
+          {
+            name: "crud-replace-babies",
+            params: {
+              func: replace,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop,
+              batchSize: 100
             }
           },
           {
@@ -2555,6 +2724,32 @@ exports.test = function (global) {
                 fill(params);
               },
               teardown: drop
+            },
+            legacy: true
+          },
+          {
+            name: "crud-remove-single",
+            params: {
+              func: remove,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop
+            }
+          },
+          {
+            name: "crud-remove-babies",
+            params: {
+              func: remove,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                fill({...params, batchSize: 1000});
+              },
+              teardown: drop,
+              batchSize: 100
             }
           },
           {
@@ -2564,7 +2759,7 @@ exports.test = function (global) {
               setup: function (params) {
                 drop(params);
                 create(params);
-                fill(params);
+                fill({...params, batchSize: 1000});
               },
               teardown: drop
             }
@@ -2576,7 +2771,7 @@ exports.test = function (global) {
               setup: function (params) {
                 drop(params);
                 create(params);
-                fill(params);
+                fill({...params, batchSize: 1000});
               },
               teardown: drop
             }
@@ -2588,7 +2783,7 @@ exports.test = function (global) {
               setup: function (params) {
                 drop(params);
                 create(params);
-                fill(params);
+                fill({...params, batchSize: 1000});
               },
               teardown: drop
             }
@@ -2806,7 +3001,25 @@ exports.test = function (global) {
 
       let output = "",
         csv = "",
+        result = { config: { ...global }, results: {}},
         options;
+
+      const runTestSuite = function (name, tests, options) {
+        const { results: testsResults, errors } = testRunner(tests, options);
+        result.results[name] = testsResults;
+        output += toAsciiTable(name, testsResults) + "\n\n";
+        for (const err of errors) {
+          output += `Test ${err.name} failed with exception: ${err.error}\n`;
+        }
+
+        if (global.outputXml) {
+          toJUnit(testsResults);
+        }
+
+        if (global.outputCsv) {
+          csv += toCsv(testsResults);
+        }
+      }
 
       // document tests
       if (global.documents) {
@@ -2831,16 +3044,7 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
-        let documentTestsResult = testRunner(documentTests, options);
-        output += toString("Documents", documentTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(documentTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(documentTestsResult);
-        }
+        runTestSuite("Documents", documentTests, options);
       }
 
       if (global.ioless) {
@@ -2864,16 +3068,7 @@ exports.test = function (global) {
           options.iterations = 10000000;
         }
 
-        let iolessTestsResult = testRunner(iolessTests, options);
-        output += toString("IOless", iolessTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(iolessTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(iolessTestsResult);
-        }
+        runTestSuite("IOless", iolessTests, options);
       }
 
       // edge tests
@@ -2899,16 +3094,7 @@ exports.test = function (global) {
           options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
         }
 
-        let edgeTestsResult = testRunner(edgeTests, options);
-        output += toString("Edges", edgeTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(edgeTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(edgeTestsResult);
-        }
+        runTestSuite("Edges", edgeTests, options);
       }
 
       // arangosearch tests
@@ -2936,16 +3122,7 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
-        let arangosearchTestsResult = testRunner(arangosearchTests, options);
-        output += toString("Arango Search", arangosearchTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchTestsResult);
-        }
+        runTestSuite("Arango Search", arangosearchTests, options);
       }
 
       // arangosearch phrase tests
@@ -2987,21 +3164,7 @@ exports.test = function (global) {
           });
         }
 
-        let arangosearchPhrasesTestsResult = testRunner(
-          arangosearchPhrasesTests,
-          options
-        );
-        output +=
-        toString("Arango Search Phrases", arangosearchPhrasesTestsResult) +
-        "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchPhrasesTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchPhrasesTestsResult);
-        }
+        runTestSuite("Arango Search Phrases", arangosearchPhrasesTests, options);
       }
 
       // arangosearch no materialization tests
@@ -3027,16 +3190,7 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
-        let arangosearchNoMaterializationTestsResult = testRunner(arangosearchNoMaterializationTests, options);
-        output += toString("Arango Search No Materialization", arangosearchNoMaterializationTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchNoMaterializationTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchNoMaterializationTestsResult);
-        }
+        runTestSuite("Arango Search No Materialization", arangosearchNoMaterializationTests, options);
       }
 
       // crud tests
@@ -3060,16 +3214,7 @@ exports.test = function (global) {
           options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
         }
 
-        let crudTestsResult = testRunner(crudTests, options);
-        output += toString("CRUD", crudTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(crudTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(crudTestsResult);
-        }
+        runTestSuite("CRUD", crudTests, options);
       }
 
       // arangosearch crud tests
@@ -3095,17 +3240,7 @@ exports.test = function (global) {
           options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
         }
 
-        let arangosearchCrudTestsResult = testRunner(crudTests, options);
-        output +=
-        toString("Arango Search CRUD", arangosearchCrudTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(arangosearchCrudTestsResult, "ars-", "");
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(arangosearchCrudTestsResult, "ars-", "");
-        }
+        runTestSuite("Arango Search CRUD", crudTests, options);
       }
 
       if (global.subqueryTests) {
@@ -3136,27 +3271,13 @@ exports.test = function (global) {
         /* We run each test case with splicing enabled and with splicing disabled */
         var subqueryTestsCases = [];
         subqueryTests.forEach(function (item) {
-          var noSplicingCase = _.cloneDeep(item);
-          noSplicingCase.name = noSplicingCase.name + "-no-splicing";
-          noSplicingCase.params.splice = false;
-          subqueryTestsCases.push(noSplicingCase);
-          var yesSplicingCase = _.cloneDeep(item);
-          yesSplicingCase.name = yesSplicingCase.name + "-yes-splicing";
-          yesSplicingCase.params.splice = true;
-          subqueryTestsCases.push(yesSplicingCase);
+          if (!supportsOnlySplicedSubqueries) {
+            subqueryTestsCases.push({...item, name: item.name + "-no-splicing", params: {...item.params, splice: false}});
+          }
+          subqueryTestsCases.push({...item, name: item.name + "-yes-splicing", params: {...item.params, splice: true}});
         });
 
-        let subqueryTestsResult = testRunner(subqueryTestsCases, options);
-        output +=
-        toString("Subquery Performance", subqueryTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(subqueryTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(subqueryTestsResult);
-        }
+        runTestSuite("Subquery Performance", subqueryTestsCases, options);
       }
 
       if (global.satelliteGraphTests) {
@@ -3197,17 +3318,7 @@ exports.test = function (global) {
           }
         });
 
-        let satelliteTestsResult = testRunner(satelliteTestsCases, options);
-        output +=
-        toString("Satellite Graph Performance", satelliteTestsResult) + "\n\n";
-
-        if (global.outputXml) {
-          toJUnit(satelliteTestsResult);
-        }
-
-        if (global.outputCsv) {
-          csv += toCsv(satelliteTestsResult);
-        }
+        runTestSuite("Satellite Graph Performance", satelliteTestsCases, options);
       }
 
       // OneShard Feature /////////////////////////////////////////////////////
@@ -3263,16 +3374,7 @@ exports.test = function (global) {
         }
 
         if (runTestCases1) {
-          let oneshardTestsResult1 = testRunner(oneshard.testCases1, options);
-          output += toString(testPrefix + "Mixed Queries", oneshardTestsResult1) + "\n\n";
-
-          if (global.outputXml) {
-            toJUnit(oneshardTestsResult1);
-          }
-
-          if (global.outputCsv) {
-            csv += toCsv(oneshardTestsResult1);
-          }
+          runTestSuite(testPrefix + "Mixed Queries", oneshard.testCases1, options);
         }
 
         if (runTestCases2) {
@@ -3286,16 +3388,7 @@ exports.test = function (global) {
             db._drop("testmann");
           };
 
-          let oneshardTestsResult2 = testRunner(oneshard.testCases2, options);
-          output += toString(testPrefix + "CRUD operations", oneshardTestsResult2) + "\n\n";
-
-          if (global.outputXml) {
-            toJUnit(oneshardTestsResult2);
-          }
-
-          if (global.outputCsv) {
-            csv += toCsv(oneshardTestsResult2);
-          }
+          runTestSuite(testPrefix + "CRUD operations", oneshard.testCases2, options);
         }
 
         oneshard.tearDown();
@@ -3307,6 +3400,10 @@ exports.test = function (global) {
 
       if (global.outputCsv) {
         fs.writeFileSync("results.csv", csv);
+      }
+      
+      if (global.outputJson) {
+        fs.writeFileSync("results.json", JSON.stringify(result));
       }
     };
 
