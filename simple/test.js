@@ -310,9 +310,9 @@ exports.test = function (global) {
   };
 
   function createArangoSearch (params) {
-    if (db._view(params.name) !== null) {
-      return;
-    }
+    // if (db._view(params.name) !== null) {
+    //   return;
+    // }
 
     let meta = { links: {}, storedValues: params.storedValues };
     params.collections.forEach(function (c) {
@@ -387,9 +387,9 @@ exports.test = function (global) {
   let initializeValuesCollection = function () {
       function createDocuments (n) {
         let name = "values" + n;
-        if (db._collection(name) !== null) {
-          return;
-        }
+        // if (db._collection(name) !== null) {
+        //   return;
+        // }
         db._drop(name);
         internal.print("creating collection " + name);
         let c = db._create(name, {numberOfShards}),
@@ -635,9 +635,9 @@ exports.test = function (global) {
 
       function createDocumentsWithPhrases (n) {
         let name = "valuesPhrases" + n;
-        if (db._collection(name) !== null) {
-          return;
-        }
+        // if (db._collection(name) !== null) {
+        //   return;
+        // }
         db._drop(name);
 
         internal.print("creating collection " + name);
@@ -669,13 +669,18 @@ exports.test = function (global) {
         let batchSize = 10000;
         let batch = [];
 
-        // add some really low frequent phrase
-        batch.push({
-          _key: "testPhrase" + (n + 1),
-          value2: "Low Phrase"
-        });
+        let lowCount = 1000;
 
         for (let i = 0; i < n; ++i) {
+          if (i % lowCount == 0) {
+            // add some really low frequent phrase
+            batch.push({
+              _key: "testPhrase" + i,
+              value2: "Low Phrase"
+            });
+            continue;
+          }
+
           batch.push({
             _key: "testPhrase" + i,
             value2:
@@ -2443,8 +2448,8 @@ exports.test = function (global) {
             params: {
               func: arangosearchMinMatch2of3,
               attr1: "value2",
-              value1: "low",
-              value2: "nomatch",
+              value1: "nomatch",
+              value2: "low",
               value3: "phrase"
             }
           },
@@ -2514,7 +2519,7 @@ exports.test = function (global) {
             params: {
               func: arangosearchPhrase,
               attr: "value2",
-              value: "Brown Planet"
+              value: "Quick Red"
             }
           }
         ],

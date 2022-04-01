@@ -4,14 +4,14 @@ function main () {
     medium: true,
 
     documents: true,
-    ioless: true,
-    edges: true,
+    ioless: false,
+    edges: false,
     search: true,
     phrase: true,
     noMaterializationSearch: true,
-    crud: true,
-    crudSearch: true,
-    subqueryTests: true
+    crud: false,
+    crudSearch: false,
+    subqueryTests: false
   });
 }
 if (typeof arango !== "undefined") {

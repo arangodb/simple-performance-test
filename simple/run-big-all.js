@@ -3,15 +3,15 @@ function main () {
     outputCsv: true,
     big: true,
 
-    documents: true,
-    ioless: true,
-    edges: true,
-    search: true,
+    documents: false,
+    ioless: false,
+    edges: false,
+    search: false,
     phrase: true,
-    noMaterializationSearch: true,
-    crud: true,
-    crudSearch: true,
-    subqueryTests: true
+    noMaterializationSearch: false,
+    crud: false,
+    crudSearch: false,
+    subqueryTests: false
   });
 }
 if (typeof arango !== "undefined") {
