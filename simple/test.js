@@ -430,7 +430,7 @@ exports.test = function (global) {
         fillDocumentCollection(c, n, g);
       }
 
-      // Genrate bigger collections for testing ArangoSearch
+      // Generate bigger collections for testing ArangoSearch
       if (global.tiny) {
         createDocuments(100000);
       } else if (global.small) {
@@ -3170,11 +3170,11 @@ exports.test = function (global) {
         if (global.tiny) {
           options.collections.push({ name: "valuesForSearch100000", label: "100k", size: 100000});
         } else if (global.small) {
-          options.collections.push({ name: "valuesForSearch1000000", label: "1000k", size: 1000000});
+          options.collections.push({ name: "valuesForSearch1000000", label: "1M", size: 1000000});
         } else if (global.medium) {
-          options.collections.push({ name: "valuesForSearch10000000", label: "10000k", size: 10000000});
+          options.collections.push({ name: "valuesForSearch10000000", label: "10M", size: 10000000});
         } else if (global.big) {
-          options.collections.push({ name: "valuesForSearch33000000", label: "33000k", size: 33000000});
+          options.collections.push({ name: "valuesForSearch33000000", label: "33M", size: 33000000});
         }
 
         runTestSuite("Arango Search", arangosearchTests, options);
@@ -3202,19 +3202,19 @@ exports.test = function (global) {
         } else if (global.small) {
           options.collections.push({
             name: "valuesPhrases1000000",
-            label: "1000k",
+            label: "1M",
             size: 1000000
           });
         } else if (global.medium) {
           options.collections.push({
             name: "valuesPhrases10000000",
-            label: "10000k",
+            label: "10M",
             size: 10000000
           });
         } else if (global.big) {
           options.collections.push({
             name: "valuesPhrases33000000",
-            label: "33000k",
+            label: "33M",
             size: 33000000
           });
         }
