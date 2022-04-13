@@ -416,11 +416,39 @@ exports.test = function (global) {
       internal.wal.flush(true, true);
     },
 
+    initializeSearchCollection = function () {
+      function createDocuments (n) {
+        let name = "valuesForSearch" + n;
+        if (db._collection(name) !== null) {
+          return;
+        }
+        db._drop(name);
+        internal.print("creating collection " + name);
+        let c = db._create(name, {numberOfShards}),
+          g = n / 100;
+
+        fillDocumentCollection(c, n, g);
+      }
+
+      // Generate bigger collections for testing ArangoSearch
+      if (global.tiny) {
+        createDocuments(100000);
+      } else if (global.small) {
+        createDocuments(1000000);
+      } else if (global.medium) {
+        createDocuments(10000000);
+      } else if (global.big) {
+        createDocuments(33000000);
+      }
+
+      internal.wal.flush(true, true);
+    },
+
     initializeView = function () {
       function createView (n) {
         let params = {
-          name: "v_values" + n,
-          collections: ["values" + n],
+          name: "v_valuesForSearch" + n,
+          collections: ["valuesForSearch" + n],
           analyzers: ["identity"],
           storedValues: []
         };
@@ -429,13 +457,13 @@ exports.test = function (global) {
       }
 
       if (global.tiny) {
-        createView(1000);
-      } else if (global.small) {
-        createView(10000);
-      } else if (global.medium) {
         createView(100000);
-      } else if (global.big) {
+      } else if (global.small) {
         createView(1000000);
+      } else if (global.medium) {
+        createView(10000000);
+      } else if (global.big) {
+        createView(33000000);
       }
 
       internal.wal.flush(true, true);
@@ -669,13 +697,18 @@ exports.test = function (global) {
         let batchSize = 10000;
         let batch = [];
 
-        // add some really low frequent phrase
-        batch.push({
-          _key: "testPhrase" + (n + 1),
-          value2: "Low Phrase"
-        });
+        let lowCount = 1000;
 
         for (let i = 0; i < n; ++i) {
+          if (i % lowCount == 0) {
+            // add some really low frequent phrase
+            batch.push({
+              _key: "testPhrase" + i,
+              value2: "Low Phrase"
+            });
+            continue;
+          }
+
           batch.push({
             _key: "testPhrase" + i,
             value2:
@@ -704,17 +737,17 @@ exports.test = function (global) {
       }
 
       if (global.tiny) {
-        createDocumentsWithPhrases(1000);
-        createPhrasesView(1000);
-      } else if (global.small) {
-        createDocumentsWithPhrases(10000);
-        createPhrasesView(10000);
-      } else if (global.medium) {
         createDocumentsWithPhrases(100000);
         createPhrasesView(100000);
-      } else if (global.big) {
+      } else if (global.small) {
+        createDocumentsWithPhrases(1000000);
+        createPhrasesView(1000000);
+      } else if (global.medium) {
         createDocumentsWithPhrases(10000000);
         createPhrasesView(10000000);
+      } else if (global.big) {
+        createDocumentsWithPhrases(33000000);
+        createPhrasesView(33000000);
       }
 
       internal.wal.flush(true, true);
@@ -938,7 +971,7 @@ exports.test = function (global) {
           "@v": params.collection.replace("edges", "values"),
           minDepth: params.minDepth,
           maxDepth: params.maxDepth,
-          start: params.collection.replace(/edges/, "values") + "/test1"
+          start: params.collection.replace(/edges/, "values") + "/test53"
         },
         {},
         { silent }
@@ -981,8 +1014,8 @@ exports.test = function (global) {
         {
           "@c": params.collection,
           "@v": params.collection.replace("edges", "values"),
-          start: params.collection.replace(/edges/, "values") + "/test1",
-          dest: params.collection.replace(/edges/, "values") + "/test9999"
+          start: params.collection.replace(/edges/, "values") + "/test0",
+          dest: params.collection.replace(/edges/, "values") + "/test99999"
         },
         {},
         { silent }
@@ -995,8 +1028,8 @@ exports.test = function (global) {
         {
           "@c": params.collection,
           "@v": params.collection.replace("edges", "values"),
-          start: params.collection.replace(/edges/, "values") + "/test1",
-          dest: params.collection.replace(/edges/, "values") + "/test9999"
+          start: params.collection.replace(/edges/, "values") + "/test9991",
+          dest: params.collection.replace(/edges/, "values") + "/test501"
         },
         {},
         { silent }
@@ -1347,15 +1380,20 @@ exports.test = function (global) {
     
     filterLimit = function (params) {
       let op = "==";
+      let offset = 0;
       if (params.op) {
         op = params.op;
       }
+      if (params.offset) {
+        offset = params.offset;
+      }
       db._query(
-        "FOR c IN @@c FILTER c.@attr " + op + " @value LIMIT @limit RETURN c.@attr",
+        "FOR c IN @@c FILTER c.@attr " + op + " @value LIMIT @offset,@limit RETURN c.@attr",
         {
           "@c": params.collection,
           attr: params.attr,
           value: params.value,
+          offset: offset,
           limit: params.limit
         },
         {},
@@ -1640,7 +1678,7 @@ exports.test = function (global) {
 
     arangosearchBasicConjunction = function (params) {
       db._query(
-        "FOR d IN @@v SEARCH d.@attr0 == @value0 && d.@attr1 == @value1 RETURN d",
+        "FOR d IN @@v SEARCH d.@attr0 == @value0 && d.@attr1 > @value1 RETURN d",
         {
           "@v": params.view,
           attr0: params.attr0,
@@ -1654,7 +1692,7 @@ exports.test = function (global) {
     },
     arangosearchBasicDisjunction = function (params) {
       db._query(
-        "FOR d IN @@v SEARCH d.@attr0 == @value0 || d.@attr1 == @value1 RETURN d",
+        "FOR d IN @@v SEARCH d.@attr0 < @value0 || d.@attr1 == @value1 RETURN d",
         {
           "@v": params.view,
           attr0: params.attr0,
@@ -1754,7 +1792,7 @@ exports.test = function (global) {
     },
     arangosearchCountOnViewSearched = function (params) {
       db._query(
-        "FOR d IN @@v  SEARCH d.@attr IN @value  COLLECT WITH COUNT INTO c RETURN c",
+        "FOR d IN @@v  SEARCH d.@attr == @value  COLLECT WITH COUNT INTO c RETURN c",
         {
           "@v": params.view,
           attr: params.attr,
@@ -2130,11 +2168,11 @@ exports.test = function (global) {
           },
           {
             name: "aql-filter-limit",
-            params: { func: filterLimit, attr: "value6", value: "test111", limit: 1 }
+            params: { func: filterLimit, attr: "value6", value: "test111", limit: 100 }
           },
           {
             name: "aql-filter-limit-index",
-            params: { func: filterLimit, attr: "value2", value: "test111", limit: 1 }
+            params: { func: filterLimit, attr: "value2", value: "test111", limit: 100 }
           },
           {
             name: "aql-filter-limit-false",
@@ -2142,7 +2180,7 @@ exports.test = function (global) {
           },
           {
             name: "aql-filter-limit-true",
-            params: { func: filterLimit, attr: "value5", op: "!=", value: 99999999999999, limit: 1 }
+            params: { func: filterLimit, attr: "value5", op: "!=", value: 99999999999999, offset: 78945, limit: 10312 }
           },
           {
             name: "aql-extract-doc",
@@ -2361,7 +2399,7 @@ exports.test = function (global) {
             params: {
               func: arangosearchRangeLookupFunc,
               attr: "_key",
-              minValue: "test42",
+              minValue: "test36",
               includeMin: true,
               maxValue: "test4242",
               includeMax: true
@@ -2371,20 +2409,20 @@ exports.test = function (global) {
             name: "ars-aql-basic-conjunction",
             params: {
               func: arangosearchBasicConjunction,
-              attr0: "value2",
+              attr0: "value8",
               value0: "test42",
               attr1: "value1",
-              value1: 42
+              value1: 999990
             }
           },
           {
             name: "ars-aql-basic-disjunction",
             params: {
               func: arangosearchBasicDisjunction,
-              attr0: "value2",
-              value0: "test42",
-              attr1: "value1",
-              value1: 4242
+              attr0: "value1",
+              value0: 5680,
+              attr1: "value8",
+              value1: "test9991"
             }
           },
           {
@@ -2393,14 +2431,27 @@ exports.test = function (global) {
               func: arangosearchDisjunction,
               attr: "value8",
               value: [
-                "test10",
-                "test42",
-                "test37",
+                "a",
+                "122",
+                "test100000",
+                "test9", 
+                "test402",
+                "test37300",
                 "test76",
                 "test98",
-                "test2",
-                "invalid"
-              ]
+                "test200000000",
+                "invalid", 
+                "test1", 
+                "test12345",
+                "test8",
+                12, 
+                "test666", 
+                "test4242",
+                "test42424", 
+                "test7",
+                "test042",
+                "test@"
+                ]
             }
           },
           {
@@ -2408,7 +2459,7 @@ exports.test = function (global) {
             params: {
               func: arangosearchPrefix,
               attr: "value2",
-              value: "test4242"
+              value: "test420"
             }
           },
           {
@@ -2424,15 +2475,17 @@ exports.test = function (global) {
           {
             name: "ars-aql-collect-count-limited",
             params: {
-              func: arangosearchCountOnViewLimited
+              func: arangosearchCountOnViewLimited,
+              offset: 100,
+              limit: 100
             }
           },
           {
             name: "ars-aql-collect-count-searched",
             params: {
               func: arangosearchCountOnViewSearched,
-              attr: "value6",
-              value: "test333"
+              attr: "value8",
+              value: "test42"
             }
           }
         ],
@@ -2443,8 +2496,8 @@ exports.test = function (global) {
             params: {
               func: arangosearchMinMatch2of3,
               attr1: "value2",
-              value1: "low",
-              value2: "nomatch",
+              value1: "nomatch",
+              value2: "low",
               value3: "phrase"
             }
           },
@@ -2514,7 +2567,7 @@ exports.test = function (global) {
             params: {
               func: arangosearchPhrase,
               attr: "value2",
-              value: "Brown Planet"
+              value: "Quick Red"
             }
           }
         ],
@@ -2979,9 +3032,11 @@ exports.test = function (global) {
 
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
 
-      if (global.documents || global.edges || global.search ||
-          global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
+      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests ) {
         initializeValuesCollection();
+      }
+      if (global.search) {
+        initializeSearchCollection();
       }
       if (global.edges || global.subqueryTests) {
         initializeEdgeCollection();
@@ -3113,13 +3168,13 @@ exports.test = function (global) {
         };
 
         if (global.tiny) {
-          options.collections.push({ name: "values1000", label: "1k", size: 1000});
+          options.collections.push({ name: "valuesForSearch100000", label: "100k", size: 100000});
         } else if (global.small) {
-          options.collections.push({ name: "values10000", label: "10k", size: 10000});
+          options.collections.push({ name: "valuesForSearch1000000", label: "1M", size: 1000000});
         } else if (global.medium) {
-          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+          options.collections.push({ name: "valuesForSearch10000000", label: "10M", size: 10000000});
         } else if (global.big) {
-          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+          options.collections.push({ name: "valuesForSearch33000000", label: "33M", size: 33000000});
         }
 
         runTestSuite("Arango Search", arangosearchTests, options);
@@ -3140,27 +3195,27 @@ exports.test = function (global) {
 
         if (global.tiny) {
           options.collections.push({
-            name: "valuesPhrases1000",
-            label: "1k",
-            size: 1000
-          });
-        } else if (global.small) {
-          options.collections.push({
-            name: "valuesPhrases10000",
-            label: "10k",
-            size: 10000
-          });
-        } else if (global.medium) {
-          options.collections.push({
             name: "valuesPhrases100000",
             label: "100k",
             size: 100000
           });
-        } else if (global.big) {
+        } else if (global.small) {
+          options.collections.push({
+            name: "valuesPhrases1000000",
+            label: "1M",
+            size: 1000000
+          });
+        } else if (global.medium) {
           options.collections.push({
             name: "valuesPhrases10000000",
-            label: "10000k",
+            label: "10M",
             size: 10000000
+          });
+        } else if (global.big) {
+          options.collections.push({
+            name: "valuesPhrases33000000",
+            label: "33M",
+            size: 33000000
           });
         }
 
@@ -3185,9 +3240,9 @@ exports.test = function (global) {
         } else if (global.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000});
         } else if (global.medium) {
-          options.collections.push({ name: "values100000", label: "100k", size: 100000 });
+          options.collections.push({ name: "values100000", label: "100k", size: 100000});
         } else if (global.big) {
-          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
+          options.collections.push({ name: "values1000000", label: "1000k", size: 1000000});
         }
 
         runTestSuite("Arango Search No Materialization", arangosearchNoMaterializationTests, options);
