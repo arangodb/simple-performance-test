@@ -3059,7 +3059,7 @@ exports.test = function (global) {
         result = { config: { ...global }, results: {}},
         options;
 
-      const runTestSuite = function (name, tests, options) {
+      const runTestSuite = function (name, tests, options, prefix = "", postfix = "") {
         const { results: testsResults, errors } = testRunner(tests, options);
         result.results[name] = testsResults;
         output += toAsciiTable(name, testsResults) + "\n\n";
@@ -3068,11 +3068,11 @@ exports.test = function (global) {
         }
 
         if (global.outputXml) {
-          toJUnit(testsResults);
+          toJUnit(testsResults, prefix, postfix);
         }
 
         if (global.outputCsv) {
-          csv += toCsv(testsResults);
+          csv += toCsv(testsResults, prefix, postfix);
         }
       }
 
@@ -3295,7 +3295,7 @@ exports.test = function (global) {
           options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
         }
 
-        runTestSuite("Arango Search CRUD", crudTests, options);
+        runTestSuite("Arango Search CRUD", crudTests, options, "ars-", "");
       }
 
       if (global.subqueryTests) {
