@@ -6,6 +6,7 @@ const fs = require("fs");
 const semver = require("semver");
 const _ = require("lodash");
 const db = require("org/arangodb").db;
+require("internal").load("simple/BIGvertices.js");
 
 function sum(values) {
   if (values.length > 1) {
@@ -485,6 +486,8 @@ exports.test = function (global) {
         createEdges(1000);
       } else if (global.small) {
         createEdges(10000);
+        makeGraph("Tree", "TreeV", "TreeE");
+        makeTree(7, "TreeV", "TreeE");
       } else if (global.medium) {
         createEdges(100000);
       } else if (global.big) {
@@ -946,6 +949,12 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
     // edgeTests
     // /////////////////////////////////////////////////////////////////////////////
+
+    traversalProjections = function(params) {
+      let l = db._query(`FOR v IN 0..7 OUTBOUND "TreeV/S1:K1" GRAPH "Tree"
+                   RETURN v.data`, {}, {}, {}).toArray();
+      print("Got", l.length, " results.");
+    },
 
     outbound = function (params) {
       db._query(
@@ -2328,6 +2337,10 @@ exports.test = function (global) {
           },
         ],
         edgeTests = [
+          {
+            name: "traversal-projections",
+            params: { func: traversalProjections }
+          },
           {
             name: "traversal-outbound-1",
             params: { func: outbound, minDepth: 1, maxDepth: 1, loops: 1000 }
