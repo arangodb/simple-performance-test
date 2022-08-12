@@ -487,11 +487,15 @@ exports.test = function (global) {
       } else if (global.small) {
         createEdges(10000);
         makeGraph("Tree", "TreeV", "TreeE");
-        makeTree(7, "TreeV", "TreeE");
+        makeTree(6, "TreeV", "TreeE");
       } else if (global.medium) {
         createEdges(100000);
+        makeGraph("Tree", "TreeV", "TreeE");
+        makeTree(7, "TreeV", "TreeE");
       } else if (global.big) {
         createEdges(1000000);
+        makeGraph("Tree", "TreeV", "TreeE");
+        makeTree(8, "TreeV", "TreeE");
       }
 
       internal.wal.flush(true, true);
@@ -951,9 +955,10 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     traversalProjections = function(params) {
-      let l = db._query(`FOR v IN 0..7 OUTBOUND "TreeV/S1:K1" GRAPH "Tree"
+      // Note that depth 8 is good for all three sizes small (6), medium (7)
+      // and big (8). Depending on the size, we create a different tree.
+      let l = db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree"
                    RETURN v.data`, {}, {}, {}).toArray();
-      print("Got", l.length, " results.");
     },
 
     outbound = function (params) {
