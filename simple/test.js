@@ -958,7 +958,7 @@ exports.test = function (global) {
       // Note that depth 8 is good for all three sizes small (6), medium (7)
       // and big (8). Depending on the size, we create a different tree.
       let l = db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree"
-                   RETURN v.data`, {}, {}, {}).toArray();
+                   RETURN v.data`, {}, {}, {silent}).toArray();
     },
 
     outbound = function (params) {
