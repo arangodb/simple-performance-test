@@ -6,6 +6,7 @@ const fs = require("fs");
 const semver = require("semver");
 const _ = require("lodash");
 const db = require("org/arangodb").db;
+require("internal").load("simple/BIGvertices.js");
 
 function sum(values) {
   if (values.length > 1) {
@@ -485,10 +486,16 @@ exports.test = function (global) {
         createEdges(1000);
       } else if (global.small) {
         createEdges(10000);
+        makeGraph("Tree", "TreeV", "TreeE");
+        makeTree(6, "TreeV", "TreeE");
       } else if (global.medium) {
         createEdges(100000);
+        makeGraph("Tree", "TreeV", "TreeE");
+        makeTree(7, "TreeV", "TreeE");
       } else if (global.big) {
         createEdges(1000000);
+        makeGraph("Tree", "TreeV", "TreeE");
+        makeTree(8, "TreeV", "TreeE");
       }
 
       internal.wal.flush(true, true);
@@ -946,6 +953,13 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
     // edgeTests
     // /////////////////////////////////////////////////////////////////////////////
+
+    traversalProjections = function(params) {
+      // Note that depth 8 is good for all three sizes small (6), medium (7)
+      // and big (8). Depending on the size, we create a different tree.
+      let l = db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree"
+                   RETURN v.data`, {}, {}, {silent}).toArray();
+    },
 
     outbound = function (params) {
       db._query(
@@ -2328,6 +2342,10 @@ exports.test = function (global) {
           },
         ],
         edgeTests = [
+          {
+            name: "traversal-projections",
+            params: { func: traversalProjections }
+          },
           {
             name: "traversal-outbound-1",
             params: { func: outbound, minDepth: 1, maxDepth: 1, loops: 1000 }
