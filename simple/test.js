@@ -105,6 +105,7 @@ exports.test = function (global) {
   global.search = global.search || false;
   global.phrase = global.phrase || false;
   global.noMaterializationSearch = global.noMaterializationSearch || false;
+  global.indexes = global.indexes || false;
   global.crud = global.crud || false;
   global.crudSearch = global.crudSearch || false;
   global.subqueryTests = global.subqueryTests || false;
@@ -836,6 +837,62 @@ exports.test = function (global) {
         for (let i = 0; i < n; ++i) {
           doc._key = "test" + i;
           c.insert(doc);
+        }
+      }
+    },
+    
+    // /////////////////////////////////////////////////////////////////////////////
+    // indexes tests
+    // /////////////////////////////////////////////////////////////////////////////
+
+    insertIndexOne = function (params) {
+      let c = db._collection(params.collection),
+        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+        
+      // perform small batch document operations
+      const batchSize = params.batchSize || 100;
+      let docs = [];
+      if (params.type === "string") {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: "testmann1234" + i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
+        }
+      } else {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
+        }
+      }
+    },
+    
+    insertIndexTwo = function (params) {
+      let c = db._collection(params.collection),
+        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+        
+      // perform small batch document operations
+      const batchSize = params.batchSize || 100;
+      let docs = [];
+      if (params.type === "string") {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: "testmann1234" + i, value2: "testmannabc" + i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
+        }
+      } else {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: i, value2: i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
         }
       }
     },
@@ -2635,6 +2692,116 @@ exports.test = function (global) {
             }
           }
         ],
+        indexesTests = [
+          {
+            name: "indexes-insert1-numeric",
+            params: {
+              func: insertIndexOne,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+              },
+              type: "number",
+              teardown: drop
+            }
+          },
+          {
+            name: "indexes-insert1-numeric-noestimates",
+            params: {
+              func: insertIndexOne,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+              },
+              type: "number",
+              teardown: drop
+            }
+          },
+          {
+            name: "indexes-insert1-string",
+            params: {
+              func: insertIndexOne,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+              },
+              type: "string",
+              teardown: drop
+            }
+          },
+          {
+            name: "indexes-insert1-string-noestimates",
+            params: {
+              func: insertIndexOne,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+              },
+              type: "string",
+              teardown: drop
+            }
+          },
+          {
+            name: "indexes-insert2-numeric",
+            params: {
+              func: insertIndexTwo,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] }); 
+              },
+              type: "number",
+              teardown: drop
+            }
+          },
+          {
+            name: "indexes-insert2-numeric-noestimates",
+            params: {
+              func: insertIndexTwo,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false }); 
+              },
+              type: "number",
+              teardown: drop
+            }
+          },
+          {
+            name: "indexes-insert2-string",
+            params: {
+              func: insertIndexTwo,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] }); 
+              },
+              type: "string",
+              teardown: drop
+            }
+          },
+          {
+            name: "indexes-insert2-string-noestimates",
+            params: {
+              func: insertIndexTwo,
+              setup: function (params) {
+                drop(params);
+                create(params);
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+                db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false }); 
+              },
+              type: "string",
+              teardown: drop
+            }
+          },
+        ],
         crudTests = [
           {
             name: "crud-insert",
@@ -3246,6 +3413,30 @@ exports.test = function (global) {
         }
 
         runTestSuite("Arango Search No Materialization", arangosearchNoMaterializationTests, options);
+      }
+      
+      // indexes tests
+      if (global.indexes) {
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (/* params */) {},
+          teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+
+        if (global.tiny) {
+          options.collections.push({ name: "indexes1000", label: "1k", size: 1000 });
+        } else if (global.small) {
+          options.collections.push({ name: "indexes10000", label: "10k", size: 10000 });
+        } else if (global.medium) {
+          options.collections.push({ name: "indexes100000", label: "100k", size: 100000 });
+        } else if (global.big) {
+          options.collections.push({ name: "indexes1000000", label: "1000k", size: 1000000 });
+        }
+
+        runTestSuite("indexes", indexesTests, options);
       }
 
       // crud tests
