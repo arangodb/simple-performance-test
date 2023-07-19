@@ -948,7 +948,7 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     outbound = function (params) {
-      db._query(
+      db._profileQuery(
         "WITH @@v FOR i IN 1 .. @loops FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN v",
         {
           "@c": params.collection,
@@ -964,7 +964,7 @@ exports.test = function (global) {
     },
 
     any = function (params) {
-      db._query(
+      db._profileQuery(
         "WITH @@v FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN v",
         {
           "@c": params.collection,
@@ -979,7 +979,7 @@ exports.test = function (global) {
     },
 
     outboundPath = function (params) {
-      db._query(
+      db._profileQuery(
         "WITH @@v FOR v, e, p IN @minDepth..@maxDepth OUTBOUND @start @@c RETURN p",
         {
           "@c": params.collection,
@@ -994,7 +994,7 @@ exports.test = function (global) {
     },
 
     anyPath = function (params) {
-      db._query(
+      db._profileQuery(
         "WITH @@v FOR v, e, p IN @minDepth..@maxDepth ANY @start @@c RETURN p",
         {
           "@c": params.collection,
@@ -1009,7 +1009,7 @@ exports.test = function (global) {
     },
 
     shortestOutbound = function (params) {
-      db._query(
+      db._profileQuery(
         "WITH @@v FOR v IN OUTBOUND SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
           "@c": params.collection,
@@ -1023,7 +1023,7 @@ exports.test = function (global) {
     },
 
     shortestAny = function (params) {
-      db._query(
+      db._profileQuery(
         "WITH @@v FOR v IN ANY SHORTEST_PATH @start TO @dest @@c RETURN v",
         {
           "@c": params.collection,
@@ -1041,7 +1041,7 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     subquery = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
         {
           "@c": params.collection,
@@ -1056,7 +1056,7 @@ exports.test = function (global) {
       const vertices = params.collection.replace("edges", "values");
       // Test if we have a path leading back to values/test2
       // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
-      db._query(`
+      db._profileQuery(`
       FOR v IN @@c
         LET hasPath = (FOR s IN INBOUND SHORTEST_PATH v TO @source @@e RETURN 1)
         FILTER LENGTH(hasPath) > 0
@@ -1076,7 +1076,7 @@ exports.test = function (global) {
       const vertices = params.collection.replace("edges", "values");
       // Test if we have a path leading back to values/test2
       // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
-      db._query(`
+      db._profileQuery(`
       FOR v IN @@c
         FOR main IN 1 OUTBOUND v @@e
           FOR sub IN 1 OUTBOUND main @@e
@@ -1096,7 +1096,7 @@ exports.test = function (global) {
       const vertices = params.collection.replace("edges", "values");
       // Test if we have a path leading back to values/test2
       // On small this will be 1321 vertices, on medium and big it will be 33976 vertices
-      db._query(`
+      db._profileQuery(`
       FOR v IN @@c
         FOR main IN 1 OUTBOUND v @@e
         LET subs = (
@@ -1115,7 +1115,7 @@ exports.test = function (global) {
     },
 
     min = function (params) {
-      db._query(
+      db._profileQuery(
         "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
         {
           "@c": params.collection,
@@ -1127,7 +1127,7 @@ exports.test = function (global) {
     },
 
     max = function (params) {
-      db._query(
+      db._profileQuery(
         "RETURN MAX(FOR c IN @@c RETURN c.@attr)",
         {
           "@c": params.collection,
@@ -1139,7 +1139,7 @@ exports.test = function (global) {
     },
 
     concat = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN CONCAT(c._key, '-', c.@attr)",
         {
           "@c": params.collection,
@@ -1151,7 +1151,7 @@ exports.test = function (global) {
     },
 
     merge = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN MERGE(c, { 'testValue': c.@attr })",
         {
           "@c": params.collection,
@@ -1163,7 +1163,7 @@ exports.test = function (global) {
     },
 
     keep = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN KEEP(c, '_key', '_rev', '_id')",
         {
           "@c": params.collection
@@ -1174,7 +1174,7 @@ exports.test = function (global) {
     },
 
     unset = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN UNSET(c, '_key', '_rev', '_id')",
         {
           "@c": params.collection
@@ -1185,7 +1185,7 @@ exports.test = function (global) {
     },
 
     attributes = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN ATTRIBUTES(c)",
         {
           "@c": params.collection
@@ -1196,7 +1196,7 @@ exports.test = function (global) {
     },
 
     values = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN VALUES(c)",
         {
           "@c": params.collection
@@ -1207,7 +1207,7 @@ exports.test = function (global) {
     },
 
     has = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN HAS(c, c.@attr)",
         {
           "@c": params.collection,
@@ -1219,7 +1219,7 @@ exports.test = function (global) {
     },
 
     md5 = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN MD5(c.@attr)",
         {
           "@c": params.collection,
@@ -1251,7 +1251,7 @@ exports.test = function (global) {
       if (params.distinct) {
         distinct = "DISTINCT ";
       }
-      db._query(
+      db._profileQuery(
         "FOR i IN 1..@number LET sub = (FOR j IN 1..100 RETURN " + distinct + " j) FOR x IN sub RETURN [i, x]",
         {
           number
@@ -1262,7 +1262,7 @@ exports.test = function (global) {
     },
     
     returnConst = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN 1",
         {
           "@c": params.collection,
@@ -1273,7 +1273,7 @@ exports.test = function (global) {
     },
 
     sha1 = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN SHA1(c.@attr)",
         {
           "@c": params.collection,
@@ -1287,7 +1287,7 @@ exports.test = function (global) {
     skipIndex = function (params) {
       let size = parseInt(params.collection.replace(/[^0-9]/g, "")),
         offset = size - params.limit;
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c SORT c.@attr LIMIT @offset, @limit RETURN c.@attr",
         {
           "@c": params.collection,
@@ -1303,7 +1303,7 @@ exports.test = function (global) {
     skipDocs = function (params) {
       let size = parseInt(params.collection.replace(/[^0-9]/g, "")),
         offset = size - params.limit;
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c SORT c.@attr LIMIT @offset, @limit RETURN c.@attr",
         {
           "@c": params.collection,
@@ -1317,7 +1317,7 @@ exports.test = function (global) {
     },
     
     sortDoubles = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c SORT c.value5 * 1.1 RETURN c.value5",
         {
           "@c": params.collection,
@@ -1328,7 +1328,7 @@ exports.test = function (global) {
     },
     
     sortIntegers = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c LET value = c.value5 >= @max ? @max : c.value5 SORT value RETURN value",
         {
           "@c": params.collection,
@@ -1341,7 +1341,7 @@ exports.test = function (global) {
 
     sortAll = function (params) {
     // Use a "sort everything" implementation.
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c SORT c.@attr LIMIT 1 RETURN c.@attr",
         {
           "@c": params.collection,
@@ -1354,7 +1354,7 @@ exports.test = function (global) {
 
     sortHeap = function (params) {
     // Use a heap of size 20 for the sort.
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c SORT c.@attr LIMIT 20 RETURN c.@attr",
         {
           "@c": params.collection,
@@ -1366,7 +1366,7 @@ exports.test = function (global) {
     },
 
     filter = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c FILTER c.@attr == @value RETURN c.@attr",
         {
           "@c": params.collection,
@@ -1387,7 +1387,7 @@ exports.test = function (global) {
       if (params.offset) {
         offset = params.offset;
       }
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c FILTER c.@attr " + op + " @value LIMIT @offset,@limit RETURN c.@attr",
         {
           "@c": params.collection,
@@ -1403,7 +1403,7 @@ exports.test = function (global) {
 
     extract = function (params) {
       if (params.attr === undefined) {
-        db._query(
+        db._profileQuery(
           "FOR c IN @@c RETURN c",
           {
             "@c": params.collection
@@ -1412,7 +1412,7 @@ exports.test = function (global) {
           { silent }
         );
       } else {
-        db._query(
+        db._profileQuery(
           "FOR c IN @@c RETURN c.@attr",
           {
             "@c": params.collection,
@@ -1425,7 +1425,7 @@ exports.test = function (global) {
     },
 
     join = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1",
         {
           "@c": params.collection,
@@ -1445,7 +1445,7 @@ exports.test = function (global) {
         } else {
           key = "test" + i;
         }
-        db._query(
+        db._profileQuery(
           "FOR c IN @@c FILTER c.@attr == @key RETURN c",
           {
             "@c": params.collection,
@@ -1468,7 +1468,7 @@ exports.test = function (global) {
           keys.push("test" + i);
         }
       }
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c FILTER c.@attr IN @keys RETURN c",
         {
           "@c": params.collection,
@@ -1482,7 +1482,7 @@ exports.test = function (global) {
 
     collect = function (params) {
       if (params.count) {
-        db._query(
+        db._profileQuery(
           "FOR c IN @@c COLLECT g = c.@attr WITH COUNT INTO l RETURN [ g, l ]",
           {
             "@c": params.collection,
@@ -1492,7 +1492,7 @@ exports.test = function (global) {
           { silent }
         );
       } else {
-        db._query(
+        db._profileQuery(
           "FOR c IN @@c COLLECT g = c.@attr RETURN g",
           {
             "@c": params.collection,
@@ -1506,14 +1506,14 @@ exports.test = function (global) {
 
     collectCountOnly = function (params) {
       if (params.explicitAggregator) {
-        db._query(
+        db._profileQuery(
           "FOR c IN @@c COLLECT AGGREGATE cnt = COUNT(1) RETURN cnt",
           { "@c": params.collection },
           {},
           { silent }
         );
       } else {
-        db._query(
+        db._profileQuery(
           "FOR c IN @@c COLLECT WITH COUNT INTO cnt RETURN cnt",
           { "@c": params.collection },
           {},
@@ -1523,7 +1523,7 @@ exports.test = function (global) {
     },
 
     passthru = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR c IN @@c RETURN NOOPT(" + params.name + "(@value))",
         {
           "@c": params.collection,
@@ -1588,7 +1588,7 @@ exports.test = function (global) {
         bind.mod = params.iterations;
       }
 
-      db._query(query, bind, {}, { silent });
+      db._profileQuery(query, bind, {}, { silent });
     },
 
     // /////////////////////////////////////////////////////////////////////////////
@@ -1596,7 +1596,7 @@ exports.test = function (global) {
     // /////////////////////////////////////////////////////////////////////////////
 
     arangosearchLookupByAttribute = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH d.@attr == @value RETURN d",
         {
           "@v": params.view,
@@ -1610,7 +1610,7 @@ exports.test = function (global) {
 
     arangosearchRangeLookupOperator = function (params) {
       if (params.includeMin && params.includeMax) {
-        db._query(
+        db._profileQuery(
           "FOR d IN @@v SEARCH d.@attr >= @minValue && d.@attr <= @maxValue RETURN d",
           {
             "@v": params.view,
@@ -1622,7 +1622,7 @@ exports.test = function (global) {
           { silent }
         );
       } else if (params.includeMax) {
-        db._query(
+        db._profileQuery(
           "FOR d IN @@v SEARCH d.@attr > @minValue && d.@attr <= @maxValue RETURN d",
           {
             "@v": params.view,
@@ -1634,7 +1634,7 @@ exports.test = function (global) {
           { silent }
         );
       } else if (params.includeMin) {
-        db._query(
+        db._profileQuery(
           "FOR d IN @@v SEARCH d.@attr >= @minValue && d.@attr < @maxValue RETURN d",
           {
             "@v": params.view,
@@ -1646,7 +1646,7 @@ exports.test = function (global) {
           { silent }
         );
       } else {
-        db._query(
+        db._profileQuery(
           "FOR d IN @@v SEARCH d.@attr > @minValue && d.@attr < @maxValue RETURN d",
           {
             "@v": params.view,
@@ -1661,7 +1661,7 @@ exports.test = function (global) {
     },
 
     arangosearchRangeLookupFunc = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH IN_RANGE(d.@attr, @minValue, @maxValue, @includeMin, @includeMax) RETURN d",
         {
           "@v": params.view,
@@ -1677,7 +1677,7 @@ exports.test = function (global) {
     },
 
     arangosearchBasicConjunction = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH d.@attr0 == @value0 && d.@attr1 > @value1 RETURN d",
         {
           "@v": params.view,
@@ -1691,7 +1691,7 @@ exports.test = function (global) {
       );
     },
     arangosearchBasicDisjunction = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH d.@attr0 < @value0 || d.@attr1 == @value1 RETURN d",
         {
           "@v": params.view,
@@ -1705,7 +1705,7 @@ exports.test = function (global) {
       );
     },
     arangosearchDisjunction = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH d.@attr IN @value RETURN d",
         {
           "@v": params.view,
@@ -1717,7 +1717,7 @@ exports.test = function (global) {
       );
     },
     arangosearchPrefix = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH STARTS_WITH(d.@attr, @value) RETURN d",
         {
           "@v": params.view,
@@ -1729,7 +1729,7 @@ exports.test = function (global) {
       );
     },
     arangosearchMinMatch2of3 = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH ANALYZER(MIN_MATCH(d.@attr1 == @value1, d.@attr1 ==  @value2, d.@attr1 == @value3, 2 ), 'text_en') RETURN d",
         {
           "@v": params.view,
@@ -1743,7 +1743,7 @@ exports.test = function (global) {
       );
     },
     arangosearchScoring = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH ANALYZER(d.@attr == @value, 'text_en') SORT " +
         params.scorer +
         "(d) ASC  RETURN d",
@@ -1757,7 +1757,7 @@ exports.test = function (global) {
       );
     },
     arangosearchPhrase = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v SEARCH PHRASE(d.@attr , @value, 'text_en')  RETURN d",
         {
           "@v": params.view,
@@ -1769,7 +1769,7 @@ exports.test = function (global) {
       );
     },
     arangosearchCountOnView = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v COLLECT WITH COUNT INTO c RETURN c",
         {
           "@v": params.view
@@ -1779,7 +1779,7 @@ exports.test = function (global) {
       );
     },
     arangosearchCountOnViewLimited = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v LIMIT @offset, @limit COLLECT WITH COUNT INTO c RETURN c",
         {
           "@v": params.view,
@@ -1791,7 +1791,7 @@ exports.test = function (global) {
       );
     },
     arangosearchCountOnViewSearched = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v  SEARCH d.@attr == @value  COLLECT WITH COUNT INTO c RETURN c",
         {
           "@v": params.view,
@@ -1803,7 +1803,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithoutAccessOff = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v OPTIONS {noMaterialization: false} RETURN 1",
         {
           "@v": params.view
@@ -1813,7 +1813,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithoutAccessOn = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v OPTIONS {noMaterialization: true} RETURN 1",
         {
           "@v": params.view
@@ -1823,7 +1823,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithReturnOff = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v OPTIONS {noMaterialization: false} RETURN d.@attr",
         {
           "@v": params.view,
@@ -1834,7 +1834,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithReturnOn = function (params) {
-      db._query(
+      db._profileQuery(
         "FOR d IN @@v OPTIONS {noMaterialization: true} RETURN d.@attr",
         {
           "@v": params.view,
@@ -1845,7 +1845,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithSortOff = function (params) {
-      db._query(
+      db._profileQuery(
         `FOR d IN @@v OPTIONS {noMaterialization: false}
         LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b)
         RETURN [a, b, d.@attr2]`,
@@ -1860,7 +1860,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithSortOn = function (params) {
-      db._query(
+      db._profileQuery(
         `FOR d IN @@v OPTIONS {noMaterialization: true}
         LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b)
         RETURN [a, b, d.@attr2]`,
@@ -1875,7 +1875,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithSortAndLimitOff = function (params) {
-      db._query(
+      db._profileQuery(
         `FOR d IN @@v OPTIONS {noMaterialization: false}
         LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b) LIMIT 10
         RETURN [a, b, d.@attr2]`,
@@ -1890,7 +1890,7 @@ exports.test = function (global) {
       );
     },
     arangosearchNoMaterializationWithSortAndLimitOn = function (params) {
-      db._query(
+      db._profileQuery(
         `FOR d IN @@v OPTIONS {noMaterialization: true}
         LET a = d.@attr0 LET b = d.@attr1 SORT CONCAT(a, b) LIMIT 10
         RETURN [a, b, d.@attr2]`,
@@ -1913,7 +1913,7 @@ exports.test = function (global) {
     // currently unused, useful for validation
     subquerySplicingValidation = function (params) {
       let spliceoptimizer = { rules: ["+splice-subqueries"] };
-      let spliced = db._query(
+      let spliced = db._profileQuery(
         params.queryString,
         {
           "@c": params.collection,
@@ -1922,7 +1922,7 @@ exports.test = function (global) {
         { optimizer: spliceoptimizer }
       );
       let nonspliceoptimizer = { rules: ["-splice-subqueries"] };
-      let nonspliced = db._query(
+      let nonspliced = db._profileQuery(
         params.queryString,
         {
           "@c": params.collection,
@@ -1958,7 +1958,7 @@ exports.test = function (global) {
       } else {
         myOptimizer.rules.push("-splice-subqueries");
       }
-      db._query(
+      db._profileQuery(
         params.queryString,
         bindParam,
         { optimizer: myOptimizer }
@@ -1981,7 +1981,7 @@ exports.test = function (global) {
         params.bindParamModifier(params, bindParam);
       }
 
-      db._query(
+      db._profileQuery(
         params.queryString,
         bindParam, {}
       );
