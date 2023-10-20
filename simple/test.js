@@ -1436,6 +1436,23 @@ exports.test = function (global) {
       );
     },
 
+    joinWithoutJoinNodeOptimizerRule = function (params) {
+      let queryOptions = {
+        silent: silent,
+        rules: ["-join-index-nodes"]
+      };
+
+      db._query(
+        "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1",
+        {
+          "@c": params.collection,
+          attr: params.attr
+        },
+        {},
+        queryOptions
+      );
+    },
+
     lookup = function (params) {
       let key,
         numeric = params.numeric;
@@ -2009,6 +2026,22 @@ exports.test = function (global) {
         {
           name: "aql-join-hash-string",
           params: { func: join, attr: "value2" }
+        },
+        {
+          name: "aql-join-key-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "_key" }
+        },
+        {
+          name: "aql-join-id-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "_id" }
+        },
+        {
+          name: "aql-join-hash-number-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "value1" }
+        },
+        {
+          name: "aql-join-hash-string-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "value2" }
         }
       ]
     },
@@ -2289,10 +2322,20 @@ exports.test = function (global) {
           },
         ],
         aqlJoinTests = [
-          sharedTests.aqlJoinTests[0],
-          sharedTests.aqlJoinTests[1],
-          sharedTests.aqlJoinTests[2],
-          sharedTests.aqlJoinTests[3],
+          // line breaks intended. Each pair belongs together. Same test executed
+          // with different optimizer based settings. Code itself could be optimized,
+          // but for our use-case right now it is fine enough.
+          sharedTests.aqlJoinTests[0], // default, means: no optimizer manipulation
+          sharedTests.aqlJoinTests[4], // disabled optimizer rule
+
+          sharedTests.aqlJoinTests[1], // default, means: no optimizer manipulation
+          sharedTests.aqlJoinTests[5], // disabled optimizer rule
+
+          sharedTests.aqlJoinTests[2], // default, means: no optimizer manipulation
+          sharedTests.aqlJoinTests[6], // disabled optimizer rule
+
+          sharedTests.aqlJoinTests[3], // default, means: no optimizer manipulation
+          sharedTests.aqlJoinTests[7], // disabled optimizer rule
         ],
         // Tests without collections/IO, to focus on aql block performance.
         iolessTests = [
