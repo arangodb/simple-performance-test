@@ -1425,32 +1425,76 @@ exports.test = function (global) {
     },
 
     join = function (params) {
-      db._query(
-        "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1",
-        {
-          "@c": params.collection,
-          attr: params.attr
-        },
-        {},
-        { silent }
+      let queryOptions = {
+        silent: silent
+      };
+
+      if (global.printQueryCount) {
+        queryOptions.count = true;
+      }
+
+      const queryString = "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1";
+      const bindParameter = {
+        "@c": params.collection,
+        attr: params.attr
+      };
+
+      const q = db._query(
+        queryString,
+        bindParameter,
+        {}, // cursorOptions
+        queryOptions
       );
+
+      if (global.printQueryCount) {
+        print("========================================");
+        print("Default execution - no optimizer impact.")
+        const plan = db._createStatement({
+          query: queryString, bindVars: bindParameter, options: queryOptions
+        }).explain().plan;        const nodes = plan.nodes.map(x => x.type);
+        const found = nodes.indexOf("JoinNode") !== -1;
+
+        print(nodes);
+        print("Count is: " + q.count() + ", used JoinNode: " + found);
+      }
     },
 
     joinWithoutJoinNodeOptimizerRule = function (params) {
       let queryOptions = {
         silent: silent,
-        rules: ["-join-index-nodes"]
+        optimizer: {
+          rules: ["-join-index-nodes"]
+        }
       };
 
-      db._query(
-        "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1",
-        {
-          "@c": params.collection,
-          attr: params.attr
-        },
-        {},
+      if (global.printQueryCount) {
+        queryOptions.count = true;
+      }
+
+      const queryString = "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1";
+      const bindParameter = {
+        "@c": params.collection,
+        attr: params.attr
+      };
+
+      const q = db._query(
+        queryString,
+        bindParameter,
+        {}, // cursorOptions
         queryOptions
       );
+
+      if (global.printQueryCount) {
+        print("========================================");
+        print("Disabled rule execution - with optimizer impact.")
+        const plan = db._createStatement({
+          query: queryString, bindVars: bindParameter, options: queryOptions
+        }).explain().plan;
+        const nodes = plan.nodes.map(x => x.type);
+        const found = nodes.indexOf("JoinNode") !== -1;
+        print(nodes);
+        print("Count is: " + q.count() + ", used JoinNode: " + found);
+      }
     },
 
     lookup = function (params) {
@@ -2325,15 +2369,17 @@ exports.test = function (global) {
           // line breaks intended. Each pair belongs together. Same test executed
           // with different optimizer based settings. Code itself could be optimized,
           // but for our use-case right now it is fine enough.
-          sharedTests.aqlJoinTests[0], // default, means: no optimizer manipulation
-          sharedTests.aqlJoinTests[4], // disabled optimizer rule
+          //sharedTests.aqlJoinTests[0], // default, means: no optimizer manipulation
+          //sharedTests.aqlJoinTests[4], // disabled optimizer rule
 
-          sharedTests.aqlJoinTests[1], // default, means: no optimizer manipulation
-          sharedTests.aqlJoinTests[5], // disabled optimizer rule
+          //sharedTests.aqlJoinTests[1], // default, means: no optimizer manipulation
+          //sharedTests.aqlJoinTests[5], // disabled optimizer rule
 
+          // join-hash-number-string
           sharedTests.aqlJoinTests[2], // default, means: no optimizer manipulation
           sharedTests.aqlJoinTests[6], // disabled optimizer rule
 
+          // join-hash-string
           sharedTests.aqlJoinTests[3], // default, means: no optimizer manipulation
           sharedTests.aqlJoinTests[7], // disabled optimizer rule
         ],
@@ -3171,7 +3217,9 @@ exports.test = function (global) {
 
       if (global.aqlJoinTests) {
         const options = generateDocumentTestOptions();
-        runTestSuite("AqlJoin", aqlJoinTests, options);
+        // Currently, only hashed variants are being executed here.
+        // The other ones are commented out right now in "aqlJoinTests".
+        runTestSuite("AqlJoinHashOnly", aqlJoinTests, options);
       }
 
       if (global.ioless) {
