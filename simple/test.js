@@ -1987,6 +1987,31 @@ exports.test = function (global) {
       );
     },
 
+    // /////////////////////////////////////////////////////////////////////////////
+    // tests shared across multiple suites
+    // they are defined here, but need to be included manually into the specific
+    // suites.
+    // /////////////////////////////////////////////////////////////////////////////
+    sharedTests = {
+      aqlJoinTests: [
+        {
+          name: "aql-join-key",
+          params: { func: join, attr: "_key" }
+        },
+        {
+          name: "aql-join-id",
+          params: { func: join, attr: "_id" }
+        },
+        {
+          name: "aql-join-hash-number",
+          params: { func: join, attr: "value1" }
+        },
+        {
+          name: "aql-join-hash-string",
+          params: { func: join, attr: "value2" }
+        }
+      ]
+    },
 
     // /////////////////////////////////////////////////////////////////////////////
     // main
@@ -2210,22 +2235,10 @@ exports.test = function (global) {
             name: "aql-extract-string-nonindexed",
             params: { func: extract, attr: "value6" }
           },
-          {
-            name: "aql-join-key",
-            params: { func: join, attr: "_key" }
-          },
-          {
-            name: "aql-join-id",
-            params: { func: join, attr: "_id" }
-          },
-          {
-            name: "aql-join-hash-number",
-            params: { func: join, attr: "value1" }
-          },
-          {
-            name: "aql-join-hash-string",
-            params: { func: join, attr: "value2" }
-          },
+          sharedTests.aqlJoinTests[0],
+          sharedTests.aqlJoinTests[1],
+          sharedTests.aqlJoinTests[2],
+          sharedTests.aqlJoinTests[3],
           {
             name: "aql-lookup-key",
             params: { func: lookup, attr: "_key", n: 10000, numeric: false }
@@ -2274,6 +2287,12 @@ exports.test = function (global) {
             name: "aql-ranges-subquery-distinct",
             params: { func: rangesSubquery, optimize: false, distinct: true }
           },
+        ],
+        aqlJoinTests = [
+          sharedTests.aqlJoinTests[0],
+          sharedTests.aqlJoinTests[1],
+          sharedTests.aqlJoinTests[2],
+          sharedTests.aqlJoinTests[3],
         ],
         // Tests without collections/IO, to focus on aql block performance.
         iolessTests = [
@@ -3032,7 +3051,7 @@ exports.test = function (global) {
 
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
 
-      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests ) {
+      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests || global.aqlJoinTests) {
         initializeValuesCollection();
       }
       if (global.search) {
@@ -3076,8 +3095,7 @@ exports.test = function (global) {
         }
       }
 
-      // document tests
-      if (global.documents) {
+      const generateDocumentTestOptions = () => {
         options = {
           runs: global.runs,
           digits: global.digits,
@@ -3099,7 +3117,18 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
+        return options;
+      };
+
+      // document tests
+      if (global.documents) {
+        const options = generateDocumentTestOptions();
         runTestSuite("Documents", documentTests, options);
+      }
+
+      if (global.aqlJoinTests) {
+        const options = generateDocumentTestOptions();
+        runTestSuite("AqlJoin", aqlJoinTests, options);
       }
 
       if (global.ioless) {
