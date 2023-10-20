@@ -1425,15 +1425,76 @@ exports.test = function (global) {
     },
 
     join = function (params) {
-      db._query(
-        "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1",
-        {
-          "@c": params.collection,
-          attr: params.attr
-        },
-        {},
-        { silent }
+      let queryOptions = {
+        silent: silent
+      };
+
+      if (global.printQueryCount) {
+        queryOptions.count = true;
+      }
+
+      const queryString = "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1";
+      const bindParameter = {
+        "@c": params.collection,
+        attr: params.attr
+      };
+
+      const q = db._query(
+        queryString,
+        bindParameter,
+        {}, // cursorOptions
+        queryOptions
       );
+
+      if (global.printQueryCount) {
+        print("========================================");
+        print("Default execution - no optimizer impact.")
+        const plan = db._createStatement({
+          query: queryString, bindVars: bindParameter, options: queryOptions
+        }).explain().plan;        const nodes = plan.nodes.map(x => x.type);
+        const found = nodes.indexOf("JoinNode") !== -1;
+
+        print(nodes);
+        print("Count is: " + q.count() + ", used JoinNode: " + found);
+      }
+    },
+
+    joinWithoutJoinNodeOptimizerRule = function (params) {
+      let queryOptions = {
+        silent: silent,
+        optimizer: {
+          rules: ["-join-index-nodes"]
+        }
+      };
+
+      if (global.printQueryCount) {
+        queryOptions.count = true;
+      }
+
+      const queryString = "FOR c1 IN @@c FOR c2 IN @@c FILTER c1.@attr == c2.@attr RETURN c1";
+      const bindParameter = {
+        "@c": params.collection,
+        attr: params.attr
+      };
+
+      const q = db._query(
+        queryString,
+        bindParameter,
+        {}, // cursorOptions
+        queryOptions
+      );
+
+      if (global.printQueryCount) {
+        print("========================================");
+        print("Disabled rule execution - with optimizer impact.")
+        const plan = db._createStatement({
+          query: queryString, bindVars: bindParameter, options: queryOptions
+        }).explain().plan;
+        const nodes = plan.nodes.map(x => x.type);
+        const found = nodes.indexOf("JoinNode") !== -1;
+        print(nodes);
+        print("Count is: " + q.count() + ", used JoinNode: " + found);
+      }
     },
 
     lookup = function (params) {
@@ -1987,6 +2048,47 @@ exports.test = function (global) {
       );
     },
 
+    // /////////////////////////////////////////////////////////////////////////////
+    // tests shared across multiple suites
+    // they are defined here, but need to be included manually into the specific
+    // suites.
+    // /////////////////////////////////////////////////////////////////////////////
+    sharedTests = {
+      aqlJoinTests: [
+        {
+          name: "aql-join-key",
+          params: { func: join, attr: "_key" }
+        },
+        {
+          name: "aql-join-id",
+          params: { func: join, attr: "_id" }
+        },
+        {
+          name: "aql-join-hash-number",
+          params: { func: join, attr: "value1" }
+        },
+        {
+          name: "aql-join-hash-string",
+          params: { func: join, attr: "value2" }
+        },
+        {
+          name: "aql-join-key-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "_key" }
+        },
+        {
+          name: "aql-join-id-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "_id" }
+        },
+        {
+          name: "aql-join-hash-number-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "value1" }
+        },
+        {
+          name: "aql-join-hash-string-disabled-index-join-node",
+          params: { func: joinWithoutJoinNodeOptimizerRule, attr: "value2" }
+        }
+      ]
+    },
 
     // /////////////////////////////////////////////////////////////////////////////
     // main
@@ -2210,22 +2312,10 @@ exports.test = function (global) {
             name: "aql-extract-string-nonindexed",
             params: { func: extract, attr: "value6" }
           },
-          {
-            name: "aql-join-key",
-            params: { func: join, attr: "_key" }
-          },
-          {
-            name: "aql-join-id",
-            params: { func: join, attr: "_id" }
-          },
-          {
-            name: "aql-join-hash-number",
-            params: { func: join, attr: "value1" }
-          },
-          {
-            name: "aql-join-hash-string",
-            params: { func: join, attr: "value2" }
-          },
+          sharedTests.aqlJoinTests[0],
+          sharedTests.aqlJoinTests[1],
+          sharedTests.aqlJoinTests[2],
+          sharedTests.aqlJoinTests[3],
           {
             name: "aql-lookup-key",
             params: { func: lookup, attr: "_key", n: 10000, numeric: false }
@@ -2274,6 +2364,24 @@ exports.test = function (global) {
             name: "aql-ranges-subquery-distinct",
             params: { func: rangesSubquery, optimize: false, distinct: true }
           },
+        ],
+        aqlJoinTests = [
+          // line breaks intended. Each pair belongs together. Same test executed
+          // with different optimizer based settings. Code itself could be optimized,
+          // but for our use-case right now it is fine enough.
+          //sharedTests.aqlJoinTests[0], // default, means: no optimizer manipulation
+          //sharedTests.aqlJoinTests[4], // disabled optimizer rule
+
+          //sharedTests.aqlJoinTests[1], // default, means: no optimizer manipulation
+          //sharedTests.aqlJoinTests[5], // disabled optimizer rule
+
+          // join-hash-number-string
+          sharedTests.aqlJoinTests[2], // default, means: no optimizer manipulation
+          sharedTests.aqlJoinTests[6], // disabled optimizer rule
+
+          // join-hash-string
+          sharedTests.aqlJoinTests[3], // default, means: no optimizer manipulation
+          sharedTests.aqlJoinTests[7], // disabled optimizer rule
         ],
         // Tests without collections/IO, to focus on aql block performance.
         iolessTests = [
@@ -3032,7 +3140,7 @@ exports.test = function (global) {
 
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
 
-      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests ) {
+      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests || global.aqlJoinTests) {
         initializeValuesCollection();
       }
       if (global.search) {
@@ -3076,8 +3184,7 @@ exports.test = function (global) {
         }
       }
 
-      // document tests
-      if (global.documents) {
+      const generateDocumentTestOptions = () => {
         options = {
           runs: global.runs,
           digits: global.digits,
@@ -3099,7 +3206,20 @@ exports.test = function (global) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
+        return options;
+      };
+
+      // document tests
+      if (global.documents) {
+        const options = generateDocumentTestOptions();
         runTestSuite("Documents", documentTests, options);
+      }
+
+      if (global.aqlJoinTests) {
+        const options = generateDocumentTestOptions();
+        // Currently, only hashed variants are being executed here.
+        // The other ones are commented out right now in "aqlJoinTests".
+        runTestSuite("AqlJoinHashOnly", aqlJoinTests, options);
       }
 
       if (global.ioless) {
