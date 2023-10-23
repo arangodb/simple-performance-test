@@ -1,5 +1,5 @@
 function main () {
-  require("./simple/test").test({
+  return require("./simple/test").test({
     outputCsv: true,
     big: true,
     runs: 1,
@@ -16,5 +16,5 @@ function main () {
   });
 }
 if (typeof arango !== "undefined") {
-  main();
+  return main();
 }
