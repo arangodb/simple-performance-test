@@ -5,5 +5,5 @@ function main () {
   });
 }
 if (typeof arango !== "undefined") {
-  return main();
+  process.exit(main());
 }
