@@ -1,5 +1,5 @@
 function main () {
-  return return require("./simple/test").test({
+  return require("./simple/test").test({
     outputCsv: true,
     medium: true,
 
@@ -15,5 +15,5 @@ function main () {
   });
 }
 if (typeof arango !== "undefined") {
-  return return main();
+  return main();
 }
