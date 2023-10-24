@@ -1,5 +1,5 @@
 function main () {
-  return require("./simple/test").test({
+  require("./simple/test").test({
     outputXml: true,
     xmlDirectory: "xml",
 
@@ -13,6 +13,7 @@ function main () {
     crud: true,
     crudSearch: true
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
   process.exit(main());

@@ -264,8 +264,7 @@ exports.test = function (global) {
       return { results: out, errors };
     };
 
-    run(tests, options);
-    return global.returnValue;
+    return run(tests, options);
   }; // testrunner
 
   const toJUnit = function (out, prefix, postfix) {

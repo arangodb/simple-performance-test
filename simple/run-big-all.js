@@ -1,5 +1,5 @@
 function main () {
-  return require("./simple/test").test({
+  require("./simple/test").test({
     outputCsv: true,
     big: true,
 
@@ -13,6 +13,7 @@ function main () {
     crudSearch: true,
     subqueryTests: true
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
   process.exit(main());
