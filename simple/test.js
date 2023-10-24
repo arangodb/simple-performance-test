@@ -94,6 +94,7 @@ function toAsciiTable(title, out) {
 };
 
 exports.test = function (global) {
+  global.returnValue = 0;
   global.tiny = global.tiny || false;
   global.small = global.small || false;
   global.medium = global.medium || false;
@@ -134,7 +135,7 @@ exports.test = function (global) {
   const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
 
   print(`Running against version ${serverVersion} ${isEnterprise ? "Enterprise" : ""} ${isCluster ? "Cluster" : ""}`);
-  
+  print(db._version(true));  
   const supportsAnalyzers = !semver.satisfies(serverVersion,
     "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
   const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
@@ -263,7 +264,8 @@ exports.test = function (global) {
       return { results: out, errors };
     };
 
-    return run(tests, options);
+    run(tests, options);
+    return global.returnValue;
   }; // testrunner
 
   const toJUnit = function (out, prefix, postfix) {
@@ -3065,6 +3067,7 @@ exports.test = function (global) {
         output += toAsciiTable(name, testsResults) + "\n\n";
         for (const err of errors) {
           output += `Test ${err.name} failed with exception: ${err.error}\n`;
+          global.returnValue = 1;
         }
 
         if (global.outputXml) {

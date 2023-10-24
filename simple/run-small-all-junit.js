@@ -1,5 +1,5 @@
 function main () {
-  require("./simple/test").test({
+  return require("./simple/test").test({
     outputXml: true,
     xmlDirectory: "xml",
 
@@ -15,5 +15,5 @@ function main () {
   });
 }
 if (typeof arango !== "undefined") {
-  main();
+  return main();
 }
