@@ -258,6 +258,7 @@ exports.test = function (global) {
         } catch (ex) {
           print("exception in test " + test.name + ": " + ex);
           errors.push({ test: test.name, error: ex });
+          global.returnValue = 1;
         }
       } // for i
 
