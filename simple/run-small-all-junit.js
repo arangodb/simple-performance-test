@@ -1,4 +1,5 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     outputXml: true,
     xmlDirectory: "xml",

@@ -1,4 +1,5 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     medium: true,
     oneshardTests: true,

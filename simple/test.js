@@ -94,7 +94,6 @@ function toAsciiTable(title, out) {
 };
 
 exports.test = function (global) {
-  global.returnValue = 0;
   global.tiny = global.tiny || false;
   global.small = global.small || false;
   global.medium = global.medium || false;

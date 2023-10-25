@@ -1,4 +1,5 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     outputCsv: true,
     big: true,
