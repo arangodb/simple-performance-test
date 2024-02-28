@@ -4,15 +4,16 @@ function main () {
     outputCsv: true,
     medium: true,
 
-    documents: true,
-    ioless: true,
-    edges: true,
-    search: true,
-    phrase: true,
-    noMaterializationSearch: true,
-    crud: true,
-    crudSearch: true,
-    subqueryTests: true
+    documents: false,
+    ioless: false,
+    edges: false,
+    search: false,
+    phrase: false,
+    noMaterializationSearch: false,
+    crud: false,
+    crudSearch: false,
+    subqueryTests: false,
+    mditests: true
   });
   return global.returnValue;
 }
