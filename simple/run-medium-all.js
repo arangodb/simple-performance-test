@@ -12,7 +12,8 @@ function main () {
     noMaterializationSearch: true,
     crud: true,
     crudSearch: true,
-    subqueryTests: true
+    subqueryTests: true,
+    mditests: true
   });
   return global.returnValue;
 }

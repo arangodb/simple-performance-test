@@ -11,7 +11,8 @@ function main () {
     phrase: true,
     noMaterializationSearch: true,
     crud: true,
-    crudSearch: true
+    crudSearch: true,
+    mditests: true
   });
   return global.returnValue;
 }

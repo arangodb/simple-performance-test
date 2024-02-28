@@ -12,7 +12,8 @@ function main () {
     search: true,
     phrase: true,
     crud: true,
-    crudSearch: true
+    crudSearch: true,
+    mditests: true
   });
   return global.returnValue;
 }
