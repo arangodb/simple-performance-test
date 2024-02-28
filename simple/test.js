@@ -3033,7 +3033,6 @@ exports.test = function (global) {
       ];
 
       function mdiTest (params) {
-        let myOptimizer = { rules: [] };
         let bindParam = { "@col": params.collection };
         if ("bindParamModifier" in params) {
           params.bindParamModifier(params, bindParam);
@@ -3041,7 +3040,6 @@ exports.test = function (global) {
         db._query(
           params.queryString,
           bindParam,
-          { optimizer: myOptimizer }
         );
       }
 
