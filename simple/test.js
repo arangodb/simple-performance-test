@@ -137,7 +137,7 @@ exports.test = function (global) {
   print(db._version(true));
   const supportsAnalyzers = true;
   const supportsSatelliteGraphs = true;
-  const supportsOnlySplicedSubqueries = false;
+  const supportsOnlySplicedSubqueries = true;
 
   let silent = true;
   const testRunner = function (tests, options) {
