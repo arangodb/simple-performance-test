@@ -3046,15 +3046,55 @@ exports.test = function (global) {
 
       let MdiTests = [
         {
-          name: "aql-mdi-simple",
+          name: "aql-mdi-equal",
           params: {
             func: mdiTest,
             queryString: `
         FOR d IN @@col
-          FILTER d.x >= 0 && d.i == 0
+          FILTER d.x >= 0 && d.y == 0
           RETURN d`
           }
-        }
+        },
+        {
+          name: "aql-mdi-incl-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x <= 100 and d.y >= 50
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-incl-range-equal",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x <= 69 and d.y == 8
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x > 50 and d.y < 47
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-equal-incl-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x == 9 and d.y >= 52
+          RETURN d`
+          }
+        },
       ];
 
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
