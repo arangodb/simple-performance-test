@@ -130,6 +130,7 @@ exports.test = function (global) {
 
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
+  global.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
   const isEnterprise = internal.isEnterprise();
   const isCluster = internal.isCluster();
 
@@ -3137,7 +3138,7 @@ exports.test = function (global) {
           setup: function (params) {
             db._drop(params.collection);
             let col = db._create(params.collection);
-            let type = (false) ? "zkd" : "mdi";
+            let type = (global.zkdMdiRenamed) ? "mdi":"zkd";
             col.ensureIndex({type: type, name: "mdiIndex", fields: ["x", "y"], fieldValueTypes: "double"});
             db._query(`
               FOR i IN 0..${params.collectionSize}
