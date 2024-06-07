@@ -2806,7 +2806,6 @@ exports.test = function (global) {
             setup: function (params) {
               drop(params);
               create(params);
->>>>>>> d6004aa39d125021f5394613457ed10113f9f783
             },
             teardown: drop
           }
