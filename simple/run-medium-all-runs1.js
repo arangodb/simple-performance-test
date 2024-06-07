@@ -1,4 +1,5 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     outputCsv: true,
     medium: true,
@@ -12,9 +13,11 @@ function main () {
     noMaterializationSearch: true,
     crud: true,
     crudSearch: true,
-    subqueryTests: true
+    subqueryTests: true,
+    mditests: true
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
-  main();
+  process.exit(main());
 }

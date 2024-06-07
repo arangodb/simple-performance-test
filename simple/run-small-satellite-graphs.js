@@ -1,9 +1,11 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     small: true,
     satelliteGraphTests: true
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
-  main();
+  process.exit(main());
 }

@@ -1,10 +1,12 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     small: true,
 
    documents: true
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
-  main();
+  process.exit(main());
 }
