@@ -6,6 +6,7 @@ function main () {
     small: false,
 
     documents: true,
+    indexes: true,
     ioless: true,
     edges: true,
     search: true,

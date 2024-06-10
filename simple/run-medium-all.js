@@ -5,6 +5,7 @@ function main () {
     medium: true,
 
     documents: true,
+    indexes: true,
     ioless: true,
     edges: true,
     search: true,

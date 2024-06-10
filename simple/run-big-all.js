@@ -5,6 +5,7 @@ function main () {
     big: true,
 
     documents: true,
+    indexes: true,
     ioless: true,
     edges: true,
     search: true,
