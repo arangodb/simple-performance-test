@@ -1,12 +1,10 @@
 function main () {
-  global.returnValue = 0;
   require("./simple/test").test({
     outputCsv: true,
-    tiny: true,
-    crud: true
+    big: true,
+    indexes: true
   });
-  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
-  process.exit(main());
+  main();
 }

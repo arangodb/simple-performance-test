@@ -1,10 +1,12 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     outputCsv: true,
     tiny: true,
     small: false,
 
     documents: true,
+    indexes: true,
     ioless: true,
     edges: true,
     search: true,
@@ -12,9 +14,11 @@ function main () {
     noMaterializationSearch: true,
     crud: true,
     crudSearch: true,
-    subqueryTests: true
+    subqueryTests: true,
+    mditests: true
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
-  main();
+  process.exit(main());
 }

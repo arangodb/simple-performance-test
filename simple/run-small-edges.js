@@ -1,4 +1,5 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     outputCsv: true,
     small: true,
@@ -10,7 +11,8 @@ function main () {
     crud: false,
     crudSearch: false
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
-  main();
+  process.exit(main());
 }
