@@ -1,6 +1,6 @@
 "use strict";
-
 const internal = require("internal");
+const arango = internal.arango;
 const AsciiTable = require("ascii-table");
 const fs = require("fs");
 const semver = require("semver");
@@ -8,15 +8,15 @@ const _ = require("lodash");
 const db = require("org/arangodb").db;
 require("internal").load("simple/BIGvertices.js");
 
-function sum(values) {
+function sum (values) {
   if (values.length > 1) {
     return values.reduce((previous, current) => previous + current);
   } else {
     return values[0];
   }
-};
+}
 
-function calc(values, options) {
+function calc (values, options) {
   values.sort((a, b) => a - b);
 
   const removeFromResult = parseInt(options.removeFromResult) || 0;
@@ -49,9 +49,9 @@ function calc(values, options) {
       : (values[n - 1] - values[0]) / (sum(values) / n),
     stddev: stddev(values)
   };
-};
+}
 
-function toAsciiTable(title, out) {
+function toAsciiTable (title, out) {
   var table = new AsciiTable(title);
   table.
     setHeading(
@@ -92,7 +92,7 @@ function toAsciiTable(title, out) {
   }
 
   return table.toString();
-};
+}
 
 exports.test = function (global) {
   global.tiny = global.tiny || false;
@@ -106,6 +106,7 @@ exports.test = function (global) {
   global.search = global.search || false;
   global.phrase = global.phrase || false;
   global.noMaterializationSearch = global.noMaterializationSearch || false;
+  global.indexes = global.indexes || false;
   global.crud = global.crud || false;
   global.crudSearch = global.crudSearch || false;
   global.subqueryTests = global.subqueryTests || false;
@@ -128,18 +129,18 @@ exports.test = function (global) {
 
   const time = internal.time;
   const print = internal.print;
-  
+
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
-  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0]
+  const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
+  global.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
   const isEnterprise = internal.isEnterprise();
-  const isCluster = semver.satisfies(serverVersion, "<3.5.0") ? require("@arangodb/cluster").isCluster() : internal.isCluster();
+  const isCluster = internal.isCluster();
 
   print(`Running against version ${serverVersion} ${isEnterprise ? "Enterprise" : ""} ${isCluster ? "Cluster" : ""}`);
-  
-  const supportsAnalyzers = !semver.satisfies(serverVersion,
-    "3.5.0-rc.1 || 3.5.0-rc.2 || 3.5.0-rc.3");
-  const supportsSatelliteGraphs = semver.satisfies(serverVersion, ">=3.7.0-devel");
-  const supportsOnlySplicedSubqueries = semver.satisfies(serverVersion, ">=3.9");
+  print(db._version(true));
+  const supportsAnalyzers = true;
+  const supportsSatelliteGraphs = true;
+  const supportsOnlySplicedSubqueries = true;
 
   let silent = true;
   const testRunner = function (tests, options) {
@@ -150,7 +151,7 @@ exports.test = function (global) {
         params.collectionSize = collection.size;
       }
       params.scale = options.scale;
-      if (options.hasOwnProperty('iterations')) {
+      if (options.hasOwnProperty("iterations")) {
         params.iterations = options.iterations;
       }
       return params;
@@ -162,10 +163,9 @@ exports.test = function (global) {
       if (typeof params.setupEachCall === "function") {
         params.setupEachCall(params);
       }
-      
       test.params.func(params);
       const end = time();
-      
+
       if (typeof params.teardownEachCall === "function") {
         params.teardownEachCall(params);
       }
@@ -174,12 +174,10 @@ exports.test = function (global) {
 
     const measure = function (test, collection, options) {
       let results = [];
-
       const runs = options.runs > 0 ? options.runs : 1;
 
       for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
-
         if (typeof options.setup === "function") {
           options.setup(params);
         }
@@ -212,7 +210,6 @@ exports.test = function (global) {
     let run = function (tests, options) {
       let out = [];
       let errors = [];
-
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
         try {
@@ -224,7 +221,6 @@ exports.test = function (global) {
             print("skipping legacy test " + test.name);
           } else {
             print("running test " + test.name);
-
             for (let j = 0; j < options.collections.length; ++j) {
               let collection = options.collections[j];
 
@@ -242,7 +238,7 @@ exports.test = function (global) {
                 avg: stats.avg.toFixed(options.digits),
                 stddev: stats.stddev.toFixed(options.digits),
                 med: stats.med.toFixed(options.digits),
-                total: (endTotal - startTotal).toFixed(options.digits),
+                total: (endTotal - startTotal).toFixed(options.digits)
               };
               if (collection !== null) {
                 result.collectionLabel = collection.label;
@@ -256,8 +252,9 @@ exports.test = function (global) {
             } // for j
           }
         } catch (ex) {
-          print("exception in test " + test.name + ": " + ex);
+          print("exception in test " + test.name + ": " + ex + "\n" + String(ex.stack));
           errors.push({ test: test.name, error: ex });
+          global.returnValue = 1;
         }
       } // for i
 
@@ -270,11 +267,11 @@ exports.test = function (global) {
   const toJUnit = function (out, prefix, postfix) {
     prefix = prefix || "";
     postfix = postfix || "";
-  
+
     for (let i = 0; i < out.length; ++i) {
       let test = out[i];
       let name = prefix + test.name + postfix;
-  
+
       fs.writeFileSync(
         fs.join(global.xmlDirectory, `pref-${name}.xml`),
         `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
@@ -563,7 +560,6 @@ exports.test = function (global) {
           edges: db[edgesCollectionName] };
       }
 
-
       print("Creating community graph");
       let gc = createCommunityGraph("comm");
 
@@ -707,7 +703,7 @@ exports.test = function (global) {
         let lowCount = 1000;
 
         for (let i = 0; i < n; ++i) {
-          if (i % lowCount == 0) {
+          if (i % lowCount === 0) {
             // add some really low frequent phrase
             batch.push({
               _key: "testPhrase" + i,
@@ -766,11 +762,10 @@ exports.test = function (global) {
           name: "v_stored_values" + n,
           collections: ["values" + n],
           analyzers: ["identity"],
-          storedValues: semver.satisfies(serverVersion, "<3.7.0") ?
-                        ["value2", ["value1", "value3"]] :
-                        (semver.satisfies(serverVersion, "<3.7.1") ?
-                        [["value2"], ["value1", "value3"]] :
-                        [{ fields:["value2"]}, {fields:["value1", "value3"]}])
+          storedValues: [
+            { fields: ["value2"]},
+            { fields: ["value1", "value3"]}
+          ]
         };
         createArangoSearch(params);
       }
@@ -827,7 +822,7 @@ exports.test = function (global) {
       for (let i = 0; i < docSize; ++i) {
         doc["value" + i] = i;
       }
-      
+
       const batchSize = params.batchSize;
       if (batchSize) {
         // perform babies operations
@@ -843,6 +838,62 @@ exports.test = function (global) {
         for (let i = 0; i < n; ++i) {
           doc._key = "test" + i;
           c.insert(doc);
+        }
+      }
+    },
+    
+    // /////////////////////////////////////////////////////////////////////////////
+    // indexes tests
+    // /////////////////////////////////////////////////////////////////////////////
+
+    insertIndexOne = function (params) {
+      let c = db._collection(params.collection),
+        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+        
+      // perform small batch document operations
+      const batchSize = params.batchSize || 100;
+      let docs = [];
+      if (params.type === "string") {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: "testmann1234" + i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
+        }
+      } else {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
+        }
+      }
+    },
+    
+    insertIndexTwo = function (params) {
+      let c = db._collection(params.collection),
+        n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
+        
+      // perform small batch document operations
+      const batchSize = params.batchSize || 100;
+      let docs = [];
+      if (params.type === "string") {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: "testmann1234" + i, value2: "testmannabc" + i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
+        }
+      } else {
+        for (let i = 0; i < n; ++i) {
+          docs.push({ value1: i, value2: i });
+          if (docs.length === batchSize) {
+            c.insert(docs);
+            docs = [];
+          }
         }
       }
     },
@@ -932,7 +983,7 @@ exports.test = function (global) {
       }
     },
 
-    /* any is non-deterministic by design. 
+    /* any is non-deterministic by design.
      * it has a random performance and thus is not useful in performance tests
     anyCrud = function (params) {
       let c = db._collection(params.collection);
@@ -957,8 +1008,7 @@ exports.test = function (global) {
     traversalProjections = function(params) {
       // Note that depth 8 is good for all three sizes small (6), medium (7)
       // and big (8). Depending on the size, we create a different tree.
-      let l = db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree"
-                   RETURN v.data`, {}, {}, {silent}).toArray();
+      db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree" RETURN v.data`, {}, {}, {silent});
     },
 
     outbound = function (params) {
@@ -1274,12 +1324,12 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     returnConst = function (params) {
       db._query(
         "FOR c IN @@c RETURN 1",
         {
-          "@c": params.collection,
+          "@c": params.collection
         },
         {},
         { silent }
@@ -1329,18 +1379,18 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     sortDoubles = function (params) {
       db._query(
         "FOR c IN @@c SORT c.value5 * 1.1 RETURN c.value5",
         {
-          "@c": params.collection,
+          "@c": params.collection
         },
         {},
         { silent }
       );
     },
-    
+
     sortIntegers = function (params) {
       db._query(
         "FOR c IN @@c LET value = c.value5 >= @max ? @max : c.value5 SORT value RETURN value",
@@ -1391,7 +1441,7 @@ exports.test = function (global) {
         { silent }
       );
     },
-    
+
     filterLimit = function (params) {
       let op = "==";
       let offset = 0;
@@ -1562,7 +1612,7 @@ exports.test = function (global) {
 
     justCollect = function (params) {
       const gcd = function (a, b) {
-        while (b != 0) {
+        while (b !== 0) {
           const t = b;
           b = a % b;
           a = t;
@@ -1575,8 +1625,8 @@ exports.test = function (global) {
       // i'd like to avoid any sort of rand() to improve the comparability of
       // runs slightly.
       const n = params.iterations;
-      let q = Math.floor(n/2) + 1;
-      while (gcd(n, q) != 1) {
+      let q = Math.floor(n / 2) + 1;
+      while (gcd(n, q) !== 1) {
         ++q;
       }
 
@@ -1584,17 +1634,17 @@ exports.test = function (global) {
         FOR i IN 1..@iterations
           LET k = (i * @q) % @n
           COLLECT x = k % @mod
-          ${params.count ? 'WITH COUNT INTO cnt' : ''}
+          ${params.count ? "WITH COUNT INTO cnt" : ""}
             OPTIONS { method: @method }
-          ${params.sortNull ? 'SORT null' : ''}
-          RETURN ${params.count ? '[x, cnt]' : 'x'}
+          ${params.sortNull ? "SORT null" : ""}
+          RETURN ${params.count ? "[x, cnt]" : "x"}
       `;
       // Note that n == iterations
       const bind = {
         iterations: params.iterations,
         method: params.method,
         q,
-        n,
+        n
       };
       if (params.div) {
         bind.mod = Math.floor(params.iterations / params.div);
@@ -2008,941 +2058,1060 @@ exports.test = function (global) {
 
     main = function () {
       let documentTests = [
-          {
-            name: "aql-isarray-const",
-            params: {
-              func: passthru,
-              name: "IS_ARRAY",
-              values: numericSequence(2000)
-            }
-          },
-          {
-            name: "aql-length-const",
-            params: {
-              func: passthru,
-              name: "LENGTH",
-              values: numericSequence(2000)
-            }
-          },
-          {
-            name: "aql-min-const",
-            params: {
-              func: passthru,
-              name: "MIN",
-              values: numericSequence(2000)
-            }
-          },
-          {
-            name: "aql-min-const-large",
-            params: {
-              func: passthru,
-              name: "MIN",
-              values: numericSequence(2000, 1000000000)
-            }
-          },
-          {
-            name: "aql-min-const-double",
-            params: {
-              func: passthru,
-              name: "MIN",
-              values: numericSequence(2000, 1234.567)
-            }
-          },
-          {
-            name: "aql-unique-const-restricted",
-            params: {
-              func: passthru,
-              name: "UNIQUE",
-              values: numericSequence(500)
-            }
-          },
-          {
-            name: "aql-collect-number",
-            params: { func: collect, attr: "value7", count: false }
-          },
-          {
-            name: "aql-collect-string",
-            params: { func: collect, attr: "value8", count: false }
-          },
-          {
-            name: "aql-collect-count-number",
-            params: { func: collect, attr: "value7", count: true }
-          },
-          {
-            name: "aql-collect-count-string",
-            params: { func: collect, attr: "value8", count: true }
-          },
-          {
-            name: "aql-collect-count-only",
-            params: { func: collectCountOnly }
-          },
-          {
-            name: "aql-collect-count-only-aggregator",
-            params: { func: collectCountOnly, explicitAggregator: true }
-          },
-          {
-            name: "aql-subquery",
-            params: { func: subquery, attr: "value1" }
-          },
-          {
-            name: "aql-concat",
-            params: { func: concat, attr: "value5" }
-          },
-          {
-            name: "aql-merge-number",
-            params: { func: merge, attr: "value5" }
-          },
-          {
-            name: "aql-merge-string",
-            params: { func: merge, attr: "value6" }
-          },
-          {
-            name: "aql-keep",
-            params: { func: keep, attr: "value5" }
-          },
-          {
-            name: "aql-unset",
-            params: { func: unset, attr: "value5" }
-          },
-          {
-            name: "aql-attributes",
-            params: { func: attributes }
-          },
-          {
-            name: "aql-values",
-            params: { func: values }
-          },
-          {
-            name: "aql-has",
-            params: { func: has, attr: "value5" }
-          },
-          {
-            name: "aql-md5",
-            params: { func: md5, attr: "value2" }
-          },
-          {
-            name: "aql-sha1",
-            params: { func: sha1, attr: "value2" }
-          },
-          {
-            name: "aql-min-number",
-            params: { func: min, attr: "value5" }
-          },
-          {
-            name: "aql-min-string",
-            params: { func: min, attr: "value6" }
-          },
-          {
-            name: "aql-max-number",
-            params: { func: max, attr: "value5" }
-          },
-          {
-            name: "aql-max-string",
-            params: { func: max, attr: "value6" }
-          },
-          {
-            name: "aql-sort-heap-number",
-            params: { func: sortHeap, attr: "value5" }
-          },
-          {
-            name: "aql-sort-heap-string",
-            params: { func: sortHeap, attr: "value6" }
-          },
-          {
-            name: "aql-sort-all-number",
-            params: { func: sortAll, attr: "value5" }
-          },
-          {
-            name: "aql-sort-all-string",
-            params: { func: sortAll, attr: "value6" }
-          },
-          {
-            name: "aql-sort-double",
-            params: { func: sortDoubles },
-          },
-          {
-            name: "aql-sort-int1",
-            params: { func: sortIntegers, max: 100  },
-          },
-          {
-            name: "aql-sort-int2",
-            params: { func: sortIntegers, max: 10000  },
-          },
-          {
-            name: "aql-sort-int4",
-            params: { func: sortIntegers, max: 1000000000  },
-          },
-          {
-            name: "aql-filter-number",
-            params: { func: filter, attr: "value5", value: 333 }
-          },
-          {
-            name: "aql-filter-string",
-            params: { func: filter, attr: "value6", value: "test333" }
-          },
-          {
-            name: "aql-filter-limit",
-            params: { func: filterLimit, attr: "value6", value: "test111", limit: 100 }
-          },
-          {
-            name: "aql-filter-limit-index",
-            params: { func: filterLimit, attr: "value2", value: "test111", limit: 100 }
-          },
-          {
-            name: "aql-filter-limit-false",
-            params: { func: filterLimit, attr: "value5", op: "==", value: 99999999999999, limit: 1 }
-          },
-          {
-            name: "aql-filter-limit-true",
-            params: { func: filterLimit, attr: "value5", op: "!=", value: 99999999999999, offset: 78945, limit: 10312 }
-          },
-          {
-            name: "aql-extract-doc",
-            params: { func: extract }
-          },
-          {
-            name: "aql-extract-id",
-            params: { func: extract, attr: "_id" }
-          },
-          {
-            name: "aql-extract-key",
-            params: { func: extract, attr: "_key" }
-          },
-          {
-            name: "aql-extract-number",
-            params: { func: extract, attr: "value1" }
-          },
-          {
-            name: "aql-extract-string",
-            params: { func: extract, attr: "value2" }
-          },
-          {
-            name: "aql-extract-number-nonindexed",
-            params: { func: extract, attr: "value5" }
-          },
-          {
-            name: "aql-extract-string-nonindexed",
-            params: { func: extract, attr: "value6" }
-          },
-          {
-            name: "aql-join-key",
-            params: { func: join, attr: "_key" }
-          },
-          {
-            name: "aql-join-id",
-            params: { func: join, attr: "_id" }
-          },
-          {
-            name: "aql-join-hash-number",
-            params: { func: join, attr: "value1" }
-          },
-          {
-            name: "aql-join-hash-string",
-            params: { func: join, attr: "value2" }
-          },
-          {
-            name: "aql-lookup-key",
-            params: { func: lookup, attr: "_key", n: 10000, numeric: false }
-          },
-          {
-            name: "aql-lookup-hash-number",
-            params: { func: lookup, attr: "value1", n: 10000, numeric: true }
-          },
-          {
-            name: "aql-lookup-hash-string",
-            params: { func: lookup, attr: "value2", n: 10000, numeric: false }
-          },
-          {
-            name: "aql-in-key",
-            params: { func: lookupIn, attr: "_key", n: 10000, numeric: false }
-          },
-          {
-            name: "aql-in-hash-number",
-            params: { func: lookupIn, attr: "value1", n: 10000, numeric: true }
-          },
-          {
-            name: "aql-in-hash-string",
-            params: { func: lookupIn, attr: "value2", n: 10000, numeric: false }
-          },
-          {
-            name: "aql-return-const",
-            params: { func: returnConst }
-          },
-          {
-            name: "aql-skip-index",
-            params: { func: skipIndex, attr: "value1", limit: 10 }
-          },
-          {
-            name: "aql-skip-docs",
-            params: { func: skipDocs, attr: "value1", limit: 10 }
-          },
-          {
-            name: "aql-ranges-inlined",
-            params: { func: rangesSubquery, optimize: true, distinct: false }
-          },
-          {
-            name: "aql-ranges-subquery",
-            params: { func: rangesSubquery, optimize: false, distinct: false }
-          },
-          {
-            name: "aql-ranges-subquery-distinct",
-            params: { func: rangesSubquery, optimize: false, distinct: true }
-          },
-        ],
-        // Tests without collections/IO, to focus on aql block performance.
-        iolessTests = [
-          {
-            name: "collect-unique-sorted",
-            params: { func: justCollect, method: "sorted" }
-          },
-          {
-            name: "collect-unique-hash",
-            params: { func: justCollect, method: "hash" }
-          },
-          {
-            name: "collect-unique-hash-nosort",
-            params: { func: justCollect, method: "hash", sortNull: true }
-          },
-          {
-            name: "collect-non-unique-sorted",
-            params: { func: justCollect, method: "sorted", div: 100 }
-          },
-          {
-            name: "collect-non-unique-hash",
-            params: { func: justCollect, method: "hash", div: 100 }
-          },
-          {
-            name: "collect-non-unique-hash-nosort",
-            params: { func: justCollect, method: "hash", div: 100, sortNull: true }
-          },
-          
-          {
-            name: "collect-count-unique-sorted",
-            params: { func: justCollect, method: "sorted", count: true }
-          },
-          {
-            name: "collect-count-unique-hash",
-            params: { func: justCollect, method: "hash", count: true }
-          },
-          {
-            name: "collect-count-unique-hash-nosort",
-            params: { func: justCollect, method: "hash", sortNull: true, count: true }
-          },
-          {
-            name: "collect-count-non-unique-sorted",
-            params: { func: justCollect, method: "sorted", div: 100, count: true }
-          },
-          {
-            name: "collect-count-non-unique-hash",
-            params: { func: justCollect, method: "hash", div: 100, count: true }
-          },
-          {
-            name: "collect-count-non-unique-hash-nosort",
-            params: { func: justCollect, method: "hash", div: 100, sortNull: true, count: true }
-          },
-        ],
-        edgeTests = [
-          {
-            name: "traversal-projections",
-            params: { func: traversalProjections }
-          },
-          {
-            name: "traversal-outbound-1",
-            params: { func: outbound, minDepth: 1, maxDepth: 1, loops: 1000 }
-          },
-          {
-            name: "traversal-outbound-5",
-            params: { func: outbound, minDepth: 1, maxDepth: 5 }
-          },
-          {
-            name: "traversal-any-1",
-            params: { func: any, minDepth: 1, maxDepth: 1 }
-          },
-          {
-            name: "traversal-any-5",
-            params: { func: any, minDepth: 1, maxDepth: 5 }
-          },
-          {
-            name: "traversal-out-path-5",
-            params: { func: outboundPath, minDepth: 1, maxDepth: 5 }
-          },
-          {
-            name: "traversal-any-path-5",
-            params: { func: anyPath, minDepth: 1, maxDepth: 5 }
-          },
-          {
-            name: "shortest-outbound",
-            params: { func: shortestOutbound }
-          },
-          {
-            name: "shortest-any",
-            params: { func: shortestAny }
-          },
-          {
-            name: "subquery-exists-path",
-            params: { func: subqueryExistsPath }
-          },
-          {
-            name: "two-step-traversal-group-collect",
-            params: { func: twoStepTraversalGroupByCollect }
-          },
-          {
-            name: "two-step-traversal-group-by-subquery",
-            params: { func: twoStepTraversalGroupBySubquery }
+        {
+          name: "aql-isarray-const",
+          params: {
+            func: passthru,
+            name: "IS_ARRAY",
+            values: numericSequence(2000)
           }
-        ],
-        arangosearchTests = [
-          {
-            name: "ars-aql-key-lookup",
-            params: {
-              func: arangosearchLookupByAttribute,
-              attr: "_key",
-              value: "test4242"
-            }
-          },
-          {
-            name: "ars-aql-range-lookup-operator",
-            params: {
-              func: arangosearchRangeLookupOperator,
-              attr: "_key",
-              minValue: "test42",
-              includeMin: true,
-              maxValue: "test4242",
-              includeMax: true
-            }
-          },
-          {
-            name: "ars-aql-range-lookup-function",
-            version: ">= 3.4.5",
-            params: {
-              func: arangosearchRangeLookupFunc,
-              attr: "_key",
-              minValue: "test36",
-              includeMin: true,
-              maxValue: "test4242",
-              includeMax: true
-            }
-          },
-          {
-            name: "ars-aql-basic-conjunction",
-            params: {
-              func: arangosearchBasicConjunction,
-              attr0: "value8",
-              value0: "test42",
-              attr1: "value1",
-              value1: 999990
-            }
-          },
-          {
-            name: "ars-aql-basic-disjunction",
-            params: {
-              func: arangosearchBasicDisjunction,
-              attr0: "value1",
-              value0: 5680,
-              attr1: "value8",
-              value1: "test9991"
-            }
-          },
-          {
-            name: "ars-aql-disjunction",
-            params: {
-              func: arangosearchDisjunction,
-              attr: "value8",
-              value: [
-                "a",
-                "122",
-                "test100000",
-                "test9", 
-                "test402",
-                "test37300",
-                "test76",
-                "test98",
-                "test200000000",
-                "invalid", 
-                "test1", 
-                "test12345",
-                "test8",
-                12, 
-                "test666", 
-                "test4242",
-                "test42424", 
-                "test7",
-                "test042",
-                "test@"
-                ]
-            }
-          },
-          {
-            name: "ars-aql-prefix-low",
-            params: {
-              func: arangosearchPrefix,
-              attr: "value2",
-              value: "test420"
-            }
-          },
-          {
-            name: "ars-aql-prefix-high",
-            params: { func: arangosearchPrefix, attr: "value2", value: "test4" }
-          },
-          {
-            name: "ars-aql-collect-count",
-            params: {
-              func: arangosearchCountOnView
-            }
-          },
-          {
-            name: "ars-aql-collect-count-limited",
-            params: {
-              func: arangosearchCountOnViewLimited,
-              offset: 100,
-              limit: 100
-            }
-          },
-          {
-            name: "ars-aql-collect-count-searched",
-            params: {
-              func: arangosearchCountOnViewSearched,
-              attr: "value8",
-              value: "test42"
-            }
+        },
+        {
+          name: "aql-length-const",
+          params: {
+            func: passthru,
+            name: "LENGTH",
+            values: numericSequence(2000)
           }
-        ],
-        arangosearchPhrasesTests = [
-          {
-            name: "ars-aql-phrase-minmatch-low",
-            analyzers: true,
-            params: {
-              func: arangosearchMinMatch2of3,
-              attr1: "value2",
-              value1: "nomatch",
-              value2: "low",
-              value3: "phrase"
-            }
-          },
-          {
-            name: "ars-aql-phrase-minmatch-high",
-            analyzers: true,
-            params: {
-              func: arangosearchMinMatch2of3,
-              attr1: "value2",
-              value1: "brown",
-              value2: "tree",
-              value3: "nomatch"
-            }
-          },
-          {
-            name: "ars-aql-phrase-score-tfidf-low",
-            analyzers: true,
-            params: {
-              func: arangosearchScoring,
-              attr: "value2",
-              value: "wheel",
-              scorer: "TFIDF"
-            }
-          },
-          {
-            name: "ars-aql-phrase-score-bm25-low",
-            analyzers: true,
-            params: {
-              func: arangosearchScoring,
-              attr: "value2",
-              value: "wheel",
-              scorer: "BM25"
-            }
-          },
-          {
-            name: "ars-aql-phrase-score-tfidf-high",
-            analyzers: true,
-            params: {
-              func: arangosearchScoring,
-              attr: "value2",
-              value: "brown",
-              scorer: "TFIDF"
-            }
-          },
-          {
-            name: "ars-aql-phrase-score-bm25-high",
-            analyzers: true,
-            params: {
-              func: arangosearchScoring,
-              attr: "value2",
-              value: "brown",
-              scorer: "BM25"
-            }
-          },
-          {
-            name: "ars-aql-phrase-low",
-            analyzers: true,
-            params: {
-              func: arangosearchPhrase,
-              attr: "value2",
-              value: "Low Phrase"
-            }
-          },
-          {
-            name: "ars-aql-phrase-high",
-            analyzers: true,
-            params: {
-              func: arangosearchPhrase,
-              attr: "value2",
-              value: "Quick Red"
-            }
+        },
+        {
+          name: "aql-min-const",
+          params: {
+            func: passthru,
+            name: "MIN",
+            values: numericSequence(2000)
           }
-        ],
-        arangosearchNoMaterializationTests = [
-          {
-            name: "ars-no-materialization-without-access-off",
-            params: {
-              func: arangosearchNoMaterializationWithoutAccessOff
-            }
-          },
-          {
-            name: "ars-no-materialization-without-access-on",
-            params: {
-              func: arangosearchNoMaterializationWithoutAccessOn
-            }
-          },
-          {
-            name: "ars-no-materialization-with-return-off",
-            params: {
-              func: arangosearchNoMaterializationWithReturnOff,
-              attr: "value1"
-            }
-          },
-          {
-            name: "ars-no-materialization-with-return-on",
-            params: {
-              func: arangosearchNoMaterializationWithReturnOn,
-              attr: "value1"
-            }
-          },
-          {
-            name: "ars-no-materialization-with-sort-off",
-            params: {
-              func: arangosearchNoMaterializationWithSortOff,
-              attr0: "value1",
-              attr1: "value2",
-              attr2: "value3"
-            }
-          },
-          {
-            name: "ars-no-materialization-with-sort-on",
-            params: {
-              func: arangosearchNoMaterializationWithSortOn,
-              attr0: "value1",
-              attr1: "value2",
-              attr2: "value3"
-            }
-          },
-          {
-            name: "ars-no-materialization-with-sort-and-limit-off",
-            params: {
-              func: arangosearchNoMaterializationWithSortAndLimitOff,
-              attr0: "value1",
-              attr1: "value2",
-              attr2: "value3"
-            }
-          },
-          {
-            name: "ars-no-materialization-with-sort-and-limit-on",
-            params: {
-              func: arangosearchNoMaterializationWithSortAndLimitOn,
-              attr0: "value1",
-              attr1: "value2",
-              attr2: "value3"
-            }
+        },
+        {
+          name: "aql-min-const-large",
+          params: {
+            func: passthru,
+            name: "MIN",
+            values: numericSequence(2000, 1000000000)
           }
-        ],
-        crudTests = [
-          {
-            name: "crud-insert",
-            params: {
-              func: insert,
-              setup: function (params) {
-                drop(params);
-                create(params);
-              },
-              teardown: drop
-            }
-          },
-          {
-            name: "crud-insert-babies",
-            params: {
-              func: insert,
-              setup: function (params) {
-                drop(params);
-                create(params);
-              },
-              teardown: drop,
-              batchSize: 100
-            }
-          },
-          {
-            name: "crud-insert-size4",
-            params: {
-              func: insert,
-              setup: function (params) {
-                drop(params);
-                create(params);
-              },
-              teardown: drop,
-              docSize: 4
-            }
-          },
-          {
-            name: "crud-insert-size4-babies",
-            params: {
-              func: insert,
-              setup: function (params) {
-                drop(params);
-                create(params);
-              },
-              teardown: drop,
-              docSize: 4,
-              batchSize: 100
-            }
-          },
-          {
-            name: "crud-update",
-            params: {
-              func: update,
-              setupEachCall: function (params) {
-                drop(params);
-                create(params);
-                fill(params);
-              },
-              teardown: drop
+        },
+        {
+          name: "aql-min-const-double",
+          params: {
+            func: passthru,
+            name: "MIN",
+            values: numericSequence(2000, 1234.567)
+          }
+        },
+        {
+          name: "aql-unique-const-restricted",
+          params: {
+            func: passthru,
+            name: "UNIQUE",
+            values: numericSequence(500)
+          }
+        },
+        {
+          name: "aql-collect-number",
+          params: { func: collect, attr: "value7", count: false }
+        },
+        {
+          name: "aql-collect-string",
+          params: { func: collect, attr: "value8", count: false }
+        },
+        {
+          name: "aql-collect-count-number",
+          params: { func: collect, attr: "value7", count: true }
+        },
+        {
+          name: "aql-collect-count-string",
+          params: { func: collect, attr: "value8", count: true }
+        },
+        {
+          name: "aql-collect-count-only",
+          params: { func: collectCountOnly }
+        },
+        {
+          name: "aql-collect-count-only-aggregator",
+          params: { func: collectCountOnly, explicitAggregator: true }
+        },
+        {
+          name: "aql-subquery",
+          params: { func: subquery, attr: "value1" }
+        },
+        {
+          name: "aql-concat",
+          params: { func: concat, attr: "value5" }
+        },
+        {
+          name: "aql-merge-number",
+          params: { func: merge, attr: "value5" }
+        },
+        {
+          name: "aql-merge-string",
+          params: { func: merge, attr: "value6" }
+        },
+        {
+          name: "aql-keep",
+          params: { func: keep, attr: "value5" }
+        },
+        {
+          name: "aql-unset",
+          params: { func: unset, attr: "value5" }
+        },
+        {
+          name: "aql-attributes",
+          params: { func: attributes }
+        },
+        {
+          name: "aql-values",
+          params: { func: values }
+        },
+        {
+          name: "aql-has",
+          params: { func: has, attr: "value5" }
+        },
+        {
+          name: "aql-md5",
+          params: { func: md5, attr: "value2" }
+        },
+        {
+          name: "aql-sha1",
+          params: { func: sha1, attr: "value2" }
+        },
+        {
+          name: "aql-min-number",
+          params: { func: min, attr: "value5" }
+        },
+        {
+          name: "aql-min-string",
+          params: { func: min, attr: "value6" }
+        },
+        {
+          name: "aql-max-number",
+          params: { func: max, attr: "value5" }
+        },
+        {
+          name: "aql-max-string",
+          params: { func: max, attr: "value6" }
+        },
+        {
+          name: "aql-sort-heap-number",
+          params: { func: sortHeap, attr: "value5" }
+        },
+        {
+          name: "aql-sort-heap-string",
+          params: { func: sortHeap, attr: "value6" }
+        },
+        {
+          name: "aql-sort-all-number",
+          params: { func: sortAll, attr: "value5" }
+        },
+        {
+          name: "aql-sort-all-string",
+          params: { func: sortAll, attr: "value6" }
+        },
+        {
+          name: "aql-sort-double",
+          params: { func: sortDoubles }
+        },
+        {
+          name: "aql-sort-int1",
+          params: { func: sortIntegers, max: 100 }
+        },
+        {
+          name: "aql-sort-int2",
+          params: { func: sortIntegers, max: 10000 }
+        },
+        {
+          name: "aql-sort-int4",
+          params: { func: sortIntegers, max: 1000000000 }
+        },
+        {
+          name: "aql-filter-number",
+          params: { func: filter, attr: "value5", value: 333 }
+        },
+        {
+          name: "aql-filter-string",
+          params: { func: filter, attr: "value6", value: "test333" }
+        },
+        {
+          name: "aql-filter-limit",
+          params: { func: filterLimit, attr: "value6", value: "test111", limit: 100 }
+        },
+        {
+          name: "aql-filter-limit-index",
+          params: { func: filterLimit, attr: "value2", value: "test111", limit: 100 }
+        },
+        {
+          name: "aql-filter-limit-false",
+          params: { func: filterLimit, attr: "value5", op: "==", value: 99999999999999, limit: 1 }
+        },
+        {
+          name: "aql-filter-limit-true",
+          params: { func: filterLimit, attr: "value5", op: "!=", value: 99999999999999, offset: 78945, limit: 10312 }
+        },
+        {
+          name: "aql-extract-doc",
+          params: { func: extract }
+        },
+        {
+          name: "aql-extract-id",
+          params: { func: extract, attr: "_id" }
+        },
+        {
+          name: "aql-extract-key",
+          params: { func: extract, attr: "_key" }
+        },
+        {
+          name: "aql-extract-number",
+          params: { func: extract, attr: "value1" }
+        },
+        {
+          name: "aql-extract-string",
+          params: { func: extract, attr: "value2" }
+        },
+        {
+          name: "aql-extract-number-nonindexed",
+          params: { func: extract, attr: "value5" }
+        },
+        {
+          name: "aql-extract-string-nonindexed",
+          params: { func: extract, attr: "value6" }
+        },
+        {
+          name: "aql-join-key",
+          params: { func: join, attr: "_key" }
+        },
+        {
+          name: "aql-join-id",
+          params: { func: join, attr: "_id" }
+        },
+        {
+          name: "aql-join-hash-number",
+          params: { func: join, attr: "value1" }
+        },
+        {
+          name: "aql-join-hash-string",
+          params: { func: join, attr: "value2" }
+        },
+        {
+          name: "aql-lookup-key",
+          params: { func: lookup, attr: "_key", n: 10000, numeric: false }
+        },
+        {
+          name: "aql-lookup-hash-number",
+          params: { func: lookup, attr: "value1", n: 10000, numeric: true }
+        },
+        {
+          name: "aql-lookup-hash-string",
+          params: { func: lookup, attr: "value2", n: 10000, numeric: false }
+        },
+        {
+          name: "aql-in-key",
+          params: { func: lookupIn, attr: "_key", n: 10000, numeric: false }
+        },
+        {
+          name: "aql-in-hash-number",
+          params: { func: lookupIn, attr: "value1", n: 10000, numeric: true }
+        },
+        {
+          name: "aql-in-hash-string",
+          params: { func: lookupIn, attr: "value2", n: 10000, numeric: false }
+        },
+        {
+          name: "aql-return-const",
+          params: { func: returnConst }
+        },
+        {
+          name: "aql-skip-index",
+          params: { func: skipIndex, attr: "value1", limit: 10 }
+        },
+        {
+          name: "aql-skip-docs",
+          params: { func: skipDocs, attr: "value1", limit: 10 }
+        },
+        {
+          name: "aql-ranges-inlined",
+          params: { func: rangesSubquery, optimize: true, distinct: false }
+        },
+        {
+          name: "aql-ranges-subquery",
+          params: { func: rangesSubquery, optimize: false, distinct: false }
+        },
+        {
+          name: "aql-ranges-subquery-distinct",
+          params: { func: rangesSubquery, optimize: false, distinct: true }
+        }
+      ];
+
+      // tests for index selectivity estimates
+      let indexesTests = [
+        {
+          name: "indexes-insert1-numeric",
+          params: {
+            func: insertIndexOne,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
             },
-            legacy: true
-          },
-          {
-            // crud-update/replace/remove use setupEachCall for the setup
-            // which currently is INSIDE the measured code and therefore
-            // distorts the time measurements.
-            // Since we do not want to modify existing tests we introduce
-            // new tests that fix this (and also use a more efficient setup)
-            // so we maintain comparability, but we should phase out the old
-            // tests eventually.
-            name: "crud-update-single",
-            params: {
-              func: update,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop
-            }
-          },
-          {
-            name: "crud-update-babies",
-            params: {
-              func: update,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop,
-              batchSize: 100
-            }
-          },
-          {
-            name: "crud-replace",
-            params: {
-              func: replace,
-              setupEachCall: function (params) {
-                drop(params);
-                create(params);
-                fill(params);
-              },
-              teardown: drop
+            type: "number",
+            teardown: drop
+          }
+        },
+        {
+          name: "indexes-insert1-numeric-noestimates",
+          params: {
+            func: insertIndexOne,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
             },
-            legacy: true
-          },
-          {
-            name: "crud-replace-single",
-            params: {
-              func: replace,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop
-            }
-          },
-          {
-            name: "crud-replace-babies",
-            params: {
-              func: replace,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop,
-              batchSize: 100
-            }
-          },
-          {
-            name: "crud-remove",
-            params: {
-              func: remove,
-              setupEachCall: function (params) {
-                drop(params);
-                create(params);
-                fill(params);
-              },
-              teardown: drop
+            type: "number",
+            teardown: drop
+          }
+        },
+        {
+          name: "indexes-insert1-string",
+          params: {
+            func: insertIndexOne,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
             },
-            legacy: true
+            type: "string",
+            teardown: drop
+          }
+        },
+        {
+          name: "indexes-insert1-string-noestimates",
+          params: {
+            func: insertIndexOne,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+            },
+            type: "string",
+            teardown: drop
+          }
+        },
+        {
+          name: "indexes-insert2-numeric",
+          params: {
+            func: insertIndexTwo,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] }); 
+            },
+            type: "number",
+            teardown: drop
+          }
+        },
+        {
+          name: "indexes-insert2-numeric-noestimates",
+          params: {
+            func: insertIndexTwo,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false }); 
+            },
+            type: "number",
+            teardown: drop
+          }
+        },
+        {
+          name: "indexes-insert2-string",
+          params: {
+            func: insertIndexTwo,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] }); 
+            },
+            type: "string",
+            teardown: drop
+          }
+        },
+        {
+          name: "indexes-insert2-string-noestimates",
+          params: {
+            func: insertIndexTwo,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false }); 
+            },
+            type: "string",
+            teardown: drop
+          }
+        },
+      ];
+
+      // Tests without collections/IO, to focus on aql block performance.
+      let iolessTests = [
+        {
+          name: "collect-unique-sorted",
+          params: { func: justCollect, method: "sorted" }
+        },
+        {
+          name: "collect-unique-hash",
+          params: { func: justCollect, method: "hash" }
+        },
+        {
+          name: "collect-unique-hash-nosort",
+          params: { func: justCollect, method: "hash", sortNull: true }
+        },
+        {
+          name: "collect-non-unique-sorted",
+          params: { func: justCollect, method: "sorted", div: 100 }
+        },
+        {
+          name: "collect-non-unique-hash",
+          params: { func: justCollect, method: "hash", div: 100 }
+        },
+        {
+          name: "collect-non-unique-hash-nosort",
+          params: { func: justCollect, method: "hash", div: 100, sortNull: true }
+        },
+
+        {
+          name: "collect-count-unique-sorted",
+          params: { func: justCollect, method: "sorted", count: true }
+        },
+        {
+          name: "collect-count-unique-hash",
+          params: { func: justCollect, method: "hash", count: true }
+        },
+        {
+          name: "collect-count-unique-hash-nosort",
+          params: { func: justCollect, method: "hash", sortNull: true, count: true }
+        },
+        {
+          name: "collect-count-non-unique-sorted",
+          params: { func: justCollect, method: "sorted", div: 100, count: true }
+        },
+        {
+          name: "collect-count-non-unique-hash",
+          params: { func: justCollect, method: "hash", div: 100, count: true }
+        },
+        {
+          name: "collect-count-non-unique-hash-nosort",
+          params: { func: justCollect, method: "hash", div: 100, sortNull: true, count: true }
+        }
+      ];
+      let edgeTests = [
+        {
+          name: "traversal-projections",
+          params: { func: traversalProjections }
+        },        
+        {
+          name: "traversal-outbound-1",
+          params: { func: outbound, minDepth: 1, maxDepth: 1, loops: 1000 }
+        },
+        {
+          name: "traversal-outbound-5",
+          params: { func: outbound, minDepth: 1, maxDepth: 5 }
+        },
+        {
+          name: "traversal-any-1",
+          params: { func: any, minDepth: 1, maxDepth: 1 }
+        },
+        {
+          name: "traversal-any-5",
+          params: { func: any, minDepth: 1, maxDepth: 5 }
+        },
+        {
+          name: "traversal-out-path-5",
+          params: { func: outboundPath, minDepth: 1, maxDepth: 5 }
+        },
+        {
+          name: "traversal-any-path-5",
+          params: { func: anyPath, minDepth: 1, maxDepth: 5 }
+        },
+        {
+          name: "shortest-outbound",
+          params: { func: shortestOutbound }
+        },
+        {
+          name: "shortest-any",
+          params: { func: shortestAny }
+        },
+        {
+          name: "subquery-exists-path",
+          params: { func: subqueryExistsPath }
+        },
+        {
+          name: "two-step-traversal-group-collect",
+          params: { func: twoStepTraversalGroupByCollect }
+        },
+        {
+          name: "two-step-traversal-group-by-subquery",
+          params: { func: twoStepTraversalGroupBySubquery }
+        }
+      ];
+      let arangosearchTests = [
+        {
+          name: "ars-aql-key-lookup",
+          params: {
+            func: arangosearchLookupByAttribute,
+            attr: "_key",
+            value: "test4242"
+          }
+        },
+        {
+          name: "ars-aql-range-lookup-operator",
+          params: {
+            func: arangosearchRangeLookupOperator,
+            attr: "_key",
+            minValue: "test42",
+            includeMin: true,
+            maxValue: "test4242",
+            includeMax: true
+          }
+        },
+        {
+          name: "ars-aql-range-lookup-function",
+          params: {
+            func: arangosearchRangeLookupFunc,
+            attr: "_key",
+            minValue: "test36",
+            includeMin: true,
+            maxValue: "test4242",
+            includeMax: true
+          }
+        },
+        {
+          name: "ars-aql-basic-conjunction",
+          params: {
+            func: arangosearchBasicConjunction,
+            attr0: "value8",
+            value0: "test42",
+            attr1: "value1",
+            value1: 999990
+          }
+        },
+        {
+          name: "ars-aql-basic-disjunction",
+          params: {
+            func: arangosearchBasicDisjunction,
+            attr0: "value1",
+            value0: 5680,
+            attr1: "value8",
+            value1: "test9991"
+          }
+        },
+        {
+          name: "ars-aql-disjunction",
+          params: {
+            func: arangosearchDisjunction,
+            attr: "value8",
+            value: [
+              "a",
+              "122",
+              "test100000",
+              "test9",
+              "test402",
+              "test37300",
+              "test76",
+              "test98",
+              "test200000000",
+              "invalid",
+              "test1",
+              "test12345",
+              "test8",
+              12,
+              "test666",
+              "test4242",
+              "test42424",
+              "test7",
+              "test042",
+              "test@"
+            ]
+          }
+        },
+        {
+          name: "ars-aql-prefix-low",
+          params: {
+            func: arangosearchPrefix,
+            attr: "value2",
+            value: "test420"
+          }
+        },
+        {
+          name: "ars-aql-prefix-high",
+          params: { func: arangosearchPrefix, attr: "value2", value: "test4" }
+        },
+        {
+          name: "ars-aql-collect-count",
+          params: {
+            func: arangosearchCountOnView
+          }
+        },
+        {
+          name: "ars-aql-collect-count-limited",
+          params: {
+            func: arangosearchCountOnViewLimited,
+            offset: 100,
+            limit: 100
+          }
+        },
+        {
+          name: "ars-aql-collect-count-searched",
+          params: {
+            func: arangosearchCountOnViewSearched,
+            attr: "value8",
+            value: "test42"
+          }
+        }
+      ];
+      let arangosearchPhrasesTests = [
+        {
+          name: "ars-aql-phrase-minmatch-low",
+          analyzers: true,
+          params: {
+            func: arangosearchMinMatch2of3,
+            attr1: "value2",
+            value1: "nomatch",
+            value2: "low",
+            value3: "phrase"
+          }
+        },
+        {
+          name: "ars-aql-phrase-minmatch-high",
+          analyzers: true,
+          params: {
+            func: arangosearchMinMatch2of3,
+            attr1: "value2",
+            value1: "brown",
+            value2: "tree",
+            value3: "nomatch"
+          }
+        },
+        {
+          name: "ars-aql-phrase-score-tfidf-low",
+          analyzers: true,
+          params: {
+            func: arangosearchScoring,
+            attr: "value2",
+            value: "wheel",
+            scorer: "TFIDF"
+          }
+        },
+        {
+          name: "ars-aql-phrase-score-bm25-low",
+          analyzers: true,
+          params: {
+            func: arangosearchScoring,
+            attr: "value2",
+            value: "wheel",
+            scorer: "BM25"
+          }
+        },
+        {
+          name: "ars-aql-phrase-score-tfidf-high",
+          analyzers: true,
+          params: {
+            func: arangosearchScoring,
+            attr: "value2",
+            value: "brown",
+            scorer: "TFIDF"
+          }
+        },
+        {
+          name: "ars-aql-phrase-score-bm25-high",
+          analyzers: true,
+          params: {
+            func: arangosearchScoring,
+            attr: "value2",
+            value: "brown",
+            scorer: "BM25"
+          }
+        },
+        {
+          name: "ars-aql-phrase-low",
+          analyzers: true,
+          params: {
+            func: arangosearchPhrase,
+            attr: "value2",
+            value: "Low Phrase"
+          }
+        },
+        {
+          name: "ars-aql-phrase-high",
+          analyzers: true,
+          params: {
+            func: arangosearchPhrase,
+            attr: "value2",
+            value: "Quick Red"
+          }
+        }
+      ];
+      let arangosearchNoMaterializationTests = [
+        {
+          name: "ars-no-materialization-without-access-off",
+          params: {
+            func: arangosearchNoMaterializationWithoutAccessOff
+          }
+        },
+        {
+          name: "ars-no-materialization-without-access-on",
+          params: {
+            func: arangosearchNoMaterializationWithoutAccessOn
+          }
+        },
+        {
+          name: "ars-no-materialization-with-return-off",
+          params: {
+            func: arangosearchNoMaterializationWithReturnOff,
+            attr: "value1"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-return-on",
+          params: {
+            func: arangosearchNoMaterializationWithReturnOn,
+            attr: "value1"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-off",
+          params: {
+            func: arangosearchNoMaterializationWithSortOff,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-on",
+          params: {
+            func: arangosearchNoMaterializationWithSortOn,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-and-limit-off",
+          params: {
+            func: arangosearchNoMaterializationWithSortAndLimitOff,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        },
+        {
+          name: "ars-no-materialization-with-sort-and-limit-on",
+          params: {
+            func: arangosearchNoMaterializationWithSortAndLimitOn,
+            attr0: "value1",
+            attr1: "value2",
+            attr2: "value3"
+          }
+        }
+      ];
+      let crudTests = [
+        {
+          name: "crud-insert",
+          params: {
+            func: insert,
+            setup: function (params) {
+              drop(params);
+              create(params);
+            },
+            teardown: drop
+          }
+        },
+        {
+          name: "crud-insert-babies",
+          params: {
+            func: insert,
+            setup: function (params) {
+              drop(params);
+              create(params);
+            },
+            teardown: drop,
+            batchSize: 100
+          }
+        },
+        {
+          name: "crud-insert-size4",
+          params: {
+            func: insert,
+            setup: function (params) {
+              drop(params);
+              create(params);
+            },
+            teardown: drop,
+            docSize: 4
+          }
+        },
+        {
+          name: "crud-insert-size4-babies",
+          params: {
+            func: insert,
+            setup: function (params) {
+              drop(params);
+              create(params);
+            },
+            teardown: drop,
+            docSize: 4,
+            batchSize: 100
+          }
+        },
+        {
+          name: "crud-update",
+          params: {
+            func: update,
+            setupEachCall: function (params) {
+              drop(params);
+              create(params);
+              fill(params);
+            },
+            teardown: drop
           },
-          {
-            name: "crud-remove-single",
-            params: {
-              func: remove,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop
-            }
+          legacy: true
+        },
+        {
+          // crud-update/replace/remove use setupEachCall for the setup
+          // which currently is INSIDE the measured code and therefore
+          // distorts the time measurements.
+          // Since we do not want to modify existing tests we introduce
+          // new tests that fix this (and also use a more efficient setup)
+          // so we maintain comparability, but we should phase out the old
+          // tests eventually.
+          name: "crud-update-single",
+          params: {
+            func: update,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop
+          }
+        },
+        {
+          name: "crud-update-babies",
+          params: {
+            func: update,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop,
+            batchSize: 100
+          }
+        },
+        {
+          name: "crud-replace",
+          params: {
+            func: replace,
+            setupEachCall: function (params) {
+              drop(params);
+              create(params);
+              fill(params);
+            },
+            teardown: drop
           },
-          {
-            name: "crud-remove-babies",
-            params: {
-              func: remove,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop,
-              batchSize: 100
-            }
+          legacy: true
+        },
+        {
+          name: "crud-replace-single",
+          params: {
+            func: replace,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop
+          }
+        },
+        {
+          name: "crud-replace-babies",
+          params: {
+            func: replace,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop,
+            batchSize: 100
+          }
+        },
+        {
+          name: "crud-remove",
+          params: {
+            func: remove,
+            setupEachCall: function (params) {
+              drop(params);
+              create(params);
+              fill(params);
+            },
+            teardown: drop
           },
+          legacy: true
+        },
+        {
+          name: "crud-remove-single",
+          params: {
+            func: remove,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop
+          }
+        },
+        {
+          name: "crud-remove-babies",
+          params: {
+            func: remove,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop,
+            batchSize: 100
+          }
+        },
+        {
+          name: "crud-count-repeated",
+          params: {
+            func: count,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop
+          }
+        },
+        {
+          name: "crud-all",
+          params: {
+            func: all,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop
+          }
+        },
+        {
+          name: "crud-truncate",
+          params: {
+            func: truncate,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill({...params, batchSize: 1000});
+            },
+            teardown: drop
+          }
+        }
+        /*
           {
-            name: "crud-count-repeated",
-            params: {
-              func: count,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop
-            }
+          name: "crud-any",
+          params: {
+          func: anyCrud,
+          setup: function (params) {
+          drop(params);
+          create(params);
+          fill(params);
           },
-          {
-            name: "crud-all",
-            params: {
-              func: all,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop
-            }
-          },
-          {
-            name: "crud-truncate",
-            params: {
-              func: truncate,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill({...params, batchSize: 1000});
-              },
-              teardown: drop
+          teardown: drop
+          }
+          }
+        */
+      ];
+      let subqueryTests = [
+        /*        {
+                  name: "aql-subquery-splicing-compare",
+                  params: { func: subquerySplicingValidation, attr: "value1" }
+                  }, */
+        {
+          name: "aql-subquery-1",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
+            bindParamModifier: function (param, bindParam) {
+              bindParam.attr = "value1";
             }
           }
-/*
-          {
-            name: "crud-any",
-            params: {
-              func: anyCrud,
-              setup: function (params) {
-                drop(params);
-                create(params);
-                fill(params);
-              },
-              teardown: drop
+        },
+        {
+          name: "aql-sub-subquery",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: "FOR c IN @@c LET sub = (FOR s IN 1..2 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
+            bindParamModifier: function (param, bindParam) {
+              bindParam.attr = "value1";
             }
           }
-*/
-        ],
-        subqueryTests = [
-          /*        {
-          name: "aql-subquery-splicing-compare",
-          params: { func: subquerySplicingValidation, attr: "value1" }
-        }, */
-          {
-            name: "aql-subquery-1",
-            params: { func: genericSubquerySplicing,
-              queryString: "FOR c IN @@c LET sub = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s) RETURN LENGTH(sub)",
-              bindParamModifier: function (param, bindParam) {
-                bindParam.attr = "value1";
-              }
+        },
+        {
+          name: "aql-subquery-min",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
+            bindParamModifier: function (param, bindParam) {
+              bindParam.attr = "value1";
             }
-          },
-          {
-            name: "aql-sub-subquery",
-            params: { func: genericSubquerySplicing,
-              queryString: "FOR c IN @@c LET sub = (FOR s IN 1..2 LET subsub = (FOR t IN @@c FILTER t.@attr == c.@attr + s RETURN t) FILTER LENGTH(subsub) > 0 RETURN s) RETURN LENGTH(sub)",
-              bindParamModifier: function (param, bindParam) {
-                bindParam.attr = "value1";
-              }
+          }
+        },
+        {
+          name: "aql-subquery-min-no-index",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
+            bindParamModifier: function (param, bindParam) {
+              bindParam.attr = "value6";
             }
-          },
-          {
-            name: "aql-subquery-min",
-            params: { func: genericSubquerySplicing,
-              queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
-              bindParamModifier: function (param, bindParam) {
-                bindParam.attr = "value1";
-              }
+          }
+        },
+        {
+          name: "aql-subquery-max",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: "RETURN MAX(FOR c IN @@c RETURN c.@attr)",
+            bindParamModifier: function (param, bindParam) {
+              bindParam.attr = "value1";
             }
-          },
-          {
-            name: "aql-subquery-min-no-index",
-            params: { func: genericSubquerySplicing,
-              queryString: "RETURN MIN(FOR c IN @@c RETURN c.@attr)",
-              bindParamModifier: function (param, bindParam) {
-                bindParam.attr = "value6";
-              }
-            }
-          },
-          {
-            name: "aql-subquery-max",
-            params: { func: genericSubquerySplicing,
-              queryString: "RETURN MAX(FOR c IN @@c RETURN c.@attr)",
-              bindParamModifier: function (param, bindParam) {
-                bindParam.attr = "value1";
-              }
-            }
-          },
-          {
-            name: "aql-subquery-shortest-path",
-            params: { func: genericSubquerySplicing,
-              queryString: `
+          }
+        },
+        {
+          name: "aql-subquery-shortest-path",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: `
                        FOR v IN @@c
                          LET hasPath = (FOR s IN INBOUND SHORTEST_PATH v TO @source @@e RETURN 1)
                          FILTER LENGTH(hasPath) > 0
                        RETURN v
                     `,
-              edgesRequired: true,
-              bindParamModifier: function (param, bindParam) {
-                bindParam.source = `${param.collection}/test2`;
-              }
+            edgesRequired: true,
+            bindParamModifier: function (param, bindParam) {
+              bindParam.source = `${param.collection}/test2`;
             }
-          },
-          {
-            name: "aql-subquery-traversal",
-            params: { func: genericSubquerySplicing,
-              queryString: `
+          }
+        },
+        {
+          name: "aql-subquery-traversal",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: `
                        FOR v IN @@c
                          FOR main IN 1 OUTBOUND v @@e
                          LET subs = (
@@ -2951,106 +3120,173 @@ exports.test = function (global) {
                          )
                        RETURN {main, subs}
                     `,
-              attr: "value1",
-              edgesRequired: true,
-              bindParamModifier: function (param, bindParam) {
-                delete bindParam.attr;
-              }
+            attr: "value1",
+            edgesRequired: true,
+            bindParamModifier: function (param, bindParam) {
+              delete bindParam.attr;
             }
-          },
-          /*
-          * This test is disabled, because it takes far too long for a simple
-          * performance test. This is because some of the involved attributes
-          * are not indexed.
-          {
-             name: "aql-multi-subqueries-some-no-index",
-             params: { func: genericSubquerySplicing,
-                        queryString: `FOR c IN @@c
-                                         LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
-                                         LET sub2 = (FOR s IN @@c FILTER s.@attr2 == c.@attr RETURN s)
-                                         LET sub3 = (FOR s IN @@c FILTER s.@attr3 == c.@attr RETURN s)
-                                         LET sub4 = (FOR s IN @@c FILTER s.@attr4 == c.@attr RETURN s)
-                                         LET sub5 = (FOR s IN @@c FILTER s.@attr5 == c.@attr RETURN s)
-                                      RETURN LENGTH(sub1) + LENGTH(sub2) + LENGTH(sub3) + LENGTH(sub4) + LENGTH(sub5)
-                        `,
-                        bindParamModifier: function(param, bindParam) {
-                            bindParam.attr = "value1";
-                            bindParam.attr2 = "value2";
-                            bindParam.attr3 = "value3";
-                            bindParam.attr4 = "value4";
-                            bindParam.attr5 = "value5";
-                        }
-             }
-          },
- */
-          {
-            name: "aql-concatenated-subqueries",
-            params: { func: genericSubquerySplicing,
-              queryString: `FOR c IN @@c
+          }
+        },
+        /*
+         * This test is disabled, because it takes far too long for a simple
+         * performance test. This is because some of the involved attributes
+         * are not indexed.
+         {
+         name: "aql-multi-subqueries-some-no-index",
+         params: { func: genericSubquerySplicing,
+         queryString: `FOR c IN @@c
+         LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
+         LET sub2 = (FOR s IN @@c FILTER s.@attr2 == c.@attr RETURN s)
+         LET sub3 = (FOR s IN @@c FILTER s.@attr3 == c.@attr RETURN s)
+         LET sub4 = (FOR s IN @@c FILTER s.@attr4 == c.@attr RETURN s)
+         LET sub5 = (FOR s IN @@c FILTER s.@attr5 == c.@attr RETURN s)
+         RETURN LENGTH(sub1) + LENGTH(sub2) + LENGTH(sub3) + LENGTH(sub4) + LENGTH(sub5)
+         `,
+         bindParamModifier: function(param, bindParam) {
+         bindParam.attr = "value1";
+         bindParam.attr2 = "value2";
+         bindParam.attr3 = "value3";
+         bindParam.attr4 = "value4";
+         bindParam.attr5 = "value5";
+         }
+         }
+         },
+        */
+        {
+          name: "aql-concatenated-subqueries",
+          params: {
+            func: genericSubquerySplicing,
+            queryString: `FOR c IN @@c
                                        LET sub1 = (FOR s IN @@c FILTER s.@attr == c.@attr RETURN s)
                                        LET sub2 = (FOR s IN @@c FILTER s.@attr2 == c.@attr RETURN s)
                                     RETURN LENGTH(sub1) + LENGTH(sub2)
                       `,
-              bindParamModifier: function (param, bindParam) {
-                bindParam.attr = "value1";
-                bindParam.attr2 = "value2";
-              }
+            bindParamModifier: function (param, bindParam) {
+              bindParam.attr = "value1";
+              bindParam.attr2 = "value2";
             }
           }
-        ],
-        satelliteGraphTests = [
-          {
-            name: "aql-traversal-index-join",
-            params: { func: genericSatelliteGraph,
-              queryString: `
+        }
+      ];
+      let satelliteGraphTests = [
+        {
+          name: "aql-traversal-index-join",
+          params: {
+            func: genericSatelliteGraph,
+            queryString: `
                         FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
                           FOR doc in @@c
                             FILTER doc.value1 == v.value1
                             RETURN doc
                       ` }
-          },
-          {
-            name: "aql-traversal-graph",
-            params: { func: genericSatelliteGraph,
-              queryString: `
+        },
+        {
+          name: "aql-traversal-graph",
+          params: {
+            func: genericSatelliteGraph,
+            queryString: `
                         FOR v, e, p IN 1..3 OUTBOUND CONCAT(@v, "/smart0:test0") GRAPH @g
                           return v`,
-              bindParamModifier: function (param, bindParam) {
-                delete bindParam["@c"];
-              }
+            bindParamModifier: function (param, bindParam) {
+              delete bindParam["@c"];
             }
-          },
-          {
-            name: "aql-index-traversal-graph",
-            params: { func: genericSatelliteGraph,
-              queryString: `
+          }
+        },
+        {
+          name: "aql-index-traversal-graph",
+          params: {
+            func: genericSatelliteGraph,
+            queryString: `
                         for doc in @@c
                           filter doc.value1 >= 0 and doc.value1 <= 10
                           let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
                           for v, e, p in 1..4 outbound vkey graph @g
                             return {doc, p}
                         `
-            }
-          },
-          {
-            name: "aql-enum-collection-traversal-graph",
-            params: { func: genericSatelliteGraph,
-              queryString: `
+          }
+        },
+        {
+          name: "aql-enum-collection-traversal-graph",
+          params: {
+            func: genericSatelliteGraph,
+            queryString: `
                         for doc in @@c
                           let vkey = CONCAT(@v,"/smart", doc.value3, ":test", doc.value3)
                           for v, e, p in 1..4 outbound vkey graph @g
                             filter v.value1 <= doc.value1
                             return {doc, p}
                         `
-            }
           }
+        }
+      ];
 
+      function mdiTest (params) {
+        let bindParam = { "@col": params.collection };
+        if ("bindParamModifier" in params) {
+          params.bindParamModifier(params, bindParam);
+        }
+        db._query(
+          params.queryString,
+          bindParam,
+        );
+      }
 
-        ];
+      let MdiTests = [
+        {
+          name: "aql-mdi-equal",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x >= 0 && d.y == 0
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-incl-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x <= 100 and d.y >= 50
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-incl-range-equal",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x <= 69 and d.y == 8
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x > 50 and d.y < 47
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-equal-incl-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x == 9 and d.y >= 52
+          RETURN d`
+          }
+        },
+      ];
 
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
 
-      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests ) {
+      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
         initializeValuesCollection();
       }
       if (global.search) {
@@ -3083,6 +3319,7 @@ exports.test = function (global) {
         output += toAsciiTable(name, testsResults) + "\n\n";
         for (const err of errors) {
           output += `Test ${err.name} failed with exception: ${err.error}\n`;
+          global.returnValue = 1;
         }
 
         if (global.outputXml) {
@@ -3092,7 +3329,7 @@ exports.test = function (global) {
         if (global.outputCsv) {
           csv += toCsv(testsResults, prefix, postfix);
         }
-      }
+      };
 
       // document tests
       if (global.documents) {
@@ -3120,11 +3357,46 @@ exports.test = function (global) {
         runTestSuite("Documents", documentTests, options);
       }
 
+      // mdi tests
+      if (global.mditests) {
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (params) {
+            db._drop(params.collection);
+            let col = db._create(params.collection);
+            let type = (global.zkdMdiRenamed) ? "mdi":"zkd";
+            col.ensureIndex({type: type, name: "mdiIndex", fields: ["x", "y"], fieldValueTypes: "double"});
+            db._query(`
+              FOR i IN 0..${params.collectionSize}
+                LET x = (i - 500) / 10
+                LET y = x + 0.5
+                INSERT {x, y, i} INTO ${params.collection}
+            `);
+          },
+          teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+
+        if (global.tiny) {
+          options.collections.push({ name: "MDIvalues1000", label: "1k", size: 1000 });
+        } else if (global.small) {
+          options.collections.push({ name: "MDIvalues10000", label: "10k", size: 10000 });
+        } else if (global.medium) {
+          options.collections.push({ name: "MDIvalues100000", label: "100k", size: 100000 });
+        } else if (global.big) {
+          options.collections.push({ name: "MDIvalues1000000", label: "1000k", size: 1000000 });
+        }
+
+        runTestSuite("MDI", MdiTests, options);
+      }
+
       if (global.ioless) {
         options = {
           runs: global.runs,
           digits: global.digits,
-          setup: function (params) {},
+          setup: function () {},
           teardown: function () {},
           iterations: null,
           collections: [null],
@@ -3264,6 +3536,30 @@ exports.test = function (global) {
         }
 
         runTestSuite("Arango Search No Materialization", arangosearchNoMaterializationTests, options);
+      }
+      
+      // indexes tests
+      if (global.indexes) {
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (/* params */) {},
+          teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+
+        if (global.tiny) {
+          options.collections.push({ name: "indexes1000", label: "1k", size: 1000 });
+        } else if (global.small) {
+          options.collections.push({ name: "indexes10000", label: "10k", size: 10000 });
+        } else if (global.medium) {
+          options.collections.push({ name: "indexes100000", label: "100k", size: 100000 });
+        } else if (global.big) {
+          options.collections.push({ name: "indexes1000000", label: "1000k", size: 1000000 });
+        }
+
+        runTestSuite("indexes", indexesTests, options);
       }
 
       // crud tests
@@ -3474,7 +3770,7 @@ exports.test = function (global) {
       if (global.outputCsv) {
         fs.writeFileSync("results.csv", csv);
       }
-      
+
       if (global.outputJson) {
         fs.writeFileSync("results.json", JSON.stringify(result));
       }

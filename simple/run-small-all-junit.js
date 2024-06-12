@@ -1,4 +1,5 @@
 function main () {
+  global.returnValue = 0;
   require("./simple/test").test({
     outputXml: true,
     xmlDirectory: "xml",
@@ -11,9 +12,11 @@ function main () {
     search: true,
     phrase: true,
     crud: true,
-    crudSearch: true
+    crudSearch: true,
+    mditests: true
   });
+  return global.returnValue;
 }
 if (typeof arango !== "undefined") {
-  main();
+  process.exit(main());
 }
