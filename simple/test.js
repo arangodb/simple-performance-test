@@ -1087,6 +1087,34 @@ exports.test = function (global) {
       );
     },
 
+    kShortestOutbound = function (params) {
+      db._query(
+        "WITH @@v FOR v IN OUTBOUND K_SHORTEST_PATHS @start TO @dest @@c RETURN v",
+        {
+          "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
+          start: params.collection.replace(/edges/, "values") + "/test0",
+          dest: params.collection.replace(/edges/, "values") + "/test99999"
+        },
+        {},
+        { silent }
+      );
+    },
+
+    kShortestAny = function (params) {
+      db._query(
+        "WITH @@v FOR v IN ANY K_SHORTEST_PATHS @start TO @dest @@c RETURN v",
+        {
+          "@c": params.collection,
+          "@v": params.collection.replace("edges", "values"),
+          start: params.collection.replace(/edges/, "values") + "/test9991",
+          dest: params.collection.replace(/edges/, "values") + "/test501"
+        },
+        {},
+        { silent }
+      );
+    },
+
     // /////////////////////////////////////////////////////////////////////////////
     // documentTests
     // /////////////////////////////////////////////////////////////////////////////
@@ -2522,6 +2550,14 @@ exports.test = function (global) {
         },
         {
           name: "shortest-any",
+          params: { func: shortestAny }
+        },
+        {
+          name: "k-shortest-outbound",
+          params: { func: shortestOutbound }
+        },
+        {
+          name: "k-shortest-any",
           params: { func: shortestAny }
         },
         {
