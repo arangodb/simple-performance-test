@@ -3348,8 +3348,19 @@ exports.test = function (global) {
         );
       }
 
+     function vectorTestNoParams (params) {
+        let bindParam = { "@col": params.collection };
+        if ("bindParamModifier" in params) {
+          params.bindParamModifier(params, bindParam);
+        }
+        db._query(
+          params.queryString,
+          bindParam,
+        );
+      }
+
       let VectorTests = [
-        {
+      {
           name: "aql-vector-top-k",
           params: {
             func: vectorTest,
@@ -3358,6 +3369,23 @@ exports.test = function (global) {
           SORT APPROX_NEAR_L2(d.vector, @qp)
           LIMIT 5
           RETURN d`
+          }
+      },
+      {
+          name: "aql-vector-subquery-10-points",
+          params: {
+            func: vectorTestNoParams,
+            queryString: `
+        FOR docOuter IN @@col
+          LIMIT 10
+          LET neibhours = (
+              FOR docInner IN @@col
+              LET dist = APPROX_NEAR_L2(docInner.vector, docOuter.vector)
+              SORT dist
+              LIMIT 10
+              RETURN {dist, doc: docInner._key}
+          )
+          RETURN {doc: docOuter._key, neibhours: neibhours}`
           }
         },
       ];
@@ -3473,7 +3501,7 @@ exports.test = function (global) {
       // vector tests
       if (global.vectorTests) {
         const dimension = 500;
-        let gen = randomNumberGeneratorFloat(12121243458923);
+        let gen = randomNumberGeneratorFloat(3243758343);
         let randomPoint = Array.from({ length: dimension }, () => gen());
  
         options = {
