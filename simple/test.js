@@ -16,6 +16,19 @@ function sum (values) {
   }
 }
 
+function randomNumberGeneratorFloat(seed) {
+  const rng = (function* (seed) {
+    while (true) {
+      const nextVal = Math.cos(seed++);
+      yield nextVal;
+    }
+  })(seed);
+
+  return function () {
+    return rng.next().value;
+  };
+}
+
 function calc (values, options) {
   values.sort((a, b) => a - b);
 
@@ -154,6 +167,10 @@ exports.test = function (global) {
       if (options.hasOwnProperty("iterations")) {
         params.iterations = options.iterations;
       }
+      if (options.hasOwnProperty("extras")) {
+        params.extras = options.extras;
+      }
+
       return params;
     };
 
@@ -3320,6 +3337,31 @@ exports.test = function (global) {
         },
       ];
 
+     function vectorTest (params) {
+        let bindParam = { "@col": params.collection, "qp": params.extras.queryPoint };
+        if ("bindParamModifier" in params) {
+          params.bindParamModifier(params, bindParam);
+        }
+        db._query(
+          params.queryString,
+          bindParam,
+        );
+      }
+
+      let VectorTests = [
+        {
+          name: "aql-vector-top-k",
+          params: {
+            func: vectorTest,
+            queryString: `
+        FOR d IN @@col
+          SORT APPROX_NEAR_L2(d.vector, @qp)
+          LIMIT 5
+          RETURN d`
+          }
+        },
+      ];
+
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
 
       if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
@@ -3426,6 +3468,63 @@ exports.test = function (global) {
         }
 
         runTestSuite("MDI", MdiTests, options);
+      }
+
+      // vector tests
+      if (global.vectorTests) {
+        const dimension = 500;
+        let gen = randomNumberGeneratorFloat(12121243458923);
+        let randomPoint = Array.from({ length: dimension }, () => gen());
+ 
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (params) {
+            db._drop(params.collection);
+            let col = db._create(params.collection);
+            
+            let docs = [];
+            for (let i = 0; i < params.collectionSize; ++i) {
+              const vector = Array.from({ length: dimension }, () => gen());
+              if (i === 2000) {
+                randomPoint = vector;
+              }
+              docs.push({ vector });
+            }
+            col.insert(docs);
+
+            col.ensureIndex({
+              name: "vector_l2",
+              type: "vector",
+              fields: ["vector"],
+              inBackground: false,
+              params: { metric: "l2", dimensions: dimension, nLists: params.extras.nLists },
+            });
+
+          },
+          teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+
+        let extras = { queryPoint: randomPoint };
+
+        if (global.tiny) {
+          options.collections.push({ name: "Vectorvalues1000", label: "1k", size: 1000 });
+          extras["nLists"]= 10;
+        } else if (global.small) {
+          options.collections.push({ name: "Vectorvalues10000", label: "10k", size: 10000 });
+          extras["nLists"]= 10;
+        } else if (global.medium) {
+          options.collections.push({ name: "Vectorvalues100000", label: "100k", size: 100000 });
+          extras["nLists"]= 100;
+        } else if (global.big) {
+          options.collections.push({ name: "Vectorvalues1000000", label: "1000k", size: 1000000 });
+          extras["nLists"]= 100;
+        }
+        options.extras = extras;
+
+        runTestSuite("Vector", VectorTests, options);
       }
 
       if (global.ioless) {
