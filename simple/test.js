@@ -3526,7 +3526,7 @@ exports.test = function (global) {
               type: "vector",
               fields: ["vector"],
               inBackground: false,
-              params: { metric: "l2", dimensions: dimension, nLists: params.extras.nLists },
+              params: { metric: "l2", dimension: dimension, nLists: params.extras.nLists },
             });
 
           },
