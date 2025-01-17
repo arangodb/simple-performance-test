@@ -15,7 +15,8 @@ function main () {
     crud: true,
     crudSearch: true,
     subqueryTests: true,
-    mditests: true
+    mditests: true,
+    vectortests: true
   });
   return global.returnValue;
 }

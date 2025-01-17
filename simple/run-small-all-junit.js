@@ -13,7 +13,8 @@ function main () {
     phrase: true,
     crud: true,
     crudSearch: true,
-    mditests: true
+    mditests: true,
+    vectortests: true
   });
   return global.returnValue;
 }

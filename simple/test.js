@@ -133,6 +133,7 @@ exports.test = function (global) {
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
   global.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
+  global.vector = semver.satisfies(serverVersion, ">3.12.4") ;
   const isEnterprise = internal.isEnterprise();
   const isCluster = internal.isCluster();
 
@@ -3320,6 +3321,71 @@ exports.test = function (global) {
         },
       ];
 
+
+      function vectorTest (params) {
+        let bindParam = { "@col": params.collection };
+        if ("bindParamModifier" in params) {
+          params.bindParamModifier(params, bindParam);
+        }
+        db._query(
+          params.queryString,
+          bindParam,
+        );
+      }
+
+      let VectorTests = [
+        {
+          name: "aql-mdi-equal",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x >= 0 && d.y == 0
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-incl-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x <= 100 and d.y >= 50
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-incl-range-equal",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x <= 69 and d.y == 8
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x > 50 and d.y < 47
+          RETURN d`
+          }
+        },
+        {
+          name: "aql-mdi-equal-incl-range",
+          params: {
+            func: mdiTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.x == 9 and d.y >= 52
+          RETURN d`
+          }
+        },
+      ];
+     
       const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
 
       if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
@@ -3428,6 +3494,39 @@ exports.test = function (global) {
         runTestSuite("MDI", MdiTests, options);
       }
 
+      // vector tests
+      if (global.vectortests) {
+        options = {
+          runs: global.runs,
+          digits: global.digits,
+          setup: function (params) {
+            db._drop(params.collection);
+            let col = db._create(params.collection);
+            col.ensureIndex({type: "vector", name: "vectorIndex", fields: ["x", "y"], fieldValueTypes: "double"});
+            db._query(`
+              FOR i IN 0..${params.collectionSize}
+                LET x = (i - 500) / 10
+                LET y = x + 0.5
+                INSERT {x, y, i} INTO ${params.collection}
+            `);
+          },
+          teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+        if (global.tiny) {
+          options.collections.push({ name: "Vectorvalues1000", label: "1k", size: 1000 });
+        } else if (global.small) {
+          options.collections.push({ name: "Vectorvalues10000", label: "10k", size: 10000 });
+        } else if (global.medium) {
+          options.collections.push({ name: "Vectorvalues100000", label: "100k", size: 100000 });
+        } else if (global.big) {
+          options.collections.push({ name: "Vectorvalues1000000", label: "1000k", size: 1000000 });
+        }
+
+        runTestSuite("VECTOR", vectorTests, options);
+      }
+    
       if (global.ioless) {
         options = {
           runs: global.runs,

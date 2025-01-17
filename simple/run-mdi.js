@@ -13,7 +13,8 @@ function main () {
     crud: false,
     crudSearch: false,
     subqueryTests: false,
-    mditests: true
+    mditests: true,
+    vectortests: true
   });
   return global.returnValue;
 }
