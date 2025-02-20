@@ -1614,6 +1614,15 @@ exports.test = function (global) {
       }
     },
 
+    indexCollectAggregate = function (params) {
+      db._query(
+        "FOR c IN @@c COLLECT group = doc.value1 AGGREGATE agg = SUM(doc.value2) RETURN [group, agg]",
+        { "@c": params.collection },
+        {},
+        { silent }
+      );
+    },
+
     passthru = function (params) {
       db._query(
         "FOR c IN @@c RETURN NOOPT(" + params.name + "(@value))",
@@ -2157,6 +2166,17 @@ exports.test = function (global) {
         {
           name: "aql-collect-count-only-aggregator",
           params: { func: collectCountOnly, explicitAggregator: true }
+        },
+        {
+          name: "aql-index-collect-aggregate",
+          params: {
+            func: indexCollectAggregate,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1", "value2"] }); 
+            }
+          }
         },
         {
           name: "aql-subquery",
