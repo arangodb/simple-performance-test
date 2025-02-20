@@ -2571,11 +2571,11 @@ exports.test = function (global) {
         },
         {
           name: "k-shortest-outbound",
-          params: { func: shortestOutbound }
+          params: { func: kShortestOutbound }
         },
         {
           name: "k-shortest-any",
-          params: { func: shortestAny }
+          params: { func: kShortestAny }
         },
         {
           name: "subquery-exists-path",
