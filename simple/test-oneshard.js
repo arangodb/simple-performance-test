@@ -1,5 +1,5 @@
-/* jshint globalstrict:false, strict:false */
-/* global print */
+/* jshint GLOBALstrict:false, strict:false */
+/* GLOBAL print */
 
 const batchSize = 5000;
 const db = require("@arangodb").db;
@@ -8,7 +8,7 @@ const time = internal.time;
 
 const tearDown = (show_topic = true) => {
   if (show_topic) {
-    print("global teardown oneshard");
+    print("GLOBAL teardown oneshard");
   }
 
   print("dropping search");
@@ -26,7 +26,7 @@ const setup = (options) => {
   let scale = options.scale;
   let numberOfShards = options.numberOfShards;
   let replicationFactor = options.replicationFactor;
-  print("global setup oneshard - scale: " + scale);
+  print("GLOBAL setup oneshard - scale: " + scale);
 
   require("@arangodb/aql/queries").properties({ slowQueryThreshold: 999999999999 });
   tearDown(false);

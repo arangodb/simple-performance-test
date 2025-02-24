@@ -1,5 +1,5 @@
 function main () {
-  global.returnValue = 0;
+  GLOBAL.returnValue = 0;
   require("./simple/test").test({
     outputCsv: true,
     small: true,
@@ -15,7 +15,7 @@ function main () {
     crudSearch: true,
     mditests: true
   });
-  return global.returnValue;
+  return GLOBAL.returnValue;
 }
 if (typeof arango !== "undefined") {
   process.exit(main());
