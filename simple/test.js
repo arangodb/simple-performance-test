@@ -1618,7 +1618,6 @@ exports.test = function (GLOBAL) {
         {},
         { silent }
       );
-      throw new Error("sanotehu")
     },
 
     passthru = function (params) {
