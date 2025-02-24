@@ -8,6 +8,8 @@ const _ = require("lodash");
 const db = require("org/arangodb").db;
 require("internal").load("simple/BIGvertices.js");
 
+global.returnValue = 0;
+
 function sum (values) {
   if (values.length > 1) {
     return values.reduce((previous, current) => previous + current);
@@ -3830,7 +3832,8 @@ exports.test = function (global) {
       if (global.outputJson) {
         fs.writeFileSync("results.json", JSON.stringify(result));
       }
+      return global.returnValue;
     };
 
-  main();
+  return main();
 };
