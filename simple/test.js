@@ -1616,7 +1616,7 @@ exports.test = function (global) {
 
     indexCollectAggregate = function (params) {
       db._query(
-        "FOR c IN @@c COLLECT group = doc.value1 AGGREGATE agg = SUM(doc.value2) RETURN [group, agg]",
+        "FOR doc IN @@c COLLECT group = doc.value1 AGGREGATE agg = SUM(doc.value2) RETURN [group, agg]",
         { "@c": params.collection },
         {},
         { silent }
