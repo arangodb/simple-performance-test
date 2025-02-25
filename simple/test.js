@@ -8,6 +8,9 @@ const _ = require("lodash");
 const db = require("org/arangodb").db;
 require("internal").load("simple/BIGvertices.js");
 
+GLOBAL.returnValue = 0;
+
+
 function sum (values) {
   if (values.length > 1) {
     return values.reduce((previous, current) => previous + current);
@@ -94,51 +97,50 @@ function toAsciiTable (title, out) {
   return table.toString();
 }
 
-exports.test = function (global) {
-  global.tiny = global.tiny || false;
-  global.small = global.small || false;
-  global.medium = global.medium || false;
-  global.big = global.big || false;
+exports.test = function (GLOBAL) {
+  GLOBAL.tiny = GLOBAL.tiny || false;
+  GLOBAL.small = GLOBAL.small || false;
+  GLOBAL.medium = GLOBAL.medium || false;
+  GLOBAL.big = GLOBAL.big || false;
 
-  global.documents = global.documents || false;
-  global.ioless = global.ioless || false;
-  global.edges = global.edges || false;
-  global.search = global.search || false;
-  global.phrase = global.phrase || false;
-  global.noMaterializationSearch = global.noMaterializationSearch || false;
-  global.indexes = global.indexes || false;
-  global.crud = global.crud || false;
-  global.crudSearch = global.crudSearch || false;
-  global.subqueryTests = global.subqueryTests || false;
-  global.oneshardTests = global.oneshardTests || false;
+  GLOBAL.documents = GLOBAL.documents || false;
+  GLOBAL.ioless = GLOBAL.ioless || false;
+  GLOBAL.edges = GLOBAL.edges || false;
+  GLOBAL.search = GLOBAL.search || false;
+  GLOBAL.phrase = GLOBAL.phrase || false;
+  GLOBAL.noMaterializationSearch = GLOBAL.noMaterializationSearch || false;
+  GLOBAL.indexes = GLOBAL.indexes || false;
+  GLOBAL.crud = GLOBAL.crud || false;
+  GLOBAL.crudSearch = GLOBAL.crudSearch || false;
+  GLOBAL.subqueryTests = GLOBAL.subqueryTests || false;
+  GLOBAL.oneshardTests = GLOBAL.oneshardTests || false;
 
-  global.legacy = global.legacy === undefined ? true : global.legacy;
+  GLOBAL.legacy = GLOBAL.legacy === undefined ? true : GLOBAL.legacy;
 
-  global.runs = global.runs || 5;
-  global.digits = global.digits || 4;
+  GLOBAL.runs = GLOBAL.runs || 5;
+  GLOBAL.digits = GLOBAL.digits || 4;
 
-  global.outputXml = global.outputXml || false;
-  global.xmlDirectory = global.xmlDirectory || ".";
+  GLOBAL.outputXml = GLOBAL.outputXml || false;
+  GLOBAL.xmlDirectory = GLOBAL.xmlDirectory || ".";
 
-  global.outputCsv = global.outputCsv || false;
-  global.outputJson = global.outputJson || false;
+  GLOBAL.outputCsv = GLOBAL.outputCsv || false;
+  GLOBAL.outputJson = GLOBAL.outputJson || false;
 
-  const numberOfShards = global.numberOfShards || 9;
-  const replicationFactor = global.replicationFactor || 1;
-  const writeConcern = global.writeConcern || replicationFactor;
+  const numberOfShards = GLOBAL.numberOfShards || 9;
+  const replicationFactor = GLOBAL.replicationFactor || 1;
+  const writeConcern = GLOBAL.writeConcern || replicationFactor;
 
   const time = internal.time;
   const print = internal.print;
 
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
-  global.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
+  GLOBAL.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
   const isEnterprise = internal.isEnterprise();
   const isCluster = internal.isCluster();
 
   print(`Running against version ${serverVersion} ${isEnterprise ? "Enterprise" : ""} ${isCluster ? "Cluster" : ""}`);
   print(db._version(true));
-  const supportsAnalyzers = true;
   const supportsSatelliteGraphs = true;
   const supportsOnlySplicedSubqueries = true;
 
@@ -212,15 +214,14 @@ exports.test = function (global) {
       let errors = [];
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
+        print(test)
         try {
-          if (!(test.version === undefined || semver.satisfies(serverVersion, test.version))) {
-            print("skipping test " + test.name + ", requires version " + test.version);
-          } else if (!(test.analyzers === undefined || test.analyzers === false || supportsAnalyzers)) {
-            print("skipping test " + test.name + ", requires analyzers");
-          } else if (test.legacy && !global.legacy) {
-            print("skipping legacy test " + test.name);
+          if (!(test['version'] === undefined || semver.satisfies(serverVersion, test['version']))) {
+            print(`skipping test ${test['name']}, requires version ${test['version']}`);
+          } else if (test['legacy'] && !GLOBAL.legacy) {
+          print(`skipping legacy test ${test['name']}`);
           } else {
-            print("running test " + test.name);
+            print(`running test ${test['name']}`);
             for (let j = 0; j < options.collections.length; ++j) {
               let collection = options.collections[j];
 
@@ -230,7 +231,7 @@ exports.test = function (global) {
               const stats = calc(results, options);
 
               const result = {
-                name: test.name,
+                name: test['name'],
                 runs: options.runs,
                 min: stats.min.toFixed(options.digits),
                 max: stats.max.toFixed(options.digits),
@@ -252,9 +253,9 @@ exports.test = function (global) {
             } // for j
           }
         } catch (ex) {
-          print("exception in test " + test.name + ": " + ex + "\n" + String(ex.stack));
-          errors.push({ test: test.name, error: ex });
-          global.returnValue = 1;
+          print(`exception in test ${test['name']}: ${String(ex)}\n${String(ex.stack)}`);
+          errors.push({ name: test['name'], error: ex });
+          GLOBAL.returnValue = 1;
         }
       } // for i
 
@@ -273,7 +274,7 @@ exports.test = function (global) {
       let name = prefix + test.name + postfix;
 
       fs.writeFileSync(
-        fs.join(global.xmlDirectory, `pref-${name}.xml`),
+        fs.join(GLOBAL.xmlDirectory, `pref-${name}.xml`),
         `<?xml version="1.0" encoding="UTF-8"?><testsuite><testcase classname="${name}" name="avg" time="${test.avg *
           1000}" /><testcase classname="${name}" name="med" time="${test.med *
           1000}" /></testsuite>`
@@ -287,13 +288,13 @@ exports.test = function (global) {
 
     let size = "none";
 
-    if (global.tiny) {
+    if (GLOBAL.tiny) {
       size = "tiny";
-    } else if (global.small) {
+    } else if (GLOBAL.small) {
       size = "small";
-    } else if (global.medium) {
+    } else if (GLOBAL.medium) {
       size = "medium";
-    } else if (global.big) {
+    } else if (GLOBAL.big) {
       size = "big";
     }
 
@@ -401,13 +402,13 @@ exports.test = function (global) {
         c.ensureIndex({ type: "persistent", fields: ["value4"] });
       }
 
-      if (global.tiny) {
+      if (GLOBAL.tiny) {
         createDocuments(1000);
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         createDocuments(10000);
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         createDocuments(100000);
-      } else if (global.big) {
+      } else if (GLOBAL.big) {
         createDocuments(1000000);
       }
 
@@ -429,13 +430,13 @@ exports.test = function (global) {
       }
 
       // Generate bigger collections for testing ArangoSearch
-      if (global.tiny) {
+      if (GLOBAL.tiny) {
         createDocuments(100000);
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         createDocuments(1000000);
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         createDocuments(10000000);
-      } else if (global.big) {
+      } else if (GLOBAL.big) {
         createDocuments(33000000);
       }
 
@@ -454,13 +455,13 @@ exports.test = function (global) {
         createArangoSearch(params);
       }
 
-      if (global.tiny) {
+      if (GLOBAL.tiny) {
         createView(100000);
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         createView(1000000);
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         createView(10000000);
-      } else if (global.big) {
+      } else if (GLOBAL.big) {
         createView(33000000);
       }
 
@@ -479,17 +480,17 @@ exports.test = function (global) {
         fillEdgeCollection(c, n, db._collection("values" + n));
       }
 
-      if (global.tiny) {
+      if (GLOBAL.tiny) {
         createEdges(1000);
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         createEdges(10000);
         makeGraph("Tree", "TreeV", "TreeE");
         makeTree(6, "TreeV", "TreeE");
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         createEdges(100000);
         makeGraph("Tree", "TreeV", "TreeE");
         makeTree(7, "TreeV", "TreeE");
-      } else if (global.big) {
+      } else if (GLOBAL.big) {
         createEdges(1000000);
         makeGraph("Tree", "TreeV", "TreeE");
         makeTree(8, "TreeV", "TreeE");
@@ -633,16 +634,16 @@ exports.test = function (global) {
         }
       }
 
-      if (global.tiny) {
+      if (GLOBAL.tiny) {
         createVertexes(1000);
         createEdges(1000);
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         createVertexes(10000);
         createEdges(10000);
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         createVertexes(100000);
         createEdges(100000);
-      } else if (global.big) {
+      } else if (GLOBAL.big) {
         createVertexes(1000000);
         createEdges(1000000);
       }
@@ -650,10 +651,6 @@ exports.test = function (global) {
 
     initializePhrasesView = function () {
       function createPhrasesView (n) {
-        if (!supportsAnalyzers) {
-          return;
-        }
-
         let params = {
           name: "v_valuesPhrases" + n,
           collections: ["valuesPhrases" + n],
@@ -739,16 +736,16 @@ exports.test = function (global) {
         }
       }
 
-      if (global.tiny) {
+      if (GLOBAL.tiny) {
         createDocumentsWithPhrases(100000);
         createPhrasesView(100000);
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         createDocumentsWithPhrases(1000000);
         createPhrasesView(1000000);
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         createDocumentsWithPhrases(10000000);
         createPhrasesView(10000000);
-      } else if (global.big) {
+      } else if (GLOBAL.big) {
         createDocumentsWithPhrases(33000000);
         createPhrasesView(33000000);
       }
@@ -770,13 +767,13 @@ exports.test = function (global) {
         createArangoSearch(params);
       }
 
-      if (global.tiny) {
+      if (GLOBAL.tiny) {
         createStoredValuesView(1000);
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         createStoredValuesView(10000);
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         createStoredValuesView(100000);
-      } else if (global.big) {
+      } else if (GLOBAL.big) {
         createStoredValuesView(1000000);
       }
 
@@ -1324,13 +1321,13 @@ exports.test = function (global) {
 
     rangesSubquery = function (params) {
       let number;
-      if (global.big) {
+      if (GLOBAL.big) {
         number = 100000;
-      } else if (global.medium) {
+      } else if (GLOBAL.medium) {
         number = 10000;
-      } else if (global.small) {
+      } else if (GLOBAL.small) {
         number = 1000;
-      } else if (global.tiny) {
+      } else if (GLOBAL.tiny) {
         number = 100;
       }
       let rules = [];
@@ -1616,7 +1613,7 @@ exports.test = function (global) {
 
     indexCollectAggregate = function (params) {
       db._query(
-        "FOR doc IN @@c COLLECT group = doc.value1 AGGREGATE agg = SUM(doc.value2) RETURN [group, agg]",
+        "FOR docxxx IN @@c COLLECT group = doc.value1 AGGREGATE agg = SUM(doc.value2) RETURN [group, agg]",
         { "@c": params.collection },
         {},
         { silent }
@@ -3340,33 +3337,33 @@ exports.test = function (global) {
         },
       ];
 
-      const runSatelliteGraphTests = (global.satelliteGraphTests && isEnterprise && isCluster);
+      const runSatelliteGraphTests = (GLOBAL.satelliteGraphTests && isEnterprise && isCluster);
 
-      if (global.documents || global.edges || global.noMaterializationSearch || global.subqueryTests || runSatelliteGraphTests) {
+      if (GLOBAL.documents || GLOBAL.edges || GLOBAL.noMaterializationSearch || GLOBAL.subqueryTests || runSatelliteGraphTests) {
         initializeValuesCollection();
       }
-      if (global.search) {
+      if (GLOBAL.search) {
         initializeSearchCollection();
       }
-      if (global.edges || global.subqueryTests) {
+      if (GLOBAL.edges || GLOBAL.subqueryTests) {
         initializeEdgeCollection();
       }
       if (runSatelliteGraphTests) {
         initializeGraphs();
       }
-      if (global.search) {
+      if (GLOBAL.search) {
         initializeView();
       }
-      if (global.phrase) {
+      if (GLOBAL.phrase) {
         initializePhrasesView();
       }
-      if (global.noMaterializationSearch) {
+      if (GLOBAL.noMaterializationSearch) {
         initializeStoredValuesView();
       }
 
       let output = "",
         csv = "",
-        result = { config: { ...global }, results: {}},
+        result = { config: { ...GLOBAL }, results: {}},
         options;
 
       const runTestSuite = function (name, tests, options, prefix = "", postfix = "") {
@@ -3375,23 +3372,23 @@ exports.test = function (global) {
         output += toAsciiTable(name, testsResults) + "\n\n";
         for (const err of errors) {
           output += `Test ${err.name} failed with exception: ${err.error}\n`;
-          global.returnValue = 1;
+          GLOBAL.returnValue = 1;
         }
 
-        if (global.outputXml) {
+        if (GLOBAL.outputXml) {
           toJUnit(testsResults, prefix, postfix);
         }
 
-        if (global.outputCsv) {
+        if (GLOBAL.outputCsv) {
           csv += toCsv(testsResults, prefix, postfix);
         }
       };
 
       // document tests
-      if (global.documents) {
+      if (GLOBAL.documents) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             db._collection(params.collection).load();
           },
@@ -3400,13 +3397,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "values1000", label: "1k", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3414,14 +3411,14 @@ exports.test = function (global) {
       }
 
       // mdi tests
-      if (global.mditests) {
+      if (GLOBAL.mditests) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             db._drop(params.collection);
             let col = db._create(params.collection);
-            let type = (global.zkdMdiRenamed) ? "mdi":"zkd";
+            let type = (GLOBAL.zkdMdiRenamed) ? "mdi":"zkd";
             col.ensureIndex({type: type, name: "mdiIndex", fields: ["x", "y"], fieldValueTypes: "double"});
             db._query(`
               FOR i IN 0..${params.collectionSize}
@@ -3435,23 +3432,23 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "MDIvalues1000", label: "1k", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "MDIvalues10000", label: "10k", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "MDIvalues100000", label: "100k", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "MDIvalues1000000", label: "1000k", size: 1000000 });
         }
 
         runTestSuite("MDI", MdiTests, options);
       }
 
-      if (global.ioless) {
+      if (GLOBAL.ioless) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function () {},
           teardown: function () {},
           iterations: null,
@@ -3459,13 +3456,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.iterations = 10000;
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.iterations = 100000;
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.iterations = 1000000;
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.iterations = 10000000;
         }
 
@@ -3473,10 +3470,10 @@ exports.test = function (global) {
       }
 
       // edge tests
-      if (global.edges) {
+      if (GLOBAL.edges) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             db._collection(params.collection).load();
           },
@@ -3485,13 +3482,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "edges1000", label: "1k", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "edges10000", label: "10k", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "edges100000", label: "100k", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "edges1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3499,10 +3496,10 @@ exports.test = function (global) {
       }
 
       // arangosearch tests
-      if (global.search) {
+      if (GLOBAL.search) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
             params["offset"] = params.collectionSize / 10;
@@ -3513,13 +3510,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "valuesForSearch100000", label: "100k", size: 100000});
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "valuesForSearch1000000", label: "1M", size: 1000000});
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "valuesForSearch10000000", label: "10M", size: 10000000});
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "valuesForSearch33000000", label: "33M", size: 33000000});
         }
 
@@ -3527,10 +3524,10 @@ exports.test = function (global) {
       }
 
       // arangosearch phrase tests
-      if (global.phrase) {
+      if (GLOBAL.phrase) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
@@ -3539,25 +3536,25 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({
             name: "valuesPhrases100000",
             label: "100k",
             size: 100000
           });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({
             name: "valuesPhrases1000000",
             label: "1M",
             size: 1000000
           });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({
             name: "valuesPhrases10000000",
             label: "10M",
             size: 10000000
           });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({
             name: "valuesPhrases33000000",
             label: "33M",
@@ -3569,10 +3566,10 @@ exports.test = function (global) {
       }
 
       // arangosearch no materialization tests
-      if (global.noMaterializationSearch) {
+      if (GLOBAL.noMaterializationSearch) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             params["view"] = "v_stored_" + params.collection;
           },
@@ -3581,13 +3578,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "values1000", label: "1k", size: 1000});
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000});
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000});
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000});
         }
 
@@ -3595,23 +3592,23 @@ exports.test = function (global) {
       }
       
       // indexes tests
-      if (global.indexes) {
+      if (GLOBAL.indexes) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (/* params */) {},
           teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "indexes1000", label: "1k", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "indexes10000", label: "10k", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "indexes100000", label: "100k", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "indexes1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3619,23 +3616,23 @@ exports.test = function (global) {
       }
 
       // crud tests
-      if (global.crud) {
+      if (GLOBAL.crud) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (/* params */) {},
           teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "crud1000", label: "1k", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "crud10000", label: "10k", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "crud100000", label: "100k", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "crud1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3643,10 +3640,10 @@ exports.test = function (global) {
       }
 
       // arangosearch crud tests
-      if (global.crudSearch) {
+      if (GLOBAL.crudSearch) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             params["view"] = "v_" + params.collection;
           },
@@ -3655,23 +3652,23 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "crud1000", label: "1k + ARS", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "crud10000", label: "10k + ARS", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "crud100000", label: "100k + ARS", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "crud1000000", label: "1000k + ARS", size: 1000000 });
         }
 
         runTestSuite("Arango Search CRUD", crudTests, options, "ars-", "");
       }
 
-      if (global.subqueryTests) {
+      if (GLOBAL.subqueryTests) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function (params) {
             db._collection(params.collection).load();
             if (params.edgesRequired === true) {
@@ -3683,13 +3680,13 @@ exports.test = function (global) {
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "values1000", label: "1k", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3705,23 +3702,23 @@ exports.test = function (global) {
         runTestSuite("Subquery Performance", subqueryTestsCases, options);
       }
 
-      if (global.satelliteGraphTests) {
+      if (GLOBAL.satelliteGraphTests) {
         options = {
-          runs: global.runs,
-          digits: global.digits,
+          runs: GLOBAL.runs,
+          digits: GLOBAL.digits,
           setup: function () {},
           teardown: function () {},
           collections: [],
           removeFromResult: 1
         };
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.collections.push({ name: "values1000", label: "1k", size: 1000 });
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.collections.push({ name: "values10000", label: "10k", size: 10000 });
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.collections.push({ name: "values100000", label: "100k", size: 100000 });
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.collections.push({ name: "values1000000", label: "1000k", size: 1000000 });
         }
 
@@ -3747,11 +3744,11 @@ exports.test = function (global) {
       }
 
       // OneShard Feature /////////////////////////////////////////////////////
-      if (global.oneshardTests) {
+      if (GLOBAL.oneshardTests) {
         let numberOfShards = 1;
         let checkForOneShardRule = true;
-        if (global.numberOfShards) {
-          numberOfShards = global.numberOfShards;
+        if (GLOBAL.numberOfShards) {
+          numberOfShards = GLOBAL.numberOfShards;
           checkForOneShardRule = false;
         }
 
@@ -3761,8 +3758,8 @@ exports.test = function (global) {
         const runTestCases2 = true;
 
         let options = {
-          runs: Math.max(Math.floor((global.runs + 1) / 2), 1),
-          digits: global.digits,
+          runs: Math.max(Math.floor((GLOBAL.runs + 1) / 2), 1),
+          digits: GLOBAL.digits,
           setup: function () {},
           teardown: function () {},
           collections: [ "fakeCollectionOneShard" ],
@@ -3780,16 +3777,16 @@ exports.test = function (global) {
           testPrefix += "Multi Shard (for comparison) - ";
         }
 
-        if (global.tiny) {
+        if (GLOBAL.tiny) {
           options.scale = 10;
           options.runs = 6;
-        } else if (global.small) {
+        } else if (GLOBAL.small) {
           options.scale = 10;
           options.runs = 6;
-        } else if (global.medium) {
+        } else if (GLOBAL.medium) {
           options.scale = 100 * 1000;
           options.runs = 4;
-        } else if (global.big) {
+        } else if (GLOBAL.big) {
           options.scale = 100 * 1000;
           options.runs = 8;
         }
@@ -3823,14 +3820,15 @@ exports.test = function (global) {
 
       print("\n" + output + "\n");
 
-      if (global.outputCsv) {
+      if (GLOBAL.outputCsv) {
         fs.writeFileSync("results.csv", csv);
       }
 
-      if (global.outputJson) {
+      if (GLOBAL.outputJson) {
         fs.writeFileSync("results.json", JSON.stringify(result));
       }
+      return GLOBAL.returnValue;
     };
 
-  main();
+  return main();
 };

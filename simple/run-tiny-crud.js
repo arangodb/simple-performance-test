@@ -1,11 +1,11 @@
 function main () {
-  global.returnValue = 0;
+  GLOBAL.returnValue = 0;
   require("./simple/test").test({
     outputCsv: true,
     tiny: true,
     crud: true
   });
-  return global.returnValue;
+  return GLOBAL.returnValue;
 }
 if (typeof arango !== "undefined") {
   process.exit(main());
