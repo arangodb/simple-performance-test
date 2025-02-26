@@ -16,6 +16,7 @@ function main () {
     subqueryTests: true,
     mditests: true
   });
+  print('oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo')
   print(GLOBAL.returnValue)
   return GLOBAL.returnValue;
 }
