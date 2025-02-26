@@ -16,6 +16,7 @@ function main () {
     subqueryTests: true,
     mditests: true
   });
+  print(GLOBAL.returnValue)
   return GLOBAL.returnValue;
 }
 if (typeof arango !== "undefined") {
