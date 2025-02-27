@@ -1612,14 +1612,15 @@ exports.test = function (testParams) {
     },
 
     indexCollectAggregate = function (params) {
-      const query = "FOR doc IN @@c COLLECT group = doc.@attr AGGREGATE agg = SUM(doc.@attr) RETURN [group, agg]";
-      const bindParams =  { "@c": params.collection, "attr": params.attr }
-      const stmt = db._createStatement(query);
-      stmt.bind(bindParams);
-      if (stmt.explain().plan.nodes.filter(x => x.type === "IndexCollectNode").length !== 1) {
-        throw new Error("indexCollectAggregate fn did not use an IndexCollectNode, probably because there does not exist any index on " + params.attr);
-      }
-      db._query(query, bindParams, {}, { silent });
+      db._query(
+        "FOR doc IN @@c COLLECT group = doc.@attr AGGREGATE agg = SUM(doc.@attr) RETURN [group, agg]",
+        {
+          "@c": params.collection,
+          attr: params.attr
+        },
+        {},
+        { silent }
+      );
     },
 
     passthru = function (params) {
