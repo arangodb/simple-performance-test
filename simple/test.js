@@ -1617,7 +1617,7 @@ exports.test = function (testParams) {
       const stmt = db._createStatement(query);
       stmt.bind(bindParams);
       if (stmt.explain().plan.nodes.filter(x => x.type === "IndexCollectNode").length !== 1) {
-        throw new Error("indexCollectAggregate fn did not use an IndexCollectNode, probably because there is not index existing on attr");
+        throw new Error("indexCollectAggregate fn did not use an IndexCollectNode, probably because there does not exist any index on " + params.attr);
       }
       db._query(query, bindParams, {}, { silent });
     },
