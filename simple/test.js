@@ -1613,8 +1613,11 @@ exports.test = function (testParams) {
 
     indexCollectAggregate = function (params) {
       db._query(
-        "FOR doc IN @@c COLLECT group = doc.value1 AGGREGATE agg = SUM(doc.value2) RETURN [group, agg]",
-        { "@c": params.collection },
+        "FOR doc IN @@c COLLECT group = doc.@attr AGGREGATE agg = SUM(doc.@attr) RETURN [group, agg]",
+        {
+          "@c": params.collection,
+          attr: params.attr
+        },
         {},
         { silent }
       );
@@ -2166,14 +2169,7 @@ exports.test = function (testParams) {
         },
         {
           name: "aql-index-collect-aggregate",
-          params: {
-            func: indexCollectAggregate,
-            setup: function (params) {
-              drop(params);
-              create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1", "value2"] }); 
-            }
-          }
+          params: { func: indexCollectAggregate, attr: "value1" }
         },
         {
           name: "aql-subquery",
