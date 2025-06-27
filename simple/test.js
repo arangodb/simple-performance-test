@@ -1,3 +1,5 @@
+/* jshint globalstrict:false, strict:false, maxlen: 500 */
+/* global aql, GLOBAL, makeGraph, makeTree, */
 "use strict";
 const internal = require("internal");
 const arango = internal.arango;
@@ -96,7 +98,7 @@ function toAsciiTable (title, out) {
 
   return table.toString();
 }
-
+let randomPoint;
 exports.test = function (testParams) {
   testParams.tiny = testParams.tiny || false;
   testParams.small = testParams.small || false;
@@ -135,7 +137,7 @@ exports.test = function (testParams) {
 
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
-  testParams.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
+  testParams.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99");
   const isEnterprise = internal.isEnterprise();
   const isCluster = internal.isCluster();
 
@@ -214,14 +216,14 @@ exports.test = function (testParams) {
       let errors = [];
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
-        print(test)
+        print(test);
         try {
-          if (!(test['version'] === undefined || semver.satisfies(serverVersion, test['version']))) {
-            print(`skipping test ${test['name']}, requires version ${test['version']}`);
-          } else if (test['legacy'] && !testParams.legacy) {
-          print(`skipping legacy test ${test['name']}`);
+          if (!(test["version"] === undefined || semver.satisfies(serverVersion, test["version"]))) {
+            print(`skipping test ${test["name"]}, requires version ${test["version"]}`);
+          } else if (test["legacy"] && !testParams.legacy) {
+            print(`skipping legacy test ${test["name"]}`);
           } else {
-            print(`running test ${test['name']}`);
+            print(`running test ${test["name"]}`);
             for (let j = 0; j < options.collections.length; ++j) {
               let collection = options.collections[j];
 
@@ -231,7 +233,7 @@ exports.test = function (testParams) {
               const stats = calc(results, options);
 
               const result = {
-                name: test['name'],
+                name: test["name"],
                 runs: options.runs,
                 min: stats.min.toFixed(options.digits),
                 max: stats.max.toFixed(options.digits),
@@ -253,8 +255,8 @@ exports.test = function (testParams) {
             } // for j
           }
         } catch (ex) {
-          print(`exception in test ${test['name']}: ${String(ex)}\n${String(ex.stack)}`);
-          errors.push({ name: test['name'], error: ex });
+          print(`exception in test ${test["name"]}: ${String(ex)}\n${String(ex.stack)}`);
+          errors.push({ name: test["name"], error: ex });
           GLOBAL.returnValue = 1;
         }
       } // for i
@@ -810,7 +812,6 @@ exports.test = function (testParams) {
         createArangoSearch(viewParams);
       }
     },
-
     fill = function (params) {
       let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10),
@@ -819,6 +820,37 @@ exports.test = function (testParams) {
       for (let i = 0; i < docSize; ++i) {
         doc["value" + i] = i;
       }
+      let vectors = [];
+      if (params.type === "vector") {
+        const seed = 12132390894;
+        const randomNumberGeneratorFloat = function (seed) {
+          const rng = (function *(seed) {
+            while (true) {
+              const nextVal = Math.cos(seed++);
+              yield nextVal;
+            }
+          })(seed);
+
+          return function () {
+            return rng.next().value;
+          };
+        };
+        let gen = randomNumberGeneratorFloat(seed);
+
+        for (let i = 0; i < n; ++i) {
+          const vector = Array.from({
+            length: params.dimension
+          }, () => gen());
+          if (i === 250) {
+            randomPoint = vector;
+          }
+          vectors.push({
+            vector,
+            nonVector: i,
+            unIndexedVector: vector
+          });
+        }
+      }
 
       const batchSize = params.batchSize;
       if (batchSize) {
@@ -826,7 +858,14 @@ exports.test = function (testParams) {
         for (let i = 0; i < n / batchSize; ++i) {
           let docs = [];
           for (let j = 0; j < batchSize; ++j) {
-            docs.push({ _key: "test" + (i * batchSize + j), ...doc });
+            let oneDoc = { _key: "test" + (i * batchSize + j), ...doc };
+            if (params.type === "vector") {
+              let vec = vectors[i * batchSize + j];
+              oneDoc["vector"] = vec.vector;
+              oneDoc["nonVector"] = vec.nonVector;
+              oneDoc["unIndexedVector"] = vec.unIndexedVector;
+            }
+            docs.push(oneDoc);
           }
           c.insert(docs);
         }
@@ -834,11 +873,17 @@ exports.test = function (testParams) {
         // perform single document operations
         for (let i = 0; i < n; ++i) {
           doc._key = "test" + i;
+          if (params.type === "vector") {
+            let vec = vectors[i];
+            doc["vector"] = vec.vector;
+            doc["nonVector"] = vec.nonVector;
+            doc["unIndexedVector"] = vec.unIndexedVector;
+          }
           c.insert(doc);
         }
       }
     },
-    
+
     // /////////////////////////////////////////////////////////////////////////////
     // indexes tests
     // /////////////////////////////////////////////////////////////////////////////
@@ -846,7 +891,7 @@ exports.test = function (testParams) {
     insertIndexOne = function (params) {
       let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-        
+
       // perform small batch document operations
       const batchSize = params.batchSize || 100;
       let docs = [];
@@ -868,11 +913,11 @@ exports.test = function (testParams) {
         }
       }
     },
-    
+
     insertIndexTwo = function (params) {
       let c = db._collection(params.collection),
         n = parseInt(params.collection.replace(/[a-z]+/g, ""), 10);
-        
+
       // perform small batch document operations
       const batchSize = params.batchSize || 100;
       let docs = [];
@@ -1002,10 +1047,10 @@ exports.test = function (testParams) {
     // edgeTests
     // /////////////////////////////////////////////////////////////////////////////
 
-    traversalProjections = function(params) {
+    traversalProjections = function () {
       // Note that depth 8 is good for all three sizes small (6), medium (7)
       // and big (8). Depending on the size, we create a different tree.
-      db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree" RETURN v.data`, {}, {}, {silent});
+      db._query("FOR v IN 0..8 OUTBOUND \"TreeV/S1:K1\" GRAPH \"Tree\" RETURN v.data", {}, {}, {silent});
     },
 
     outbound = function (params) {
@@ -2169,7 +2214,14 @@ exports.test = function (testParams) {
         },
         {
           name: "aql-index-collect-aggregate",
-          params: { func: indexCollectAggregate, attr: "value1" }
+          params: {
+            func: indexCollectAggregate,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1", "value2"] });
+            }
+          }
         },
         {
           name: "aql-subquery",
@@ -2390,7 +2442,7 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] });
             },
             type: "number",
             teardown: drop
@@ -2403,7 +2455,7 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false });
             },
             type: "number",
             teardown: drop
@@ -2416,7 +2468,7 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] });
             },
             type: "string",
             teardown: drop
@@ -2429,7 +2481,7 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false });
             },
             type: "string",
             teardown: drop
@@ -2442,8 +2494,8 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] });
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] });
             },
             type: "number",
             teardown: drop
@@ -2456,8 +2508,8 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false });
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false });
             },
             type: "number",
             teardown: drop
@@ -2470,8 +2522,8 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] }); 
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"] });
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"] });
             },
             type: "string",
             teardown: drop
@@ -2484,13 +2536,44 @@ exports.test = function (testParams) {
             setup: function (params) {
               drop(params);
               create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false }); 
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false }); 
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1"], estimates: false });
+              db[params.collection].ensureIndex({ type: "persistent", fields: ["value2"], estimates: false });
             },
             type: "string",
             teardown: drop
           }
         },
+        {
+          name: "indexes-vector",
+          params: {
+            vector: true,
+            dimension: 500,
+            setup: function (params) {
+              drop(params);
+              create(params);
+              fill(params);
+              db[params.collection].ensureIndex({
+                name: "vector_l2",
+                type: "vector",
+                fields: ["vector"],
+                inBackground: false,
+                params: {
+                  metric: "l2",
+                  dimension: params.dimension,
+                  nLists: 10,
+                  trainingIterations: 10
+                }
+              });
+            },
+            func: function (params) {
+              db._query(aql`FOR d IN
+                ${db[params.collection]}
+                 SORT APPROX_NEAR_L2(d.vector, ${randomPoint}) LIMIT 5 RETURN {key: d._key}`).toArray();
+            },
+            type: "vector",
+            teardown: drop
+          }
+        }
       ];
 
       // Tests without collections/IO, to focus on aql block performance.
@@ -2549,7 +2632,7 @@ exports.test = function (testParams) {
         {
           name: "traversal-projections",
           params: { func: traversalProjections }
-        },        
+        },
         {
           name: "traversal-outbound-1",
           params: { func: outbound, minDepth: 1, maxDepth: 1, loops: 1000 }
@@ -3276,7 +3359,7 @@ exports.test = function (testParams) {
         }
         db._query(
           params.queryString,
-          bindParam,
+          bindParam
         );
       }
 
@@ -3330,7 +3413,7 @@ exports.test = function (testParams) {
           FILTER d.x == 9 and d.y >= 52
           RETURN d`
           }
-        },
+        }
       ];
 
       const runSatelliteGraphTests = (testParams.satelliteGraphTests && isEnterprise && isCluster);
@@ -3414,7 +3497,7 @@ exports.test = function (testParams) {
           setup: function (params) {
             db._drop(params.collection);
             let col = db._create(params.collection);
-            let type = (testParams.zkdMdiRenamed) ? "mdi":"zkd";
+            let type = (testParams.zkdMdiRenamed) ? "mdi" : "zkd";
             col.ensureIndex({type: type, name: "mdiIndex", fields: ["x", "y"], fieldValueTypes: "double"});
             db._query(`
               FOR i IN 0..${params.collectionSize}
@@ -3586,7 +3669,7 @@ exports.test = function (testParams) {
 
         runTestSuite("Arango Search No Materialization", arangosearchNoMaterializationTests, options);
       }
-      
+
       // indexes tests
       if (testParams.indexes) {
         options = {
