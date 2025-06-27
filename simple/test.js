@@ -2214,14 +2214,7 @@ exports.test = function (testParams) {
         },
         {
           name: "aql-index-collect-aggregate",
-          params: {
-            func: indexCollectAggregate,
-            setup: function (params) {
-              drop(params);
-              create(params);
-              db[params.collection].ensureIndex({ type: "persistent", fields: ["value1", "value2"] });
-            }
-          }
+          params: { func: indexCollectAggregate, attr: "value1" }
         },
         {
           name: "aql-subquery",
