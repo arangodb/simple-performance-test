@@ -846,8 +846,8 @@ exports.test = function (testParams) {
           }
           vectors.push({
             vector,
-            nonVector: i,
-            unIndexedVector: vector
+            // nonVector: i,
+            // unIndexedVector: vector
           });
         }
       }
@@ -862,8 +862,8 @@ exports.test = function (testParams) {
             if (params.type === "vector") {
               let vec = vectors[i * batchSize + j];
               oneDoc["vector"] = vec.vector;
-              oneDoc["nonVector"] = vec.nonVector;
-              oneDoc["unIndexedVector"] = vec.unIndexedVector;
+              //oneDoc["nonVector"] = vec.nonVector;
+              //oneDoc["unIndexedVector"] = vec.unIndexedVector;
             }
             docs.push(oneDoc);
           }
@@ -876,8 +876,8 @@ exports.test = function (testParams) {
           if (params.type === "vector") {
             let vec = vectors[i];
             doc["vector"] = vec.vector;
-            doc["nonVector"] = vec.nonVector;
-            doc["unIndexedVector"] = vec.unIndexedVector;
+            //doc["nonVector"] = vec.nonVector;
+            //doc["unIndexedVector"] = vec.unIndexedVector;
           }
           c.insert(doc);
         }
