@@ -820,37 +820,26 @@ exports.test = function (testParams) {
       for (let i = 0; i < docSize; ++i) {
         doc["value" + i] = i;
       }
-      let vectors = [];
-      if (params.type === "vector") {
-        const seed = 12132390894;
-        const randomNumberGeneratorFloat = function (seed) {
-          const rng = (function *(seed) {
-            while (true) {
-              const nextVal = Math.cos(seed++);
-              yield nextVal;
-            }
-          })(seed);
+      const seed = 12132390894;
+      const randomNumberGeneratorFloat = function (seed) {
+        const rng = (function *(seed) {
+          while (true) {
+            const nextVal = Math.cos(seed++);
+            yield nextVal;
+          }
+        })(seed);
 
-          return function () {
-            return rng.next().value;
-          };
+        return function () {
+          return rng.next().value;
         };
+      };
+      let getVector = function () {
         let gen = randomNumberGeneratorFloat(seed);
 
-        for (let i = 0; i < n; ++i) {
-          const vector = Array.from({
-            length: params.dimension
-          }, () => gen());
-          if (i === 250) {
-            randomPoint = vector;
-          }
-          vectors.push({
-            vector,
-            // nonVector: i,
-            // unIndexedVector: vector
-          });
-        }
-      }
+        return Array.from({
+          length: params.dimension
+        }, () => gen());
+      };
 
       const batchSize = params.batchSize;
       if (batchSize) {
@@ -860,10 +849,10 @@ exports.test = function (testParams) {
           for (let j = 0; j < batchSize; ++j) {
             let oneDoc = { _key: "test" + (i * batchSize + j), ...doc };
             if (params.type === "vector") {
-              let vec = vectors[i * batchSize + j];
-              oneDoc["vector"] = vec.vector;
-              //oneDoc["nonVector"] = vec.nonVector;
-              //oneDoc["unIndexedVector"] = vec.unIndexedVector;
+              oneDoc["vector"] = getVector();
+              if (n / 2 === i) {
+                randomPoint = oneDoc["vector"];
+              }
             }
             docs.push(oneDoc);
           }
@@ -874,10 +863,10 @@ exports.test = function (testParams) {
         for (let i = 0; i < n; ++i) {
           doc._key = "test" + i;
           if (params.type === "vector") {
-            let vec = vectors[i];
-            doc["vector"] = vec.vector;
-            //doc["nonVector"] = vec.nonVector;
-            //doc["unIndexedVector"] = vec.unIndexedVector;
+            doc["vector"] = getVector();
+            if (n / 2 === i) {
+              randomPoint = doc["vector"];
+            }
           }
           c.insert(doc);
         }
