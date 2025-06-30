@@ -1,5 +1,5 @@
 function main () {
-  global.returnValue = 0;
+  GLOBAL.returnValue = 0;
   require("./simple-performance-test/simple/test").test({
     outputCsv: false,
     medium: true,
@@ -15,7 +15,7 @@ function main () {
     subqueryTests: false,
     mditests: true
   });
-  return global.returnValue;
+  return GLOBAL.returnValue;
 }
 if (typeof arango !== "undefined") {
   process.exit(main());
