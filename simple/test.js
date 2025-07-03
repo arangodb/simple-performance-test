@@ -3524,15 +3524,20 @@ exports.test = function (testParams) {
             db._drop(params.collection);
             let col = db._create(params.collection);
             
-            let docs = [];
-            for (let i = 0; i < params.collectionSize; ++i) {
-              const vector = Array.from({ length: dimension }, () => gen());
-              if (i === 2000) {
-                randomPoint = vector;
+            const batchSize = params.batchSize / 4; // we have big docs
+            const n = params.collectionSize / batchSize;
+            for (let i = 0; i < n / batchSize  ; ++i) {
+              internal.wait(0, true); // garbage collect...
+              let docs = [];
+              for (let j = 0; j < batchSize; ++j) {
+                const vector = Array.from({ length: dimension }, () => gen());
+                if (i * batchSize + j === 2000) {
+                  randomPoint = vector;
+                }
+                docs.push({ vector });
               }
-              docs.push({ vector });
+              col.insert(docs);
             }
-            col.insert(docs);
 
             col.ensureIndex({
               name: "vector_l2",
