@@ -3524,8 +3524,8 @@ exports.test = function (testParams) {
             db._drop(params.collection);
             let col = db._create(params.collection);
             
-            const batchSize = int(params.batchSize / 4); // we have big docs
-            const n = int(params.collectionSize / batchSize);
+            const batchSize = Math.round(params.batchSize / 4); // we have big docs
+            const n = Math.round(params.collectionSize / batchSize);
             for (let i = 0; i < n / batchSize  ; ++i) {
               internal.wait(0, true); // garbage collect...
               let docs = [];
