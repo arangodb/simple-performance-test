@@ -3535,7 +3535,7 @@ exports.test = function (testParams) {
                 if (i * batchSize + j === 2000) {
                   randomPoint = vector;
                 }
-                docs.push({ vector });
+                docs.push({_key: "test_" + (j + i* batchSize),  vector: vector });
               }
               col.insert(docs);
             }
