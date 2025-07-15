@@ -199,7 +199,6 @@ exports.test = function (testParams) {
       for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
         if (typeof options.setup === "function") {
-          print("Running setup function!");
           options.setup(params);
         }
         if (typeof params.setup === "function") {
@@ -3551,7 +3550,7 @@ exports.test = function (testParams) {
               inBackground: false,
               params: { metric: "l2", dimension: dimension, nLists: params.extras.nLists },
             });
-            print("Vector index created");
+            print("Vector index created: " + JSON.stringify(col.indexes()));
           },
           teardown: function () {},
           collections: [],
