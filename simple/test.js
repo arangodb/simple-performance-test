@@ -148,8 +148,8 @@ exports.test = function (testParams) {
 
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
-  testParams.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
-  testParams.vectorTests = testParams.vectorTests && semver.satisfies(serverVersion, ">3.12.3") ;
+  testParams.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99");
+  testParams.vectorTests = testParams.vectorTests && semver.satisfies(serverVersion, ">3.12.4");
   const isEnterprise = internal.isEnterprise();
   const isCluster = internal.isCluster();
 
@@ -199,6 +199,7 @@ exports.test = function (testParams) {
       for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
         if (typeof options.setup === "function") {
+          print("Running setup function!");
           options.setup(params);
         }
         if (typeof params.setup === "function") {
@@ -232,7 +233,7 @@ exports.test = function (testParams) {
       let errors = [];
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
-        print(test)
+        print(test);
         try {
           if (!(test['version'] === undefined || semver.satisfies(serverVersion, test['version']))) {
             print(`skipping test ${test['name']}, requires version ${test['version']}`);
@@ -3524,10 +3525,11 @@ exports.test = function (testParams) {
           setup: function (params) {
             db._drop(params.collection);
             let col = db._create(params.collection);
-            
-            const batchSize = Math.round(params.batchSize / 4); // we have big docs
+
+            const batchSize = 1000;
             const n = Math.round(params.collectionSize / batchSize);
-            for (let i = 0; i < n / batchSize  ; ++i) {
+            print("Preparing vector collection with " + params.collectionSize + " documents and batchSize: " + batchSize);
+            for (let i = 0; i < n; ++i) {
               internal.wait(0, true); // garbage collect...
               let docs = [];
               for (let j = 0; j < batchSize; ++j) {
@@ -3539,7 +3541,9 @@ exports.test = function (testParams) {
               }
               col.insert(docs);
             }
+            print("Number of docs in vector index collection: " + col.count());
 
+            print("Creating vector index");
             col.ensureIndex({
               name: "vector_l2",
               type: "vector",
@@ -3547,7 +3551,7 @@ exports.test = function (testParams) {
               inBackground: false,
               params: { metric: "l2", dimension: dimension, nLists: params.extras.nLists },
             });
-
+            print("Vector index created");
           },
           teardown: function () {},
           collections: [],
@@ -3558,16 +3562,16 @@ exports.test = function (testParams) {
 
         if (testParams.tiny) {
           options.collections.push({ name: "Vectorvalues1000", label: "1k", size: 1000 });
-          extras["nLists"]= 10;
+          extras["nLists"] = 10;
         } else if (testParams.small) {
           options.collections.push({ name: "Vectorvalues10000", label: "10k", size: 10000 });
-          extras["nLists"]= 10;
+          extras["nLists"] = 100;
         } else if (testParams.medium) {
           options.collections.push({ name: "Vectorvalues100000", label: "100k", size: 100000 });
-          extras["nLists"]= 100;
+          extras["nLists"] = 1000;
         } else if (testParams.big) {
           options.collections.push({ name: "Vectorvalues1000000", label: "1000k", size: 1000000 });
-          extras["nLists"]= 100;
+          extras["nLists"] = 10000;
         }
         options.extras = extras;
 
