@@ -19,6 +19,19 @@ function sum (values) {
   }
 }
 
+function randomNumberGeneratorFloat(seed) {
+  const rng = (function* (seed) {
+    while (true) {
+      const nextVal = Math.cos(seed++);
+      yield nextVal;
+    }
+  })(seed);
+
+  return function () {
+    return rng.next().value;
+  };
+}
+
 function calc (values, options) {
   values.sort((a, b) => a - b);
 
@@ -135,7 +148,8 @@ exports.test = function (testParams) {
 
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
-  testParams.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99") ;
+  testParams.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99");
+  testParams.vectorTests = testParams.vectorTests && semver.satisfies(serverVersion, ">3.12.4");
   const isEnterprise = internal.isEnterprise();
   const isCluster = internal.isCluster();
 
@@ -156,6 +170,10 @@ exports.test = function (testParams) {
       if (options.hasOwnProperty("iterations")) {
         params.iterations = options.iterations;
       }
+      if (options.hasOwnProperty("extras")) {
+        params.extras = options.extras;
+      }
+
       return params;
     };
 
@@ -214,7 +232,7 @@ exports.test = function (testParams) {
       let errors = [];
       for (let i = 0; i < tests.length; ++i) {
         let test = tests[i];
-        print(test)
+        print(test);
         try {
           if (!(test['version'] === undefined || semver.satisfies(serverVersion, test['version']))) {
             print(`skipping test ${test['name']}, requires version ${test['version']}`);
@@ -3333,6 +3351,59 @@ exports.test = function (testParams) {
         },
       ];
 
+     function vectorTest (params) {
+        let bindParam = { "@col": params.collection, "qp": params.extras.queryPoint };
+        if ("bindParamModifier" in params) {
+          params.bindParamModifier(params, bindParam);
+        }
+        db._query(
+          params.queryString,
+          bindParam,
+        );
+      }
+
+     function vectorTestNoParams (params) {
+        let bindParam = { "@col": params.collection };
+        if ("bindParamModifier" in params) {
+          params.bindParamModifier(params, bindParam);
+        }
+        db._query(
+          params.queryString,
+          bindParam,
+        );
+      }
+
+      let VectorTests = [
+      {
+          name: "aql-vector-top-k",
+          params: {
+            func: vectorTest,
+            queryString: `
+        FOR d IN @@col
+          SORT APPROX_NEAR_L2(d.vector, @qp)
+          LIMIT 5
+          RETURN d`
+          }
+      },
+      {
+          name: "aql-vector-subquery-10-points",
+          params: {
+            func: vectorTestNoParams,
+            queryString: `
+        FOR docOuter IN @@col
+          LIMIT 10
+          LET neibhours = (
+              FOR docInner IN @@col
+              LET dist = APPROX_NEAR_L2(docInner.vector, docOuter.vector)
+              SORT dist
+              LIMIT 10
+              RETURN {dist, doc: docInner._key}
+          )
+          RETURN {doc: docOuter._key, neibhours: neibhours}`
+          }
+        },
+      ];
+
       const runSatelliteGraphTests = (testParams.satelliteGraphTests && isEnterprise && isCluster);
 
       if (testParams.documents || testParams.edges || testParams.noMaterializationSearch || testParams.subqueryTests || runSatelliteGraphTests) {
@@ -3439,6 +3510,71 @@ exports.test = function (testParams) {
         }
 
         runTestSuite("MDI", MdiTests, options);
+      }
+
+      // vector tests
+      if (testParams.vectorTests) {
+        const dimension = 500;
+        let gen = randomNumberGeneratorFloat(3243758343);
+        let randomPoint = Array.from({ length: dimension }, () => gen());
+ 
+        options = {
+          runs: testParams.runs,
+          digits: testParams.digits,
+          setup: function (params) {
+            db._drop(params.collection);
+            let col = db._create(params.collection);
+
+            const batchSize = 1000;
+            const n = Math.round(params.collectionSize / batchSize);
+            print("Preparing vector collection with " + params.collectionSize + " documents and batchSize: " + batchSize);
+            for (let i = 0; i < n; ++i) {
+              internal.wait(0, true); // garbage collect...
+              let docs = [];
+              for (let j = 0; j < batchSize; ++j) {
+                const vector = Array.from({ length: dimension }, () => gen());
+                if (i * batchSize + j === 2000) {
+                  randomPoint = vector;
+                }
+                docs.push({_key: "test_" + (j + i* batchSize),  vector: vector });
+              }
+              col.insert(docs);
+            }
+            print("Number of docs in vector index collection: " + col.count());
+
+            print("Creating vector index");
+            col.ensureIndex({
+              name: "vector_l2",
+              type: "vector",
+              fields: ["vector"],
+              inBackground: false,
+              params: { metric: "l2", dimension: dimension, nLists: params.extras.nLists },
+            });
+            print("Vector index created: " + JSON.stringify(col.indexes()));
+          },
+          teardown: function () {},
+          collections: [],
+          removeFromResult: 1
+        };
+
+        let extras = { queryPoint: randomPoint };
+
+        if (testParams.tiny) {
+          options.collections.push({ name: "Vectorvalues1000", label: "1k", size: 1000 });
+          extras["nLists"] = 10;
+        } else if (testParams.small) {
+          options.collections.push({ name: "Vectorvalues10000", label: "10k", size: 10000 });
+          extras["nLists"] = 100;
+        } else if (testParams.medium) {
+          options.collections.push({ name: "Vectorvalues100000", label: "100k", size: 100000 });
+          extras["nLists"] = 1000;
+        } else if (testParams.big) {
+          options.collections.push({ name: "Vectorvalues1000000", label: "1000k", size: 1000000 });
+          extras["nLists"] = 10000;
+        }
+        options.extras = extras;
+
+        runTestSuite("Vector", VectorTests, options);
       }
 
       if (testParams.ioless) {
