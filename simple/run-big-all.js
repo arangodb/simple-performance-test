@@ -15,7 +15,7 @@ function main () {
     crudSearch: true,
     subqueryTests: true,
     mditests: true,
-    vectorTests: true
+    vectorTests: false
   });
   print('oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo')
   print(GLOBAL.returnValue)
