@@ -149,7 +149,11 @@ exports.test = function (testParams) {
   // Substring first 5 characters to limit to A.B.C format and not use any `nightly`, `rc`, `preview` etc.
   const serverVersion = (((typeof arango) !== "undefined") ? arango.getVersion() : internal.version).split("-")[0];
   testParams.zkdMdiRenamed = semver.satisfies(serverVersion, ">3.11.99");
-  testParams.vectorTests = testParams.vectorTests && semver.satisfies(serverVersion, ">3.12.4");
+  testParams.vectorTests = testParams.vectorTests && semver.satisfies(serverVersion, ">3.12.4") &&
+                           !(
+                             (semver.gte(serverVersion, "3.12.5") || semver.gte(serverVersion, "3.12.5-1")) &&
+                             (semver.lt(serverVersion, "3.12.6") && semver.lt(serverVersion, "3.12.6-1"))
+                           );
   const isEnterprise = internal.isEnterprise();
   const isCluster = internal.isCluster();
 
