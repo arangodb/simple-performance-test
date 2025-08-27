@@ -205,7 +205,7 @@ exports.test = function (testParams) {
 
       if (typeof options.setupAll === "function") {
         let params = buildParams(test, collection);
-        options.setup(params);
+        options.setupAll(params);
       }
       for (let i = 0; i < runs + 1; ++i) {
         let params = buildParams(test, collection);
