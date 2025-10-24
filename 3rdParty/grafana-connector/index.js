@@ -1,0 +1,172 @@
+'use strict';
+
+const joi = require("joi");
+const createRouter = require('@arangodb/foxx/router');
+const _ = require("lodash");
+
+const {context} = require("@arangodb/locals");
+const {targets} = require("./lib/aggregations");
+const queries = require("./lib/queries");
+
+/** @type {{
+ *   username: string,
+ *   password: string,
+ *   target: string,
+ *   alias: string,
+ *   aggregation: string,
+ *   multiValueTemplateVariables: string,
+ *   query: string,
+ *   hideEmpty: boolean,
+ *   logQuery: boolean,
+ *   templateVariables: Object
+ * }} */
+
+const cfg = context.configuration;
+
+const USERNAME = cfg['username'];
+const {TARGET_KEYS} = targets(cfg);
+
+const router = createRouter();
+context.use(router);
+
+if (USERNAME) {
+    const PASSWORD = cfg['password'];
+
+    router.use((req, res, next) => {
+        const auth = req.auth;
+        const noAuth = !auth || !auth.basic;
+
+        if (noAuth) {
+            res.throw(401, 'Authentication required');
+        } else {
+            const {username, password} = auth.basic;
+            if (username !== USERNAME || (PASSWORD && password !== PASSWORD)) {
+                res.throw(403, 'Bad username or password');
+            } else {
+                next();
+            }
+        }
+    });
+}
+
+router
+    .get('/', (_req, res) => {
+        res.json({ok: true});
+    })
+    .summary('JSON self-test endpoint')
+    .description(
+        'This is a dummy endpoint used by the JSON data source to ' +
+        'confirm that the data source is configured correctly.'
+    );
+
+router
+    .post('/search', (req, res) => {
+        const body = req.body;
+
+        if (cfg.logQuery) {
+            console.log(`search: body ${body}`);
+        }
+
+        if (body && body.target) {
+            const target = body.target;
+            const results = queries.search(cfg, target);
+
+            if (cfg.logQuery) {
+                console.log(`search: target ${target} returns ${JSON.stringify(results)}`);
+            }
+
+            res.json(results);
+        } else {
+            if (cfg.logQuery) {
+                console.log(`search: returns ${JSON.stringify(TARGET_KEYS)}`);
+            }
+
+            res.json(TARGET_KEYS);
+        }
+    })
+    .body(joi.object({
+        target: joi.string().allow(null, '').optional()
+    }).options({allowUnknown: true}))
+    .summary('List the available metrics')
+    .description(
+        'This endpoint is used to determine which metrics (collections) ' +
+        'are available to the data source.'
+    );
+
+router
+    .post('/variable', (req, res) => {
+        const body = req.body;
+
+        if (cfg.logQuery) {
+            console.log(`search: body ${body}`);
+        }
+
+        if (body && body.payload && body.payload.target && body.range) {
+            const target = body.payload.target;
+            const range = body.range;
+            const results = _.map(queries.search(cfg, target, range), t => ({"value": t}));
+
+            if (cfg.logQuery) {
+                console.log(`variable: target ${target} returns ${JSON.stringify(results)}`);
+            }
+
+          res.json(results);
+        } else {
+          res.json([]);
+        }
+    })
+    .body(joi.object({
+        target: joi.string().allow(null, '').optional()
+    }).options({allowUnknown: true}))
+    .summary('Variable values')
+    .description(
+        'This endpoint is used to determine the values of a given variable.'
+    );
+
+router
+    .post('/query', (req, res) => {
+        const body = req.body;
+
+        if (cfg.logQuery) {
+            console.log(`search input: ${JSON.stringify(body)}`);
+        }
+
+        const response = queries.results(cfg, {
+            interval: body.intervalMs,
+            scopedVars: body.scopedVars,
+            start: Number(new Date(body.range.from)),
+            end: Number(new Date(body.range.to)),
+            targets: body.targets
+        });
+
+        res.json(response);
+    })
+    .body(
+        joi
+            .object({
+                intervalMs: joi.number().required(),
+                range: joi
+                    .object({
+                        from: joi.string().required(),
+                        to: joi.string().required(),
+                        raw: joi.any().optional()
+                    })
+                    .required(),
+                targets: joi
+                    .array()
+                    .items(
+                        joi
+                            .object({
+                                target: joi.allow(...TARGET_KEYS).required()
+                            })
+                            .required()
+                    )
+                    .required()
+            })
+            .options({allowUnknown: true})
+    )
+    .summary('Perform a SimpleJSON query')
+    .description(
+        'This endpoint performs the actual query for one or more metrics in a given time range. ' +
+        'Results are aggregated with the given interval.'
+    );
