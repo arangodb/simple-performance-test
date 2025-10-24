@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "dependencies": {
+    "@types/arangodb": "^3.5.13",
+    "lodash": "^4.17.21",
+    "mustache": "^4.2.0"
+  }
+}
