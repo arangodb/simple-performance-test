@@ -1156,6 +1156,13 @@ exports.test = function (testParams) {
         { silent }
       );
     },
+    supernode = function (params) {
+      db._query(`FOR v IN 0..8 OUTBOUND "SupernodeV/S1:K1" GRAPH "Supernode" RETURN v.data`,
+        {},
+        {},
+        {silent}
+      );
+    },
     supernode_limit = function (params) {
       // limit output vertices and make sure that at least one of the supernodes's neighbours is in the result but not all of the supernode's neighbours
       // dfs first enumerates all vertices in one half-tree, then the other all vertices in the other half-tree
@@ -2636,6 +2643,10 @@ exports.test = function (testParams) {
         {
           name: "k-shortest-any",
           params: { func: kShortestAny }
+        },
+        {
+          name: "supernode-traversal",
+          params: { func: supernode }
         },
         {
           name: "supernode-traversal-limit",
