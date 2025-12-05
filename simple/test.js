@@ -3412,6 +3412,42 @@ exports.test = function (testParams) {
           )
           RETURN {doc: docOuter._key, neibhours: neibhours}`
           }
+        },
+        // Filter test with normal vector index (filtering on val and stringField)
+        {
+          name: "aql-vector-filter",
+          params: {
+            func: vectorTest,
+            queryString: `
+        FOR d IN @@col
+          FILTER d.val > @filterVal AND d.stringField == @filterString
+          LET dist = APPROX_NEAR_L2(d.vector, @qp)
+          SORT dist
+          LIMIT 10
+          RETURN d`,
+            bindParamModifier: function (params, bindParam) {
+              bindParam.filterVal = Math.floor(params.collectionSize * 0.25);
+              bindParam.filterString = "string_42";
+            }
+          }
+        },
+        // Filter test with storedValues vector index (filtering on val and stringField)
+        {
+          name: "aql-vector-stored-filter",
+          params: {
+            func: vectorTest,
+            queryString: `
+        FOR d IN @@col OPTIONS {indexHint: "vector_l2_stored_values"}
+          FILTER d.val > @filterVal AND d.stringField == @filterString
+          LET dist = APPROX_NEAR_L2(d.vector, @qp)
+          SORT dist
+          LIMIT 10
+          RETURN d`,
+            bindParamModifier: function (params, bindParam) {
+              bindParam.filterVal = Math.floor(params.collectionSize * 0.25);
+              bindParam.filterString = "string_42";
+            }
+          }
         }
       ];
 
@@ -3543,15 +3579,23 @@ exports.test = function (testParams) {
               internal.wait(0, true); // garbage collect...
               let docs = [];
               for (let j = 0; j < batchSize; ++j) {
+                const docIndex = j + i * batchSize;
                 const vector = Array.from({ length: dimension }, () => gen());
-                if (i * batchSize + j === 2000) {
+                if (docIndex === 2000) {
                   randomPoint = vector;
                 }
-                docs.push({_key: "test_" + (j + i * batchSize), vector: vector });
+                docs.push({
+                  _key: "test_" + docIndex,
+                  vector: vector,
+                  val: docIndex,
+                  stringField: "string_" + (docIndex % 100)
+                });
               }
               col.insert(docs);
             }
             print("Number of docs in vector index collection: " + col.count());
+
+            const nProbeAndNlists = params.extras.nLists;
 
             print("Creating vector index");
             col.ensureIndex({
@@ -3559,9 +3603,26 @@ exports.test = function (testParams) {
               type: "vector",
               fields: ["vector"],
               inBackground: false,
-              params: { metric: "l2", dimension: dimension, nLists: params.extras.nLists }
+              params: { metric: "l2", dimension: dimension, nLists: nProbeAndNlists }
             });
             print("Vector index created: " + JSON.stringify(col.indexes()));
+
+            print("Creating vector index with storedValues");
+            col.ensureIndex({
+              name: "vector_l2_stored_values",
+              type: "vector",
+              fields: ["vector"],
+              inBackground: false,
+              params: {
+                metric: "l2",
+                dimension: dimension,
+                nLists: nProbeAndNlists,
+                trainingIterations: 10,
+                defaultNProbe: nProbeAndNlists
+              },
+              storedValues: ["val", "stringField"]
+            });
+            print("Vector index with storedValues created: " + JSON.stringify(col.indexes()));
           },
           teardown: function () {},
           collections: [],
