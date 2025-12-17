@@ -22,6 +22,10 @@ function sum (values) {
   }
 }
 
+function numberOfDbservers() {
+  return Object.values(db._connection.GET("/_admin/cluster/health").Health).filter(item => item.Role == "DBServer").length;
+}
+
 function randomNumberGeneratorFloat (seed) {
   const rng = (function *(seed) {
     while (true) {
@@ -549,7 +553,7 @@ exports.test = function (testParams) {
             edges: db[edgesCollectionName] };
         }
 
-        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {numberOfShards: numberOfDbservers()});
         return { graph: g,
           vertex: g[vertexCollectionName],
           edges: db[edgesCollectionName] };
@@ -587,7 +591,7 @@ exports.test = function (testParams) {
             edges: db[edgesCollectionName] };
         }
 
-        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {numberOfShards: numberOfDbservers()});
         return { graph: g,
           vertex: g[vertexCollectionName],
           edges: db[edgesCollectionName] };

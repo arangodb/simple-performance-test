@@ -12,6 +12,10 @@ function makeRandomString(l) {
   return s;
 }
 
+function numberOfDbservers() {
+  return Object.values(db._connection.GET("/_admin/cluster/health").Health).filter(item => item.Role == "DBServer").length;
+}
+
 function createGraph(graphName, vertexCollName, edgeCollName) {
   let graph = require("@arangodb/general-graph");
   try {
@@ -19,7 +23,7 @@ function createGraph(graphName, vertexCollName, edgeCollName) {
   }
   catch {
   }
-  graph._create(graphName, [graph._relation(edgeCollName, [vertexCollName], [vertexCollName])]);
+  graph._create(graphName, [graph._relation(edgeCollName, [vertexCollName], [vertexCollName])], [], {numberOfShards: numberOfDbservers()});
 }
 
 function makeKey(i) {
