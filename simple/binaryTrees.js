@@ -1,11 +1,10 @@
-rand = require("internal").rand;
-time = require("internal").time;
+const rand = require("internal").rand;
 
 function makeRandomString(l) {
-  var r = rand();
-  var d = rand();
-  var s = "x";
-  for (var i = 0; i < l; ++i) {
+  const d = rand();
+  let r = rand();
+  let s = "x";
+  for (let i = 0; i < l; ++i) {
     s += r;
     r += d;
   }
@@ -124,3 +123,7 @@ function makeTreeWithSupernode(graphName, vertexCollName, edgeCollName, depth, s
     E.insert(docs);
   }
 }
+
+exports.numberOfDbservers = numberOfDbservers;
+exports.makeTreeWithLargeData = makeTreeWithLargeData;
+exports.makeTreeWithSupernode = makeTreeWithSupernode;

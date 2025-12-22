@@ -1,6 +1,6 @@
 "use strict";
 /* jshint globalstrict:false, strict:false, maxlen: 500 */
-/* global GLOBAL, makeTreeWithLargeData, makeTreeWithSupernode */
+/* global GLOBAL */
 
 const internal = require("internal");
 const arango = internal.arango;
@@ -9,10 +9,10 @@ const fs = require("fs");
 const semver = require("semver");
 const _ = require("lodash");
 const db = require("org/arangodb").db;
-require("internal").load("simple/binaryTrees.js");// makeTreeWithLargeData, makeTreeWithSupernode
+const { numberOfDbservers, makeTreeWithLargeData, makeTreeWithSupernode } = require("simple/binaryTrees.js");
 
 GLOBAL.returnValue = 0;
-var supernodeTreeDepth = 0; // required for supernode_limit test
+let supernodeTreeDepth = 0; // required for supernode_limit test
 
 function sum (values) {
   if (values.length > 1) {
@@ -20,10 +20,6 @@ function sum (values) {
   } else {
     return values[0];
   }
-}
-
-function numberOfDbservers() {
-  return Object.values(db._connection.GET("/_admin/cluster/health").Health).filter(item => item.Role == "DBServer").length;
 }
 
 function randomNumberGeneratorFloat (seed) {
