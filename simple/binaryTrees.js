@@ -12,7 +12,12 @@ function makeRandomString(l) {
 }
 
 function numberOfDbservers() {
-  return Object.values(db._connection.GET("/_admin/cluster/health").Health).filter(item => item.Role == "DBServer").length;
+  let health = db._connection.GET("/_admin/cluster/health");
+  if (health.error) {
+    return 1;
+  } else {
+    return Object.values(health.Health).filter(item => item.Role == "DBServer").length;
+  }
 }
 
 function createGraph(graphName, vertexCollName, edgeCollName) {
