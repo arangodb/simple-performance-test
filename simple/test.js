@@ -1,6 +1,6 @@
 "use strict";
 /* jshint globalstrict:false, strict:false, maxlen: 500 */
-/* global GLOBAL, makeGraph, makeTree */
+/* global GLOBAL */
 
 const internal = require("internal");
 const arango = internal.arango;
@@ -9,10 +9,10 @@ const fs = require("fs");
 const semver = require("semver");
 const _ = require("lodash");
 const db = require("org/arangodb").db;
-require("internal").load("simple/BIGvertices.js");// makeGraph, makeTree
+const { numberOfDbservers, makeTreeWithLargeData, makeTreeWithSupernode } = require("simple/binaryTrees.js");
 
 GLOBAL.returnValue = 0;
-
+let supernodeTreeDepth = 0; // required for supernode_limit test
 
 function sum (values) {
   if (values.length > 1) {
@@ -513,16 +513,19 @@ exports.test = function (testParams) {
         createEdges(1000);
       } else if (testParams.small) {
         createEdges(10000);
-        makeGraph("Tree", "TreeV", "TreeE");
-        makeTree(6, "TreeV", "TreeE");
+        makeTreeWithLargeData("Tree", "TreeV", "TreeE", 6);
+        supernodeTreeDepth = 4;
+        makeTreeWithSupernode("Supernode", "SupernodeV", "SupernodeE", supernodeTreeDepth, 5000);
       } else if (testParams.medium) {
         createEdges(100000);
-        makeGraph("Tree", "TreeV", "TreeE");
-        makeTree(7, "TreeV", "TreeE");
+        makeTreeWithLargeData("Tree", "TreeV", "TreeE", 7);
+        supernodeTreeDepth = 5;
+        makeTreeWithSupernode("Supernode", "SupernodeV", "SupernodeE", supernodeTreeDepth, 10000);
       } else if (testParams.big) {
         createEdges(1000000);
-        makeGraph("Tree", "TreeV", "TreeE");
-        makeTree(8, "TreeV", "TreeE");
+        makeTreeWithLargeData("Tree", "TreeV", "TreeE", 8);
+        supernodeTreeDepth = 6;
+        makeTreeWithSupernode("Supernode", "SupernodeV", "SupernodeE", supernodeTreeDepth, 100000);
       }
 
       internal.wal.flush(true, true);
@@ -546,7 +549,7 @@ exports.test = function (testParams) {
             edges: db[edgesCollectionName] };
         }
 
-        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {numberOfShards: numberOfDbservers()});
         return { graph: g,
           vertex: g[vertexCollectionName],
           edges: db[edgesCollectionName] };
@@ -584,7 +587,7 @@ exports.test = function (testParams) {
             edges: db[edgesCollectionName] };
         }
 
-        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {});
+        let g = graphModule._create(name, [ graphModule._relation(edgesCollectionName, vertexCollectionName, vertexCollectionName)], [], {numberOfShards: numberOfDbservers()});
         return { graph: g,
           vertex: g[vertexCollectionName],
           edges: db[edgesCollectionName] };
@@ -1034,7 +1037,7 @@ exports.test = function (testParams) {
     traversalProjections = function (params) {
       // Note that depth 8 is good for all three sizes small (6), medium (7)
       // and big (8). Depending on the size, we create a different tree.
-      db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree" RETURN v.data`, {}, {}, {silent});
+      db._query(`FOR v IN 0..8 OUTBOUND "TreeV/S1:K1" GRAPH "Tree" RETURN v.smallData`, {}, {}, {silent});
     },
 
     outbound = function (params) {
@@ -1153,6 +1156,28 @@ exports.test = function (testParams) {
         { silent }
       );
     },
+    supernode = function (params) {
+      db._query(`FOR v IN 0..8 OUTBOUND "SupernodeV/S1:K1" GRAPH "Supernode" RETURN v.data`,
+        {},
+        {},
+        {silent}
+      );
+    },
+    supernode_limit = function (params) {
+      // limit output vertices and make sure that at least one of the supernodes's neighbours is in the result but not all of the supernode's neighbours
+      // dfs first enumerates all vertices in one half-tree, then the other all vertices in the other half-tree
+      // if the supernode is in the first half-tree, limit should be smaller than the number of supernode neighbours (is already assured by tree creation) 
+      // if the supernode is in the second half-tree, limit should be at least the size of the first half-tree (2**(depth-1)) plus 2 to additionally enumerate the supernode and one of its neighbours
+      let limit = 2**(supernodeTreeDepth-1)+2; 
+      db._query(`FOR v IN 0..8 OUTBOUND "SupernodeV/S1:K1" GRAPH "Supernode" LIMIT @limit RETURN v.data`,
+        {
+          limit: limit
+        },
+        {},
+        {silent}
+      );
+    },
+
 
     // /////////////////////////////////////////////////////////////////////////////
     // documentTests
@@ -2618,6 +2643,14 @@ exports.test = function (testParams) {
         {
           name: "k-shortest-any",
           params: { func: kShortestAny }
+        },
+        {
+          name: "supernode-traversal",
+          params: { func: supernode }
+        },
+        {
+          name: "supernode-traversal-limit",
+          params: { func: supernode_limit }
         },
         {
           name: "subquery-exists-path",
