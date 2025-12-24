@@ -3413,13 +3413,12 @@ exports.test = function (testParams) {
           RETURN {doc: docOuter._key, neibhours: neibhours}`
           }
         },
-        // Filter test with normal vector index (filtering on val and stringField)
         {
           name: "aql-vector-filter",
           params: {
             func: vectorTest,
             queryString: `
-        FOR d IN @@col
+        FOR d IN @@col OPTIONS {indexHint: "vector_l2"}
           FILTER d.val > @filterVal AND d.stringField == @filterString
           LET dist = APPROX_NEAR_L2(d.vector, @qp)
           SORT dist
@@ -3431,7 +3430,6 @@ exports.test = function (testParams) {
             }
           }
         },
-        // Filter test with storedValues vector index (filtering on val and stringField)
         {
           name: "aql-vector-stored-filter",
           params: {
@@ -3603,7 +3601,11 @@ exports.test = function (testParams) {
               type: "vector",
               fields: ["vector"],
               inBackground: false,
-              params: { metric: "l2", dimension: dimension, nLists: nProbeAndNlists }
+              params: {
+                metric: "l2",
+                dimension: dimension,
+                nLists: nProbeAndNlists,
+                defaultNProbe: (nProbeAndNlists / 10) > 0 ? (nProbeAndNlists / 10) : 1 }
             });
             print("Vector index created: " + JSON.stringify(col.indexes()));
 
@@ -3617,8 +3619,7 @@ exports.test = function (testParams) {
                 metric: "l2",
                 dimension: dimension,
                 nLists: nProbeAndNlists,
-                trainingIterations: 10,
-                defaultNProbe: nProbeAndNlists
+                defaultNProbe: (nProbeAndNlists / 10) > 0 ? (nProbeAndNlists / 10) : 1
               },
               storedValues: ["val", "stringField"]
             });
