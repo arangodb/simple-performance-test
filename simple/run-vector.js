@@ -2,7 +2,7 @@ function main () {
   global.returnValue = 0;
   require("./simple/test").test({
     outputCsv: false,
-    medium: true,
+    small: true,
     runs: 3,
     documents: false,
     ioless: false,
