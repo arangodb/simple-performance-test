@@ -3659,7 +3659,7 @@ exports.test = function (testParams) {
             print("Vector index with storedValues created: " + JSON.stringify(col.indexes()));
             if (semver.gte(serverVersion, "3.12.9")) {
               print("Arango version is 3.12.9 or higher - vector indexes require training...");
-              const numberOfTries = 120;
+              const numberOfTries = 360;
               for (let i = 0; i < numberOfTries; i++) {
                 let indexes = col.getIndexes();
                 let vectorIndexes = indexes.filter(idx => idx.type === "vector");
@@ -3667,10 +3667,12 @@ exports.test = function (testParams) {
                   internal.sleep(1);
                   continue;
                 }
+                print(`index '${vectorIndexes[0].name}' state '${vectorIndexes[0].trainingState}' ...`);
+                print(`index '${vectorIndexes[1].name}' state '${vectorIndexes[1].trainingState}' ...`);
                 if (vectorIndexes.every(idx => idx.trainingState === "ready")) {
                   break;
                 }
-                internal.sleep(1);
+                internal.sleep(5);
               }
             }
           },
