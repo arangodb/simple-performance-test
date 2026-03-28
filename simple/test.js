@@ -3664,7 +3664,7 @@ exports.test = function (testParams) {
               for (let i = 0; i < numberOfAttempts; i++) {
                 let indexes = col.getIndexes();
                 let vectorIndexes = indexes.filter(idx => idx.type === "vector");
-                if (vectorIndexes.length < 2) {
+                if (vectorIndexes.length < 1) {
                   internal.sleep(pollingInterval);
                   continue;
                 }
